@@ -1,0 +1,11 @@
+{
+  "name": "rapideporte-web",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "bun run server.tsx"
+  },
+  "dependencies": {
+    "hono": "^4.0.0"
+  }
+}
