@@ -1520,6 +1520,12 @@ app.get('/admin', async (c) => {
   return c.html(html);
 });
 
+app.get('/terms-en', async (c) => {
+  const file = Bun.file(new URL('./terms-en.html', import.meta.url));
+  if (!(await file.exists())) return c.text('No encontré terms-en.html', 404);
+  return c.html(await file.text());
+});
+
 app.get('/', async (c) => {
   const html = await getPageHtml();
   if (!html) {
