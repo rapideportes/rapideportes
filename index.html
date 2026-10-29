@@ -526,6 +526,25 @@
     .app-wrap { max-width: 760px; }
     .bn, #slipBar { max-width: 732px; }
   }
+
+  /* ---------- Selector de idioma ES / EN ---------- */
+  .lang-sw { display: inline-flex; align-items: center; margin-left: auto; padding: 3px; border-radius: 999px; background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.22); flex: 0 0 auto; }
+  .lang-sw + .top-actions { margin-left: 6px; }
+  .lang-sw button { min-width: 34px; height: 32px; padding: 0 8px; border: none; border-radius: 999px; background: transparent; color: #CBD2E0; font-size: 12px; font-weight: 800; letter-spacing: .4px; transition: background .15s, color .15s; }
+  .lang-sw button.on { background: var(--accent); color: #fff; box-shadow: 0 3px 10px rgba(240,20,70,.35); }
+  @media (max-width: 440px) {
+    .top-left .logo { font-size: 17px; }
+    .top-left .logo > span:first-child, .top-left .logo { gap: 2px; }
+    .top-row { gap: 4px 5px; }
+    .menu-btn { width: 36px; margin-left: -6px; }
+    .top-left .logo { font-size: 16px; }
+    .lang-sw { padding: 2px; }
+    .lang-sw button { min-width: 28px; height: 30px; padding: 0 5px; font-size: 11px; }
+    .lang-sw + .top-actions { margin-left: 4px; }
+    .top-actions { gap: 4px; }
+    .top-actions .hbtn { padding: 0 8px; font-size: 11.5px; min-height: 36px; }
+  }
+  @media (max-width: 370px) { .top-left .logo { font-size: 0; } .top-left .logo::before { content: "👑"; font-size: 22px; } }
 </style>
 </head>
 <body>
@@ -537,6 +556,7 @@
       <button class="menu-btn" id="menuBtn" type="button" aria-label="Abrir menú" aria-controls="drawer" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
       <a class="logo" href="/" aria-label="RapiDeportes.com">👑<span class="logo-word">Rapi<em>deportes</em><small>.com</small></span></a>
       </div>
+      <div class="lang-sw" role="group" aria-label="Idioma" data-no-i18n><button type="button" data-lang="es" class="on" aria-pressed="true">ES</button><button type="button" data-lang="en" aria-pressed="false">EN</button></div>
       <div class="top-actions" id="topActions"></div>
     </div>
   </div>
@@ -1823,5 +1843,244 @@
   })();
 })();
 </script>
+<script>
+/* ---------- Idioma: Español / English ----------
+   Traduce el texto visible sin tocar la lógica de la página.
+   El idioma elegido se guarda en este navegador. */
+(function () {
+  'use strict';
+  var EXACT = {
+    'Inicio': 'Home', 'En vivo': 'Live', 'Mis apuestas': 'My bets', 'Promociones': 'Promotions', 'Buscar': 'Search',
+    'Deportes': 'Sports', 'Resultados': 'Results', 'Ayuda': 'Help', 'Juego responsable': 'Responsible gaming',
+    'Depositar': 'Deposit', 'Mi cuenta': 'My account', 'Métodos de pago': 'Payment methods', 'Reglas de apuestas': 'Betting rules',
+    'Términos y condiciones': 'Terms and conditions', 'Soporte': 'Support', 'Privacidad': 'Privacy', 'Contacto': 'Contact',
+    'Entrar': 'Log in', 'Regístrate': 'Sign up', 'Cuenta': 'Account', 'Saldo': 'Balance', 'Todos': 'All',
+    'Ganador': 'Winner', 'Hándicap': 'Handicap', 'Total': 'Total', 'Empate': 'Draw', 'Partidos': 'Games',
+    'Ver mercados ▾': 'More markets ▾', 'Ocultar mercados ▴': 'Hide markets ▴', 'Ver ›': 'View ›',
+    'Mi boleto': 'My bet slip', 'Vaciar': 'Clear', 'Sencillas': 'Singles', 'Combinada': 'Parlay', 'Monto': 'Stake', 'Gana': 'Wins',
+    'Total apostado': 'Total stake', 'Posible ganancia': 'Potential win', 'Total a cobrar': 'Total payout',
+    'Confirmar apuesta': 'Place bet', 'Agregar al boleto': 'Add to slip', 'Favoritos del día': "Today's favorites",
+    'Triple de favoritos': 'Favorites treble', 'Bienvenido de vuelta': 'Welcome back', 'Crea tu cuenta': 'Create your account',
+    'Correo electrónico': 'Email', 'Contraseña': 'Password', 'Crear cuenta': 'Create account', 'Crear mi cuenta': 'Create my account',
+    '¿No tienes cuenta?': "Don't have an account?", '¿Ya tienes cuenta?': 'Already have an account?',
+    'Tu cuenta': 'Your account', 'Saldo disponible': 'Available balance', '+ Depositar': '+ Deposit', 'Retirar': 'Withdraw',
+    'Historial de apuestas': 'Bet history', 'Cerrar sesión': 'Log out', 'Cajero': 'Cashier', 'Retirar fondos': 'Withdraw funds',
+    'Historial de transacciones': 'Transaction history', 'En juego': 'In play', 'Disponible para retirar': 'Available to withdraw',
+    'Retiros en revisión': 'Withdrawals under review', 'Establecer tu límite de juego': 'Set your gaming limit',
+    'Límite de depósito': 'Deposit limit', 'Guardar límite': 'Save limit', 'Quitar límite': 'Remove limit',
+    'Solicitar retiro': 'Request withdrawal', 'Continuar al pago': 'Continue to payment', 'Depositar ahora': 'Deposit now',
+    'Verificación de edad': 'Age verification', 'Verificar edad': 'Verify age', 'Verificar mi edad': 'Verify my age',
+    'Fecha de nacimiento': 'Date of birth', 'Ganada': 'Won', 'Perdida': 'Lost', 'Reembolsada': 'Refunded', 'Cobrada': 'Cashed out',
+    'Pendiente': 'Pending', 'Apostó': 'Stake', 'Ver partidos': 'See games', 'Por confirmar': 'TBD', 'Hoy': 'Today', 'Mañana': 'Tomorrow',
+    'EN VIVO': 'LIVE', 'FINAL': 'FINAL', 'EN CALENTAMIENTO': 'WARMING UP', 'Medio tiempo': 'Halftime', 'Primer período': '1st period',
+    'Primeras 5 entradas': 'First 5 innings', 'Tanda de penales': 'Shootout', 'Bono de bienvenida': 'Welcome bonus',
+    'Cashback semanal': 'Weekly cashback', 'Combinada Plus': 'Parlay Plus', 'Invita y gana': 'Invite and earn',
+    'Ejemplos:': 'Examples:', 'Menú': 'Menu', 'Más': 'More', 'Outs:': 'Outs:', 'diario': 'daily', 'semanal': 'weekly', 'mensual': 'monthly',
+    'esta semana': 'this week', 'este mes': 'this month', '¡Bien!': 'Great!', 'Pago seguro procesado por Stride': 'Secure payment processed by Stride',
+    'La misma con la que depositaste': 'The same one you deposited with', 'Monto total': 'Total amount', 'Tu límite': 'Your limit'
+  };
+  /* Frases (también dentro de textos más largos). */
+  var PHRASES = [
+    ['Prohibido para menores de 18 años. Apuesta con responsabilidad.', 'Under 18s prohibited. Bet responsibly.'],
+    ['Apuesta con responsabilidad. Prohibido para menores de 18 años. Si el juego ha dejado de ser un entretenimiento, busca ayuda en tu junta local de juego responsable.', 'Bet responsibly. Under 18s prohibited. If gambling has stopped being fun, seek help from your local responsible gaming board.'],
+    ['Al usar RapiDeportes aceptas cumplir con estas condiciones. Solo pueden jugar personas mayores de 18 años.', 'By using RapiDeportes you agree to these conditions. Only people over 18 may play.'],
+    ['Antes de escribirnos, revisa la sección “Mis apuestas” para ver el estado de tus jugadas.', 'Before contacting us, check the “My bets” section to see the status of your bets.'],
+    ['Antes de tu primer retiro confirma tu fecha de nacimiento.', 'Before your first withdrawal, confirm your date of birth.'],
+    ['Aplican términos y condiciones.', 'Terms and conditions apply.'],
+    ['Apostar debe ser entretenimiento, nunca una forma de resolver problemas de dinero.', 'Betting should be entertainment, never a way to solve money problems.'],
+    ['Arma tu combinada y recibe un extra en tu posible ganancia.', 'Build your parlay and get a boost on your potential win.'],
+    ['Así podrás añadir dinero a tu saldo y cobrar tus ganancias.', 'This lets you add money to your balance and collect your winnings.'],
+    ['Aún no hay partidos disponibles.', 'No games available yet.'],
+    ['Aún no tienes apuestas.', "You don't have any bets yet."],
+    ['Aún no tienes movimientos.', 'No transactions yet.'],
+    ['Cada apuesta confirmada queda registrada con las cuotas que viste al momento de confirmar. Las cuotas pueden cambiar sin previo aviso antes de que confirmes.', 'Every confirmed bet is recorded with the odds you saw when confirming. Odds may change without notice before you confirm.'],
+    ['Comparte RapiDeportes con tus amigos y gana recompensas.', 'Share RapiDeportes with your friends and earn rewards.'],
+    ['Confirma que eres mayor de 18 años para retirar.', 'Confirm you are over 18 to withdraw.'],
+    ['Correo o contraseña incorrectos.', 'Incorrect email or password.'],
+    ['Cuenta creada. Saldo inicial asignado.', 'Account created. Starting balance assigned.'],
+    ['Cuenta verificada.', 'Account verified.'],
+    ['Depositas y retiras con Stride desde el Cajero.', 'You deposit and withdraw with Stride from the Cashier.'],
+    ['El pago se procesa de forma segura.', 'Payment is processed securely.'],
+    ['Elige al menos 2 selecciones para armar una combinada.', 'Pick at least 2 selections to build a parlay.'],
+    ['Elige una cuota en un partido para empezar.', 'Pick odds on a game to get started.'],
+    ['Elige una cuota para empezar tu boleto.', 'Pick odds to start your bet slip.'],
+    ['Entra a tu cuenta para confirmar la apuesta.', 'Log in to place your bet.'],
+    ['Entra a tu cuenta para depositar o retirar.', 'Log in to deposit or withdraw.'],
+    ['Entra a tu cuenta para ver tus apuestas.', 'Log in to see your bets.'],
+    ['Entra para ver tu saldo y tus apuestas.', 'Log in to see your balance and bets.'],
+    ['Escoge cuánto quieres añadir a tu saldo.', 'Choose how much to add to your balance.'],
+    ['Escribe el nombre de un equipo, una liga o un partido.', 'Type the name of a team, league or game.'],
+    ['Escribe tu fecha de nacimiento.', 'Enter your date of birth.'],
+    ['Escribe un correo válido.', 'Enter a valid email.'],
+    ['Escribe un monto para tu límite.', 'Enter an amount for your limit.'],
+    ['Escribe un monto válido.', 'Enter a valid amount.'],
+    ['Escríbenos por los canales oficiales de atención de RapiDeportes. Respondemos lo antes posible.', 'Write to us through RapiDeportes official support channels. We reply as soon as possible.'],
+    ['Ese correo ya está registrado.', 'That email is already registered.'],
+    ['Ese monto pasa tu límite. Puedes depositar hasta', 'That amount exceeds your limit. You can deposit up to'],
+    ['Haz un depósito primero para poder retirar.', 'Make a deposit first to be able to withdraw.'],
+    ['Juega solo con dinero que puedas permitirte perder, define un límite antes de empezar y no intentes recuperar pérdidas.', 'Only play with money you can afford to lose, set a limit before you start and never chase losses.'],
+    ['La contraseña debe tener al menos 6 caracteres.', 'Password must be at least 6 characters.'],
+    ['Las cuotas se muestran en formato decimal. La posible ganancia es lo que recibirías por encima de tu monto apostado.', 'Odds are shown in decimal format. Potential win is what you would receive on top of your stake.'],
+    ['Listo. El cambio aplica en 24 horas.', 'Done. The change applies in 24 hours.'],
+    ['Lo pide la ley: tienes que ser mayor de 18 años para jugar y retirar.', 'Required by law: you must be over 18 to play and withdraw.'],
+    ['Los pagos con Stride se conectarán pronto.', 'Stride payments will be connected soon.'],
+    ['Límite guardado.', 'Limit saved.'], ['Límite quitado.', 'Limit removed.'],
+    ['Necesitas al menos 2 cuotas para una combinada.', 'You need at least 2 odds for a parlay.'],
+    ['No compartimos tu información personal con terceros sin tu autorización, salvo cuando la ley lo exija.', 'We do not share your personal information with third parties without your authorization, except when required by law.'],
+    ['No encontramos partidos con', 'No games found for'],
+    ['No hay más mercados disponibles para este partido por ahora.', 'No more markets available for this game right now.'],
+    ['No hay partidos en esta categoría por ahora.', 'No games in this category right now.'],
+    ['No hay partidos en vivo en este momento.', 'No live games right now.'],
+    ['No se pudo confirmar la apuesta.', 'The bet could not be placed.'],
+    ['No se pudo guardar el límite.', 'The limit could not be saved.'],
+    ['No se pudo pedir el retiro.', 'The withdrawal could not be requested.'],
+    ['No se pudo verificar.', 'Verification failed.'],
+    ['No tienes suficiente saldo para retirar esa cantidad.', "You don't have enough balance to withdraw that amount."],
+    ['Nos reservamos el derecho de anular apuestas realizadas con errores evidentes de cuota o de información.', 'We reserve the right to void bets placed with obvious odds or information errors.'],
+    ['Ofertas pensadas para que juegues con más ventaja.', 'Offers designed to give you an edge.'],
+    ['Para cuidar tu dinero, los retiros se envían a la misma tarjeta o cuenta con la que depositaste. Haz tu primer depósito y luego podrás retirar ahí.', 'To protect your money, withdrawals are sent to the same card or account you deposited with. Make your first deposit and then you can withdraw there.'],
+    ['Partido finalizado — ya no se pueden hacer apuestas.', 'Game over — betting is closed.'],
+    ['APUESTAS CERRADAS — PARTIDO EN JUEGO', 'BETTING CLOSED — GAME IN PROGRESS'],
+    ['Partidos terminados y su marcador final.', 'Finished games and their final score.'],
+    ['Pon un tope a lo que depositas para jugar con control.', 'Cap what you deposit so you play in control.'],
+    ['Recupera una parte de lo apostado cada semana.', 'Get part of your stakes back every week.'],
+    ['Regístrate para empezar a jugar.', 'Sign up to start playing.'],
+    ['Revisamos cada retiro antes de enviarlo. Normalmente toma menos de 24 horas.', 'We review every withdrawal before sending it. It usually takes less than 24 hours.'],
+    ['Saldo insuficiente para esta apuesta.', 'Insufficient balance for this bet.'],
+    ['Sesión cerrada.', 'Logged out.'], ['Sesión iniciada.', 'Logged in.'],
+    ['Si bajas tu límite aplica enseguida. Si lo subes o lo quitas, el cambio aplica en 24 horas.', 'Lowering your limit applies right away. Raising or removing it applies in 24 hours.'],
+    ['Si sientes que el juego se te está saliendo de control, busca ayuda profesional. Este sitio es solo para mayores de 18 años.', 'If you feel gambling is getting out of control, seek professional help. This site is for over-18s only.'],
+    ['Si un partido se suspende o se cancela, la apuesta se anula según las reglas de cada deporte.', 'If a game is suspended or cancelled, the bet is voided according to each sport’s rules.'],
+    ['Solo guardamos los datos necesarios para operar tu cuenta: tu correo, tu saldo y tu historial de apuestas.', 'We only store the data needed to run your account: your email, balance and bet history.'],
+    ['Ten a mano tu correo de registro para agilizar tu consulta.', 'Have your registration email handy to speed up your request.'],
+    ['Tienes que ser mayor de 18 años.', 'You must be over 18.'],
+    ['Todavía no hay lanzamientos registrados en este turno.', 'No pitches recorded in this at-bat yet.'],
+    ['Todavía no hay partidos terminados.', 'No finished games yet.'],
+    ['Tu cuenta está verificada. Ya puedes retirar.', 'Your account is verified. You can now withdraw.'],
+    ['Tus datos de pago los maneja Stride; RapiDeportes no guarda tu tarjeta.', 'Your payment details are handled by Stride; RapiDeportes does not store your card.'],
+    ['Tus equipos favoritos no juegan pronto. Te los mostramos aquí cuando tengan partido.', "Your favorite teams aren't playing soon. We'll show them here when they have a game."],
+    ['Un impulso extra para tu primer depósito en RapiDeportes.', 'An extra boost for your first deposit at RapiDeportes.'],
+    ['Una apuesta sencilla se gana cuando tu selección acierta. Una combinada se gana solo si aciertan todas sus selecciones.', 'A single bet wins when your pick is right. A parlay wins only if all its picks are right.'],
+    ['Verifica tu edad antes de retirar.', 'Verify your age before withdrawing.'],
+    ['Vuelve pronto, estamos preparando las líneas.', "Check back soon, we're setting the lines."],
+    ['Ya no se puede cobrar esta apuesta. El partido empezó o cambió.', 'This bet can no longer be cashed out. The game started or changed.'],
+    ['Ya puedes retirar tus ganancias.', 'You can now withdraw your winnings.'],
+    ['¿Necesitas ayuda con tu cuenta, un depósito o una apuesta? Nuestro equipo te atiende todos los días.', 'Need help with your account, a deposit or a bet? Our team is here every day.'],
+    ['Lanzamientos de este turno al bate', 'Pitches in this at-bat'],
+    ['Apuesta confirmada por', 'Bet placed for'], ['Combinada confirmada por', 'Parlay placed for'],
+    ['Míralas en Mis apuestas.', 'See them in My bets.'], ['Te avisamos cuando se apruebe.', "We'll let you know when it's approved."],
+    ['Ya está en tu saldo.', "It's in your balance."], ['ya está en tu saldo', "it's in your balance"],
+    ['Pediste un retiro de', 'You requested a withdrawal of'], ['Puedes depositar hasta', 'You can deposit up to'],
+    ['Puedes retirar hasta', 'You can withdraw up to'], ['Se enviará a', 'It will be sent to'],
+    ['ahora y la apuesta se cierra.', 'now and the bet is closed.'], ['Recibes', 'You get'], ['Llevas', "You've used"],
+    ['por tu límite.', 'of your limit.'], ['te quedan', 'left'], ['Tu límite', 'Your limit'],
+    ['es tu favorito.', 'is your favorite.'], ['ya no es favorito.', 'is no longer a favorite.'],
+    ['Quitar de favoritos', 'Remove from favorites'], ['Marcar como favorito', 'Mark as favorite'],
+    ['apuestas ganadas', 'winning bets'], ['¡Ganaste', 'You won'], ['Cobrar ahora', 'Cash out now'], ['Cobrar', 'Cash out'],
+    ['Ocultar zona de strike', 'Hide strike zone'], ['Ver zona de strike', 'View strike zone'],
+    ['Combinadas populares', 'Popular parlays'], ['Más jugados', 'Most played'], ['Tus equipos', 'Your teams'],
+    ['En vivo ahora', 'Live now'], ['Comienzan hoy', 'Starting today'], ['Finalizados', 'Finished'],
+    ['Mi boleto', 'My bet slip'], ['Ver boleto', 'View slip'], ['Mis apuestas', 'My bets'],
+    ['Eliminar selección', 'Remove selection'], ['Buscar equipo, liga o partido', 'Search team, league or game'],
+    ['Abrir menú', 'Open menu'], ['Cerrar menú', 'Close menu'], ['Navegación principal', 'Main navigation'],
+    ['Mínimo 6 caracteres', 'At least 6 characters'], ['tunombre@correo.com', 'yourname@email.com'], ['Ej. 200', 'E.g. 200'],
+    ['Tu límite', 'Your limit'], ['selecciones', 'selections'], ['abiertas', 'open'], ['partidos', 'games'], ['partido', 'game'],
+    ['Apuesta', 'Bet'], ['paga', 'pays'], ['Final ·', 'Final ·'], ['Promociones', 'Promotions'], ['Resultados', 'Results'],
+    ['En vivo', 'Live'], ['Ganador', 'Winner'], ['Hándicap', 'Handicap'], ['carreras', 'runs'], ['puntos', 'points'], ['goles', 'goals'],
+    ['Más ', 'Over '], ['Menos ', 'Under '], ['Cerrar', 'Close'], ['Hoy ', 'Today '], ['Mañana ', 'Tomorrow ']
+  ];
+  PHRASES.sort(function (a, b) { return b[0].length - a[0].length; });
+  var REGEX = [
+    [/(\d)\s?p\.\s?m\./g, '$1 PM'], [/(\d)\s?a\.\s?m\./g, '$1 AM'],
+    [/(\d+)\s?ª entrada/g, 'Inning $1'], [/(\d+)\s?er período/g, '$1st period'], [/(\d+)\s?do período/g, '$1nd period'],
+    [/(\d+)\s?er cuarto/g, '$1st quarter'], [/(\d+)\s?to cuarto/g, '$1th quarter'],
+    [/^(\s*)(lun|mar|mié|jue|vie|sáb|dom)\.?(?=[\s,])/, function (m, sp, d) { return sp + { lun: 'Mon', mar: 'Tue', 'mié': 'Wed', jue: 'Thu', vie: 'Fri', 'sáb': 'Sat', dom: 'Sun' }[d]; }],
+    [/(\d+)(\s+(?:de\s+)?)(ene|feb|mar|abr|may|jun|jul|ago|sept?|oct|nov|dic)\.?(?![a-zá-ú])/g, function (m, n, sp, mo) { return n + ' ' + { ene: 'Jan', feb: 'Feb', mar: 'Mar', abr: 'Apr', may: 'May', jun: 'Jun', jul: 'Jul', ago: 'Aug', sep: 'Sep', sept: 'Sep', oct: 'Oct', nov: 'Nov', dic: 'Dec' }[mo]; }]
+  ];
+
+  function toEN(text) {
+    var t = text.trim();
+    if (!t) return text;
+    if (EXACT[t]) return text.replace(t, EXACT[t]);
+    var out = text;
+    for (var i = 0; i < PHRASES.length; i++) {
+      if (out.indexOf(PHRASES[i][0]) !== -1) out = out.split(PHRASES[i][0]).join(PHRASES[i][1]);
+    }
+    for (var j = 0; j < REGEX.length; j++) out = out.replace(REGEX[j][0], REGEX[j][1]);
+    return out;
+  }
+
+  var lang = 'es';
+  try { lang = localStorage.getItem('rd_lang') === 'en' ? 'en' : 'es'; } catch (e) {}
+  var ORIG = new WeakMap();      // texto original en español de cada nodo
+  var busy = false;
+  var ATTRS = ['placeholder', 'aria-label', 'title'];
+
+  function skip(node) {
+    var p = node.parentNode;
+    return !p || /^(SCRIPT|STYLE|INPUT|TEXTAREA)$/.test(p.nodeName) || (p.closest && p.closest('[data-no-i18n]'));
+  }
+  function doText(node) {
+    if (skip(node)) return;
+    var cur = node.nodeValue;
+    var rec = ORIG.get(node);
+    if (!rec || (cur !== rec.es && cur !== rec.en)) { rec = { es: cur, en: toEN(cur) }; ORIG.set(node, rec); }
+    var want = lang === 'en' ? rec.en : rec.es;
+    if (cur !== want) node.nodeValue = want;
+  }
+  function doAttrs(el) {
+    for (var i = 0; i < ATTRS.length; i++) {
+      var a = ATTRS[i], v = el.getAttribute(a);
+      if (v == null) continue;
+      var key = 'data-es-' + a, es = el.getAttribute(key);
+      if (es == null || (v !== es && v !== toEN(es))) { es = v; el.setAttribute(key, es); }
+      var want = lang === 'en' ? toEN(es) : es;
+      if (v !== want) el.setAttribute(a, want);
+    }
+  }
+  function walk(root) {
+    if (root.nodeType === 3) { doText(root); return; }
+    if (root.nodeType !== 1) return;
+    if (/^(SCRIPT|STYLE)$/.test(root.nodeName)) return;
+    doAttrs(root);
+    var tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    var n;
+    while ((n = tw.nextNode())) { if (n.nodeType === 3) doText(n); else doAttrs(n); }
+  }
+  function apply() {
+    busy = true;
+    document.documentElement.lang = lang;
+    walk(document.body);
+    var btns = document.querySelectorAll('.lang-sw button');
+    for (var i = 0; i < btns.length; i++) {
+      var on = btns[i].getAttribute('data-lang') === lang;
+      btns[i].classList.toggle('on', on);
+      btns[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    busy = false;
+  }
+  new MutationObserver(function (list) {
+    if (busy) return;
+    busy = true;
+    for (var i = 0; i < list.length; i++) {
+      var m = list[i];
+      if (m.type === 'characterData') doText(m.target);
+      else if (m.type === 'attributes') doAttrs(m.target);
+      else for (var k = 0; k < m.addedNodes.length; k++) walk(m.addedNodes[k]);
+    }
+    busy = false;
+  }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.lang-sw button');
+    if (!b) return;
+    lang = b.getAttribute('data-lang') === 'en' ? 'en' : 'es';
+    try { localStorage.setItem('rd_lang', lang); } catch (err) {}
+    apply();
+  });
+  apply();
+})();
+</script>
+
 </body>
 </html>
