@@ -546,6 +546,22 @@
     .top-actions .hbtn { padding: 0 8px; font-size: 11.5px; min-height: 36px; }
   }
   @media (max-width: 370px) { .top-left .logo { font-size: 0; } .top-left .logo::before { content: "👑"; font-size: 22px; } }
+
+  /* ---------- Líderes del partido (NBA) ---------- */
+  .ldr { background: #fff; border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow-md); padding: 14px 14px 10px; margin: -2px 0 12px; }
+  .ldr-title { font-family: var(--font-display); font-style: italic; text-transform: uppercase; font-weight: 800; font-size: 18px; color: var(--text); margin-bottom: 10px; }
+  .ldr-head, .ldr-row { display: grid; grid-template-columns: 1fr 92px 1fr; align-items: center; gap: 8px; }
+  .ldr-head { margin-bottom: 4px; }
+  .ldr-head span:last-child { text-align: right; }
+  .ldr-head .mc-badge { width: 32px; height: 32px; font-size: 10.5px; display: inline-flex; }
+  .ldr-row { padding: 10px 0; border-top: 1px solid var(--border); }
+  .ldr-side { min-width: 0; display: flex; flex-direction: column; }
+  .ldr-side.r { text-align: right; align-items: flex-end; }
+  .ldr-side b { font-family: var(--font-display); font-size: 26px; font-weight: 800; line-height: 1; color: var(--text); }
+  .ldr-side span { font-size: 12.5px; font-weight: 600; color: var(--text-dim); margin-top: 3px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ldr-cat { text-align: center; font-size: 11px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 6px 4px; }
+  .ldr-empty { font-size: 13.5px; color: var(--text-dim); padding: 6px 0 8px; }
+  .ldr-src { font-size: 11px; color: var(--text-faint); text-align: center; padding-top: 6px; }
 </style>
 </head>
 <body>
@@ -706,9 +722,35 @@
   }
 
   /* ---------- API ---------- */
+  /* ---------- Una sola hora: Puerto Rico, tomada del servidor ----------
+     No dependemos del reloj del teléfono o computadora del visitante. */
+  var PR_TZ = 'America/Puerto_Rico';
+  var SERVER_OFFSET = 0;
+  function nowMs() { return Date.now() + SERVER_OFFSET; }
+  function syncClock(r) {
+    try {
+      var d = Date.parse(r.headers.get('date'));
+      if (!isNaN(d)) SERVER_OFFSET = d + 500 - Date.now();
+    } catch (e) {}
+  }
+  function prYMD(ms) {
+    var p = new Intl.DateTimeFormat('en-CA', { timeZone: PR_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(ms));
+    var o = {}; p.forEach(function (x) { o[x.type] = x.value; });
+    return o.year + '-' + o.month + '-' + o.day;
+  }
+  function prTodayDate() { var s = prYMD(nowMs()).split('-'); return new Date(+s[0], +s[1] - 1, +s[2]); }
+  function prLabel(startAt) {
+    var t = Date.parse(startAt); if (isNaN(t)) return '';
+    var day = prYMD(t), today = prYMD(nowMs()), tomorrow = prYMD(nowMs() + 86400000);
+    var dayLabel = day === today ? 'Hoy' : day === tomorrow ? 'Mañana'
+      : new Date(t).toLocaleDateString('es-DO', { timeZone: PR_TZ, weekday: 'short', day: 'numeric', month: 'short' });
+    return dayLabel + ' ' + new Date(t).toLocaleTimeString('es-DO', { timeZone: PR_TZ, hour: 'numeric', minute: '2-digit', hour12: true });
+  }
+  window.nowMs = nowMs; window.prLabel = prLabel;
   async function apiGet(url) {
     try {
       var r = await fetch(url, { credentials: 'include' });
+      syncClock(r);
       if (!r.ok) return null;
       return await r.json();
     } catch (e) { return null; }
@@ -818,7 +860,7 @@
       var tp = timeStr.split(':');
       d.setHours(parseInt(tp[0], 10), parseInt(tp[1], 10));
     }
-    var today = new Date();
+    var today = prTodayDate();
     var isToday = d.toDateString() === today.toDateString();
     var tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
     var isTomorrow = d.toDateString() === tomorrow.toDateString();
@@ -832,14 +874,17 @@
     if (m.live || m.finished) return true;
     if (m.startAt) {
       var t = Date.parse(m.startAt);
-      if (!isNaN(t) && Date.now() >= t) return true;
+      if (!isNaN(t) && nowMs() >= t) return true;
     }
     return false;
   }
   function stampToday(list) {
-    var t = new Date();
+    var t = prTodayDate();
     var todayStr = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
-    list.forEach(function (m) { if (m.hhmm) m.time = formatMatchTime(todayStr, m.hhmm); });
+    list.forEach(function (m) {
+      if (m.startAt) { var lb = prLabel(m.startAt); if (lb) { m.time = lb; return; } }
+      if (m.hhmm) m.time = formatMatchTime(todayStr, m.hhmm);
+    });
     return list;
   }
   async function loadMatches() {
@@ -1006,8 +1051,27 @@
       liveRowRight(m) +
       '<span class="lrow-chevron">' + (open ? '︿' : '›') + '</span>' +
       '</div></div>';
-    if (open) html += matchCard(m);
+    if (open) html += leadersHTML(m) + matchCard(m);
     return html;
+  }
+  // Líderes del partido (NBA): puntos, rebotes y asistencias de cada equipo,
+  // tal como los publica ESPN. Solo se muestran si el servidor los mandó.
+  function leadersHTML(m) {
+    if (m.sport !== 'baloncesto') return '';
+    var L = m.score && m.score.detail && m.score.detail.leaders;
+    var html = '<div class="ldr"><div class="ldr-title">📊 Líderes del partido</div>';
+    if (!L || (!L.home && !L.away)) return html + '<div class="ldr-empty">Las estadísticas de los jugadores aparecen en unos minutos.</div></div>';
+    var ba = teamBadge(m.away), bh = teamBadge(m.home);
+    html += '<div class="ldr-head"><span><b class="mc-badge" style="' + badgeStyle(ba) + '">' + esc(ba.abbr) + '</b></span><span></span><span><b class="mc-badge" style="' + badgeStyle(bh) + '">' + esc(bh.abbr) + '</b></span></div>';
+    [['points', 'Puntos'], ['rebounds', 'Rebotes'], ['assists', 'Asistencias']].forEach(function (c) {
+      var a = (L.away || {})[c[0]], h = (L.home || {})[c[0]];
+      html += '<div class="ldr-row">' +
+        '<div class="ldr-side">' + (a ? '<b>' + esc(a.value) + '</b><span>' + esc(a.name) + '</span>' : '<span>—</span>') + '</div>' +
+        '<div class="ldr-cat">' + c[1] + '</div>' +
+        '<div class="ldr-side r">' + (h ? '<b>' + esc(h.value) + '</b><span>' + esc(h.name) + '</span>' : '<span>—</span>') + '</div>' +
+        '</div>';
+    });
+    return html + '<div class="ldr-src">Datos en vivo de ESPN</div></div>';
   }
   // Línea de "tiempo/entrada + información del juego", siempre a partir
   // de lo que mandó el servidor (que a su vez viene de la fuente oficial
@@ -1078,7 +1142,7 @@
     if (m.live) status = '<span class="live-tag"><i></i>EN VIVO' + (m.score && m.score.period ? ' · ' + esc(m.score.period) : '') + '</span>';
     else if (m.finished) status = '<span class="live-tag" style="background:var(--surface); color:var(--text-dim);">FINAL</span>';
     else if (m.startAt) {
-      var minsToStart = (new Date(m.startAt).getTime() - Date.now()) / 60000;
+      var minsToStart = (new Date(m.startAt).getTime() - nowMs()) / 60000;
       if (minsToStart > 0 && minsToStart <= 15) {
         status = '<span class="live-tag" style="background: rgba(240,20,70,.14); color:var(--accent);"><i style="background:var(--accent);"></i>EN CALENTAMIENTO</span>';
       }
@@ -1935,7 +1999,8 @@
     'Cashback semanal': 'Weekly cashback', 'Combinada Plus': 'Parlay Plus', 'Invita y gana': 'Invite and earn',
     'Ejemplos:': 'Examples:', 'Menú': 'Menu', 'Más': 'More', 'Outs:': 'Outs:', 'diario': 'daily', 'semanal': 'weekly', 'mensual': 'monthly',
     'esta semana': 'this week', 'este mes': 'this month', '¡Bien!': 'Great!', 'Pago seguro procesado por Stride': 'Secure payment processed by Stride',
-    'La misma con la que depositaste': 'The same one you deposited with', 'Monto total': 'Total amount', 'Tu límite': 'Your limit'
+    'La misma con la que depositaste': 'The same one you deposited with', 'Monto total': 'Total amount', 'Tu límite': 'Your limit',
+    'Puntos': 'Points', 'Rebotes': 'Rebounds', 'Asistencias': 'Assists', 'Datos en vivo de ESPN': 'Live data from ESPN'
   };
   /* Frases (también dentro de textos más largos). */
   var PHRASES = [
@@ -2025,6 +2090,7 @@
     ['Ya puedes retirar tus ganancias.', 'You can now withdraw your winnings.'],
     ['¿Necesitas ayuda con tu cuenta, un depósito o una apuesta? Nuestro equipo te atiende todos los días.', 'Need help with your account, a deposit or a bet? Our team is here every day.'],
     ['Lanzamientos de este turno al bate', 'Pitches in this at-bat'],
+    ['Líderes del partido', 'Game leaders'], ['Las estadísticas de los jugadores aparecen en unos minutos.', 'Player stats will appear in a few minutes.'],
     ['Apuesta confirmada por', 'Bet placed for'], ['Combinada confirmada por', 'Parlay placed for'],
     ['Míralas en Mis apuestas.', 'See them in My bets.'], ['Te avisamos cuando se apruebe.', "We'll let you know when it's approved."],
     ['Ya está en tu saldo.', "It's in your balance."], ['ya está en tu saldo', "it's in your balance"],
