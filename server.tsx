@@ -309,6 +309,25 @@ function todayISO() {
   return fmt.format(new Date());
 }
 
+// Líderes del partido de un equipo (puntos, rebotes, asistencias) tal como
+// los publica ESPN en su scoreboard. Si ESPN no los manda, devuelve null.
+function espnLeaders(c) {
+  var out = {};
+  var cats = (c && c.leaders) || [];
+  for (var i = 0; i < cats.length; i++) {
+    var cat = cats[i] || {};
+    var key = cat.name || cat.abbreviation;
+    if (key !== 'points' && key !== 'rebounds' && key !== 'assists') continue;
+    var top = cat.leaders && cat.leaders[0];
+    if (!top || !top.athlete) continue;
+    out[key] = {
+      name: String(top.athlete.shortName || top.athlete.displayName || ''),
+      value: String(top.displayValue !== undefined ? top.displayValue : (top.value !== undefined ? top.value : ''))
+    };
+  }
+  return Object.keys(out).length ? out : null;
+}
+
 // Consulta el "scoreboard" público de ESPN (sin clave) para una liga y arma
 // una lista simple de los partidos de hoy con marcador y estado.
 async function fetchEspnGames(espnPath) {
@@ -334,7 +353,8 @@ async function fetchEspnGames(espnPath) {
         awayScore: away.score !== undefined ? Number(away.score) : undefined,
         state: comp.status && comp.status.type ? comp.status.type.state : '', // 'pre' | 'in' | 'post'
         period: comp.status ? comp.status.period : undefined,
-        clock: comp.status ? comp.status.displayClock : ''
+        clock: comp.status ? comp.status.displayClock : '',
+        leaders: { home: espnLeaders(home), away: espnLeaders(away) }
       });
     }
     return games;
@@ -609,7 +629,9 @@ async function updateLiveScores() {
         sportDetail = g.sportDetail;
       } else if (m.sport === 'baloncesto') {
         var quarterLabel = g.period ? (g.period > 4 ? 'OT' : g.period + 'er cuarto') : null;
-        sportDetail = { quarter: g.period || null, quarterLabel: quarterLabel, clock: g.clock || null };
+        var gl = g.leaders || {};
+        var leaders = (gl.home || gl.away) ? (reversed ? { home: gl.away || null, away: gl.home || null } : { home: gl.home || null, away: gl.away || null }) : null;
+        sportDetail = { quarter: g.period || null, quarterLabel: quarterLabel, clock: g.clock || null, leaders: leaders };
       }
 
       // El juego real ya empezó: márcalo "en vivo" aunque el admin nunca haya
