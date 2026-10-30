@@ -1,0 +1,2354 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0B1630">
+<title>RapiDeportes — apuestas deportivas</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    /* Paleta clara — tema RapiDeportes */
+    --bg: #F5F6FA;            /* fondo principal */
+    --bg-raised: #FFFFFF;     /* tarjetas */
+    --surface: #F2F4F7;       /* botones / cajas internas */
+    --surface-hover: #EAECF0;
+    --border: #EAECF0;
+    --border-strong: #D0D5DD;
+    --accent: #F01446;        /* rojo principal */
+    --accent-dim: #C80F3A;
+    --accent-soft: rgba(240,20,70,.08);
+    --on-accent: #FFFFFF;
+    --live: #F01446;
+    --live-bg: #FFE4EA;
+    --win: #12B76A;
+    --text: #101828;          /* texto principal */
+    --text-dim: #667085;      /* texto secundario */
+    --text-faint: #98A2B3;
+    --header-bg: #0B1630;     /* encabezado oscuro */
+    --shadow-sm: 0 1px 2px rgba(16,24,40,.05), 0 1px 3px rgba(16,24,40,.06);
+    --shadow-md: 0 4px 16px rgba(16,24,40,.07), 0 1px 3px rgba(16,24,40,.05);
+    --shadow-red: 0 6px 16px rgba(240,20,70,.28);
+    --font-display: 'Big Shoulders Display', sans-serif;
+    --font-body: 'Inter', sans-serif;
+    --nav-h: 62px;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  html, body { margin: 0; padding: 0; max-width: 100%; overflow-x: hidden; background: var(--bg); }
+  body {
+    color: var(--text); font-family: var(--font-body); -webkit-font-smoothing: antialiased;
+    padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 24px);
+  }
+  body.has-slip { padding-bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 92px); }
+  body.no-scroll { overflow: hidden; }
+  button { font-family: inherit; cursor: pointer; color: inherit; }
+  input { font-family: inherit; }
+  a { color: inherit; text-decoration: none; }
+  .app-wrap { width: 100%; max-width: 640px; margin: 0 auto; padding: 0 14px; }
+  .gold { color: var(--accent); }
+
+  /* ---------- Encabezado compacto ---------- */
+  header.top {
+    position: sticky; top: 0; z-index: 40;
+    padding-top: env(safe-area-inset-top, 0px);
+    background: rgba(11,15,26,0.95); backdrop-filter: blur(10px);
+    border-bottom: 1px solid var(--border);
+  }
+  .top-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 4px 8px; padding: 6px 0; min-height: 50px; }
+  .logo { font-family: var(--font-display); font-weight: 800; font-size: 22px; letter-spacing: .3px; display: flex; align-items: baseline; gap: 3px; white-space: nowrap; }
+  .logo-word em { font-style: normal; color: var(--accent); }
+  .logo-word small { font-size: 13px; color: var(--accent); font-weight: 700; }
+  .top-actions { display: flex; align-items: center; gap: 5px; margin-left: auto; }
+  .bal { display: flex; flex-direction: column; align-items: flex-end; justify-content: center; line-height: 1.05; padding-right: 2px; }
+  .bal small { font-size: 9.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .6px; font-weight: 600; }
+  .bal b { font-size: 14.5px; font-weight: 800; color: var(--accent); }
+  .hbtn { min-height: 40px; padding: 0 12px; border-radius: 20px; font-size: 12.5px; font-weight: 700; border: 1px solid transparent; white-space: nowrap; }
+  .hbtn.gold { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+  .hbtn.ghost { background: transparent; border-color: var(--border-strong); color: var(--text); }
+
+  /* ---------- Menú lateral ---------- */
+  .menu-btn { width: 42px; height: 42px; margin-left: -8px; display: grid; place-items: center; background: none; border: none; color: var(--text); flex: 0 0 auto; }
+  .menu-btn svg { width: 24px; height: 24px; }
+  .top-left { display: flex; align-items: center; gap: 4px; }
+  .drawer-ov { position: fixed; inset: 0; z-index: 90; background: rgba(0,0,0,.55); opacity: 0; pointer-events: none; transition: opacity .25s ease; }
+  .drawer-ov.open { opacity: 1; pointer-events: auto; }
+  .drawer { position: fixed; top: 0; bottom: 0; left: 0; z-index: 91; width: 100%; max-width: 420px; background: var(--bg); border-right: 1px solid var(--border); overflow-y: auto; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); transform: translateX(-100%); transition: transform .28s ease; }
+  .drawer.open { transform: none; }
+  @media (prefers-reduced-motion: reduce) { .drawer, .drawer-ov { transition: none; } }
+  .dr-pad { padding-left: max(26px, env(safe-area-inset-left, 0px)); padding-right: 26px; }
+  .dr-head { display: flex; align-items: center; justify-content: space-between; min-height: 62px; border-bottom: 1px solid var(--border); }
+  .dr-close { width: 44px; height: 44px; margin-left: -10px; display: grid; place-items: center; background: none; border: none; color: var(--text); }
+  .dr-close svg { width: 26px; height: 26px; }
+  .dr-main { background: var(--surface); border-bottom: 1px solid var(--border); padding-top: 12px; padding-bottom: 12px; display: flex; flex-direction: column; }
+  .dr-main button { position: relative; background: none; border: none; text-align: left; padding: 10px 0; font-family: var(--font-display); font-weight: 800; font-size: 34px; letter-spacing: .5px; text-transform: uppercase; color: var(--text-faint); }
+  .dr-main button.active { color: var(--text); }
+  .dr-main button.active::before { content: ""; position: absolute; left: calc(-1 * max(26px, env(safe-area-inset-left, 0px))); top: 6px; bottom: 6px; width: 5px; background: var(--accent); }
+  .dr-live { display: inline-block; vertical-align: middle; margin-left: 10px; font-family: var(--font-body); font-size: 11px; font-weight: 800; letter-spacing: .6px; padding: 3px 8px; border-radius: 4px; background: var(--live); color: #fff; transform: translateY(-3px); }
+  .dr-group { display: flex; flex-direction: column; gap: 4px; padding-top: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+  .dr-group button { display: flex; align-items: center; gap: 14px; background: none; border: none; text-align: left; padding: 10px 0; font-size: 18px; font-weight: 500; color: var(--text); }
+  .dr-group.u button span { text-decoration: underline; text-underline-offset: 4px; }
+  .dr-group svg { width: 26px; height: 26px; flex: 0 0 auto; fill: none; stroke: currentColor; stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .dr-note { padding-top: 20px; padding-bottom: 24px; color: var(--text-faint); font-size: 13px; line-height: 1.5; }
+
+  @media (max-width: 440px) {
+    .top-row { flex-wrap: nowrap; }
+    .top-left .logo { font-size: 19px; }
+    .top-left .logo-word small { display: none; }
+    .top-actions .hbtn { padding: 0 10px; font-size: 12px; }
+    .top-actions .hbtn[data-act="account"] { display: none; }
+  }
+
+  /* ---------- Cajero ---------- */
+  .cj-title { font-family: var(--font-display); font-size: 34px; font-weight: 800; margin: 22px 0 14px; }
+  .cj-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 18px; }
+  .cj-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .cj-label { color: var(--text-dim); font-size: 14px; }
+  .cj-amount { font-family: var(--font-display); font-size: 46px; font-weight: 800; line-height: 1; margin: 12px 0 16px; font-variant-numeric: tabular-nums; }
+  .cj-amount small { font-size: 22px; color: var(--text-dim); }
+  .cj-rows { border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); padding: 12px 0; display: flex; flex-direction: column; gap: 10px; }
+  .cj-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; font-size: 15px; }
+  .cj-row b { font-variant-numeric: tabular-nums; }
+  .cj-row.main { font-weight: 700; }
+  .cj-row.cj-sub { padding-left: 34px; color: var(--text-dim); }
+  .cj-row.cj-sub b { color: var(--text); font-weight: 600; }
+  .cj-flag { display: inline-flex; align-items: center; gap: 10px; }
+  .cj-flag i { font-style: normal; width: 24px; height: 24px; border-radius: 50%; background:  rgba(240,20,70,.16); color: var(--accent); display: grid; place-items: center; font-size: 12px; font-weight: 800; }
+  .cj-limit { display: block; width: 100%; text-align: left; margin-top: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 18px; color: var(--accent); font-size: 15px; font-weight: 600; text-decoration: underline; text-underline-offset: 4px; }
+  .cj-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 14px; }
+  .cj-tile { display: flex; align-items: center; gap: 12px; min-height: 76px; padding: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; text-align: left; font-size: 15.5px; font-weight: 600; line-height: 1.25; }
+  .cj-tile.on { border-color: var(--accent); background:  rgba(240,20,70,.08); }
+  .cj-tile svg { width: 30px; height: 30px; flex: 0 0 auto; fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round; }
+  .cj-panel { margin-top: 14px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 16px; padding: 18px; }
+  .cj-panel h3 { font-family: var(--font-display); font-size: 24px; margin: 0 0 4px; }
+  .cj-panel p { color: var(--text-dim); font-size: 13.5px; margin: 0 0 14px; line-height: 1.5; }
+  .cj-amts { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 12px; }
+  .cj-amts button { min-height: 42px; border-radius: 10px; border: 1px solid var(--border-strong); background: transparent; font-weight: 700; font-size: 14px; }
+  .cj-amts button.on { border-color: var(--accent); color: var(--accent); background:  rgba(240,20,70,.10); }
+  .cj-input { display: flex; align-items: center; gap: 6px; height: 52px; border: 1px solid var(--border-strong); border-radius: 12px; padding: 0 14px; background: var(--bg); margin-bottom: 14px; }
+  .cj-input span { color: var(--text-dim); font-size: 18px; font-weight: 700; }
+  .cj-input input { flex: 1; min-width: 0; background: transparent; border: none; outline: none; color: var(--text); font-size: 18px; font-weight: 700; }
+  .cj-note { color: var(--text-faint); font-size: 12px; margin-top: 10px; }
+  .pm-list { display: flex; flex-direction: column; gap: 10px; }
+  .lim-seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; padding: 4px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); margin-bottom: 12px; }
+  .lim-seg button { min-height: 38px; border-radius: 9px; border: none; background: transparent; color: var(--text-dim); font-weight: 700; font-size: 13.5px; }
+  .lim-seg button.on { background: var(--surface); color: var(--accent); box-shadow: inset 0 0 0 1px var(--border-strong); }
+  .meter { height: 8px; border-radius: 4px; background: var(--bg); overflow: hidden; margin: 6px 0 4px; }
+  .meter i { display: block; height: 100%; background: var(--accent); border-radius: 4px; }
+  .cj-panel h4 { font-size: 16px; margin: 0 0 4px; }
+  .warn-box { border: 1px solid rgba(239,68,68,.5); background: rgba(239,68,68,.08); border-radius: 12px; padding: 12px 14px; font-size: 13.5px; line-height: 1.45; margin-bottom: 12px; }
+  .ok-box { border: 1px solid rgba(34,197,94,.45); background: rgba(34,197,94,.08); border-radius: 12px; padding: 12px 14px; font-size: 13.5px; line-height: 1.45; }
+  .vf-status { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 14px 16px; text-align: left; width: 100%; }
+  .vf-status b { font-size: 15px; }
+  .vf-status small { display: block; color: var(--text-dim); font-size: 12.5px; margin-top: 2px; font-weight: 500; }
+  .st { flex: 0 0 auto; font-size: 11px; font-weight: 800; letter-spacing: .4px; padding: 4px 10px; border-radius: 999px; white-space: nowrap; }
+  .st.none { background: rgba(239,68,68,.14); color: var(--live); }
+  .st.ok { background: rgba(34,197,94,.14); color: var(--win); }
+  .st.pending { background:  rgba(240,20,70,.14); color: var(--accent); }
+  .fld { display: block; margin-bottom: 12px; }
+  .fld span { display: block; font-size: 12.5px; color: var(--text-dim); margin-bottom: 6px; }
+  .fld input { width: 100%; height: 48px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--bg); color: var(--text); padding: 0 14px; font-size: 16px; color-scheme: light; }
+  .pm { display: flex; align-items: center; gap: 14px; padding: 14px; border: 1px solid var(--border); border-radius: 14px; background: var(--bg); }
+  .pm-ic { width: 46px; height: 46px; border-radius: 12px; background:  rgba(240,20,70,.12); display: grid; place-items: center; flex: 0 0 auto; }
+  .pm-ic svg { width: 26px; height: 26px; fill: none; stroke: var(--accent); stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
+  .pm-body { flex: 1; min-width: 0; }
+  .pm-name { font-size: 15.5px; font-weight: 700; }
+  .pm-meta { font-size: 12.5px; color: var(--text-dim); margin-top: 3px; }
+  .pm-tags { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+  .pm-tag { font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--border-strong); color: var(--text-dim); }
+  .pm-soon { flex: 0 0 auto; font-size: 11px; font-weight: 800; letter-spacing: .4px; padding: 4px 9px; border-radius: 999px; background:  rgba(240,20,70,.14); color: var(--accent); }
+  @media (max-width: 360px) { .cj-grid { grid-template-columns: 1fr; } }
+
+  /* ---------- Secciones ---------- */
+  .sec-title { font-family: var(--font-display); font-size: 21px; font-weight: 700; margin: 20px 0 10px; display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .sec-title .count { font-family: var(--font-body); font-size: 12px; font-weight: 600; color: var(--text-faint); }
+  .sec-sub { color: var(--text-dim); font-size: 13px; margin: -4px 0 12px; }
+  .chips { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin: 12px 0 4px; }
+  .chip { min-height: 38px; padding: 0 6px; border-radius: 19px; border: 1px solid var(--border); background: transparent; color: var(--text-dim); font-size: 13px; font-weight: 600; }
+  .chip.active { background:  rgba(240,20,70,.14); border-color: var(--accent); color: var(--accent); }
+  .empty { text-align: center; color: var(--text-faint); font-size: 14px; padding: 34px 16px; line-height: 1.5; }
+  .empty .big { font-size: 34px; display: block; margin-bottom: 8px; }
+  .empty .btn-inline { margin-top: 14px; }
+
+  /* ---------- Más jugados ---------- */
+  .pop { width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; background: linear-gradient(120deg,  rgba(240,20,70,.10),  rgba(240,20,70,.02)); border: 1px solid  rgba(240,20,70,.22); border-radius: 14px; padding: 11px 12px; margin-bottom: 8px; min-height: 58px; }
+  .pop-rank { font-size: 20px; flex: 0 0 auto; }
+  .pop-main { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+  .pop-teams { font-size: 14px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .pop-sub { font-size: 11.5px; color: var(--text-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pop-go { flex: 0 0 auto; font-size: 12px; font-weight: 700; color: var(--accent); }
+
+  /* ---------- Tarjeta de partido ---------- */
+  .mcard { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 18px; padding: 14px; margin-bottom: 12px; box-shadow: 0 6px 18px rgba(0,0,0,.22); scroll-margin-top: 76px; transition: box-shadow .3s, border-color .3s; }
+
+  /* ---------- Fila compacta "En vivo ahora" ---------- */
+  .lrow { width: 100%; text-align: left; background: var(--bg-raised); border: 1px solid var(--border); border-radius: 16px; padding: 12px 14px; margin-bottom: 10px; display: block; }
+  .lrow-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .lrow-league { font-size: 12.5px; font-weight: 800; color: var(--accent); display: flex; align-items: center; gap: 5px; }
+  .lrow-period { font-size: 11.5px; font-weight: 700; color: var(--live); }
+  .lrow-body { display: flex; align-items: center; gap: 10px; }
+  .lrow-teams { flex: 1; min-width: 0; }
+  .lrow-team { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+  .lrow-team .nm { flex: 1; min-width: 0; font-size: 14.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lrow-team .sc { font-family: var(--font-display); font-size: 21px; font-weight: 800; }
+  .lrow-right { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; }
+  .lrow-clock { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 8px 12px; font-family: var(--font-display); font-size: 19px; font-weight: 800; text-align: center; min-width: 64px; }
+  .lrow-chevron { color: var(--text-faint); font-size: 20px; flex-shrink: 0; }
+  .lrow-bso { display: flex; flex-direction: column; gap: 2px; font-size: 10px; font-weight: 700; color: var(--text-faint); }
+  .lrow-bso-row { display: flex; align-items: center; gap: 4px; }
+  .lrow-bso-dots span { display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-right: 2px; }
+  .mcard.flash { border-color: var(--accent); box-shadow: 0 0 0 2px  rgba(240,20,70,.35); }
+  .mc-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; }
+  .mc-league { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 800; color: var(--accent); letter-spacing: .3px; white-space: nowrap; }
+  .mc-league .ic { font-size: 20px; line-height: 1; }
+  .mc-time { font-size: 12px; color: var(--text-dim); font-weight: 500; text-align: right; }
+  .live-tag { display: inline-flex; align-items: center; gap: 5px; background: var(--live-bg); color: var(--live); font-size: 11px; font-weight: 800; padding: 3px 9px; border-radius: 999px; letter-spacing: .4px; white-space: nowrap; }
+  .live-tag i { width: 6px; height: 6px; border-radius: 50%; background: var(--live); animation: pulse 1.4s ease-in-out infinite; }
+  @keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: .25; } }
+  .mc-teams { padding-bottom: 6px; }
+  .mc-team { display: flex; align-items: center; gap: 10px; padding: 5px 0; }
+  .mc-team .nm { flex: 1; min-width: 0; font-size: 15.5px; font-weight: 700; line-height: 1.25; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+  .mc-team .sc { font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--text); min-width: 24px; text-align: right; }
+  .mc-badge { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 50%; color: #fff; font-size: 9.5px; font-weight: 800; flex: 0 0 auto; }
+  .mk-row { display: grid; grid-template-columns: 62px 1fr; gap: 8px; align-items: center; margin-top: 8px; }
+  .mk-label { font-size: 11px; font-weight: 700; color: var(--text-faint); text-transform: uppercase; letter-spacing: .4px; }
+  .mk-btns { display: grid; gap: 6px; min-width: 0; }
+  .odd { min-width: 0; min-height: 50px; border-radius: 12px; border: 1px solid transparent; background: var(--surface); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; padding: 4px 6px; transition: background .12s, transform .08s; }
+  .odd:active { transform: scale(.97); }
+  .odd-l { max-width: 100%; font-size: 11px; line-height: 1.2; color: var(--text-dim); text-align: center; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; word-break: break-word; }
+  .odd-v { font-size: 16px; font-weight: 800; color: var(--text); }
+  .odd.sel { background: var(--accent); }
+  .odd.sel .odd-l { color: rgba(255,255,255,.85); }
+  .odd.sel .odd-v { color: var(--on-accent); }
+  .odd.off { opacity: .35; }
+  .mc-more { width: 100%; min-height: 42px; margin-top: 12px; border-radius: 12px; border: none; background:  rgba(240,20,70,.10); color: var(--accent); font-weight: 700; font-size: 13.5px; }
+  .mc-extra { display: none; margin-top: 10px; padding-top: 4px; border-top: 1px solid var(--border); }
+  .mc-extra.open { display: block; }
+  .mx-title { font-size: 12px; font-weight: 700; color: var(--text-dim); margin: 12px 0 6px; }
+  .mx-player { font-size: 14px; font-weight: 700; }
+  .mx-stat { font-size: 12px; color: var(--text-faint); margin-bottom: 6px; }
+  .mx-none { font-size: 13px; color: var(--text-faint); padding: 12px 0 4px; text-align: center; }
+
+  /* ---------- Buscador ---------- */
+  .search-box { display: flex; align-items: center; gap: 10px; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 16px; padding: 0 14px; margin-top: 14px; }
+  .search-box:focus-within { border-color: var(--accent); }
+  .search-box input { flex: 1; min-width: 0; height: 50px; background: transparent; border: none; outline: none; color: var(--text); font-size: 16px; }
+  .search-box input::placeholder { color: var(--text-faint); }
+  .search-hint { color: var(--text-faint); font-size: 13px; margin-top: 14px; line-height: 1.5; }
+
+  /* ---------- Mis apuestas ---------- */
+  .bet { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 16px; padding: 14px; margin-bottom: 10px; }
+  .bet-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .bet-desc { font-size: 14.5px; font-weight: 700; line-height: 1.3; }
+  .pill { flex: 0 0 auto; font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: 999px; background:  rgba(240,20,70,.14); color: var(--accent); white-space: nowrap; }
+  .bet-match { font-size: 12px; color: var(--text-faint); margin-top: 4px; }
+  .bet-nums { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 12px; }
+  .bet-nums div { background: var(--surface); border-radius: 12px; padding: 9px 11px; }
+  .bet-nums span { display: block; font-size: 11px; color: var(--text-faint); margin-bottom: 2px; }
+  .bet-nums b { font-size: 16px; }
+  .bet-legs { margin-top: 10px; }
+  .bet-leg { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; padding: 7px 0; border-top: 1px solid var(--border); font-size: 13px; }
+  .bet-leg:first-child { border-top: none; }
+  .bet-leg-txt { color: var(--text-dim); flex: 1; }
+  .bet-leg-o { flex: 0 0 auto; text-align: right; white-space: nowrap; }
+  .bet-leg-o .pk { display: block; font-size: 12px; color: var(--text-dim); }
+  .bet-leg-o .od { display: block; font-weight: 700; color: var(--accent); }
+  .bet-leg-odd { flex: 0 0 auto; font-weight: 700; white-space: nowrap; }
+  .bet-leg-odd.win { color: var(--win); }
+  .bet-leg-odd.lose { color: var(--live); }
+  .bet-leg-odd.pending { color: var(--text-dim); }
+  .bet-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border); font-size: 12.5px; color: var(--text-faint); }
+  .bet-foot b { color: var(--accent); }
+  .pill.won { background: rgba(34,197,94,.16); color: var(--win); }
+  .pill.lost { background: rgba(239,68,68,.16); color: var(--live); }
+  .pill.void { background: rgba(148,163,184,.16); color: var(--text-dim); }
+  .pill.cash { background:  rgba(240,20,70,.16); color: var(--accent); }
+  .co-btn { width: 100%; min-height: 44px; margin-top: 10px; border-radius: 12px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-weight: 800; font-size: 14px; }
+  .co-btn.go { background: var(--accent); color: var(--on-accent); }
+  .co-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .co-row .btn { min-height: 44px; font-size: 14px; }
+  .co-note { font-size: 12px; color: var(--text-faint); margin-top: 6px; text-align: center; }
+  .win-banner { display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 14px 16px; border-radius: 16px; background: linear-gradient(135deg, rgba(34,197,94,.18),  rgba(240,20,70,.14)); border: 1px solid rgba(34,197,94,.45); }
+  .win-banner .wb-ic { font-size: 30px; line-height: 1; }
+  .win-banner .wb-txt { flex: 1; min-width: 0; }
+  .win-banner b { display: block; font-family: var(--font-display); font-size: 22px; }
+  .win-banner span { font-size: 13px; color: var(--text-dim); }
+  .win-banner button { flex: 0 0 auto; min-height: 38px; padding: 0 14px; border-radius: 19px; border: none; background: var(--win); color: #062b14; font-weight: 800; font-size: 13px; }
+  .combo { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; }
+  .combo-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; margin-bottom: 6px; }
+  .combo-head b { font-size: 15px; }
+  .combo-head .od { font-family: var(--font-display); font-size: 24px; font-weight: 800; color: var(--accent); }
+  .combo-leg { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 6px 0; border-top: 1px solid var(--border); }
+  .combo-leg span:first-child { color: var(--text-dim); min-width: 0; }
+  .combo-leg span:last-child { font-weight: 700; white-space: nowrap; }
+  .combo-foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+  .combo-foot small { color: var(--text-dim); font-size: 12.5px; }
+  .combo-foot button { min-height: 40px; padding: 0 16px; border-radius: 20px; border: none; background: var(--accent); color: var(--on-accent); font-weight: 800; font-size: 13px; }
+  .fav { flex: 0 0 auto; width: 34px; height: 34px; margin-right: -6px; display: grid; place-items: center; background: none; border: none; color: var(--text-faint); font-size: 19px; line-height: 1; }
+  .fav.on { color: var(--accent); }
+  .res-card { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; padding: 14px 16px; margin-bottom: 10px; }
+  .res-head { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--text-dim); margin-bottom: 8px; }
+  .res-head b { color: var(--accent); font-weight: 800; }
+  .res-team { display: flex; align-items: center; gap: 10px; padding: 4px 0; font-size: 15px; font-weight: 600; color: var(--text-dim); }
+  .res-team.w { color: var(--text); font-weight: 800; }
+  .res-team .nm { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .res-team .sc { font-family: var(--font-display); font-size: 24px; font-weight: 800; }
+
+  /* ---------- Promociones ---------- */
+  .promo { position: relative; overflow: hidden; border-radius: 20px; padding: 20px 18px; margin-bottom: 12px; background: linear-gradient(135deg, #1C2545 0%, #0F1526 100%); border: 1px solid var(--border); }
+  .promo.hero { background: linear-gradient(135deg, #3a2a06 0%, #1a1405 55%, #0F1526 100%); border-color:  rgba(240,20,70,.4); }
+  .promo .em { position: absolute; right: 14px; top: 8px; font-size: 54px; opacity: .9; }
+  .promo-tag { display: inline-block; font-size: 11px; font-weight: 800; letter-spacing: .5px; padding: 4px 10px; border-radius: 999px; background:  rgba(240,20,70,.16); color: var(--accent); margin-bottom: 10px; }
+  .promo h3 { font-family: var(--font-display); font-size: 27px; line-height: 1.02; margin: 0 70px 8px 0; }
+  .promo p { margin: 0 0 14px; color: var(--text-dim); font-size: 13.5px; line-height: 1.5; max-width: 90%; }
+  .promo-btn { min-height: 42px; padding: 0 18px; border-radius: 21px; border: 1px solid var(--accent); background: transparent; color: var(--accent); font-weight: 800; font-size: 13px; }
+  .promo-btn.solid { background: var(--accent); color: var(--on-accent); }
+  .promo small { display: block; margin-top: 10px; color: var(--text-faint); font-size: 11px; }
+
+  /* ---------- Botones generales ---------- */
+  .btn { min-height: 46px; border-radius: 14px; padding: 0 18px; font-size: 15px; font-weight: 700; border: 1px solid var(--border-strong); background: transparent; color: var(--text); }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+  .btn.block { width: 100%; }
+  .btn:disabled { opacity: .45; }
+  .btn-inline { display: inline-flex; align-items: center; justify-content: center; }
+
+  /* ---------- Barra de boleto ---------- */
+  #slipBar { position: fixed; left: 14px; right: 14px; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 10px); z-index: 60; max-width: 612px; margin: 0 auto; min-height: 54px; border-radius: 27px; background: var(--accent); color: var(--on-accent); font-weight: 800; font-size: 15px; border: none; box-shadow: 0 8px 24px rgba(0,0,0,.45); display: none; align-items: center; justify-content: center; gap: 8px; }
+
+  /* ---------- Navegación inferior ---------- */
+  nav.bottom { position: fixed; left: 0; right: 0; bottom: 0; z-index: 50; background: rgba(13,18,32,.97); backdrop-filter: blur(12px); border-top: 1px solid var(--border); padding-bottom: env(safe-area-inset-bottom, 0px); }
+  .bn { display: grid; grid-template-columns: repeat(5, 1fr); max-width: 640px; margin: 0 auto; }
+  .bn-item { position: relative; min-height: var(--nav-h); background: none; border: none; color: var(--text-faint); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; font-size: 10.5px; font-weight: 700; padding: 0; }
+  .bn-ic { font-size: 20px; line-height: 1; }
+  .bn-item.active { color: var(--accent); }
+  .bn-item.bets .bn-ic { background:  rgba(240,20,70,.16); border-radius: 12px; padding: 4px 12px; }
+  .bn-item.bets { color: var(--accent); }
+  .badge { position: absolute; top: 6px; left: calc(50% + 8px); min-width: 19px; height: 19px; border-radius: 10px; background: var(--live); color: #fff; font-size: 11px; font-weight: 800; display: none; align-items: center; justify-content: center; padding: 0 5px; border: 2px solid #0D1220; }
+
+  /* ---------- Hojas / modales ---------- */
+  .overlay { position: fixed; inset: 0; background: rgba(5,8,14,.72); z-index: 100; display: none; align-items: flex-end; justify-content: center; }
+  .overlay.open { display: flex; }
+  .sheet { position: relative; width: 100%; max-width: 640px; max-height: 90vh; max-height: 90dvh; overflow-y: auto; background: var(--bg-raised); border: 1px solid var(--border); border-bottom: none; border-radius: 22px 22px 0 0; padding: 18px 16px calc(18px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -12px 40px rgba(0,0,0,.5); }
+  .sheet h2, .sheet h3 { font-family: var(--font-display); margin: 0; }
+  .sheet h2 { font-size: 25px; }
+  .sheet-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .sheet-head h3 { font-size: 24px; flex: 1; }
+  .x { width: 40px; height: 40px; border-radius: 20px; border: none; background: var(--surface); font-size: 22px; line-height: 1; color: var(--text-dim); flex: 0 0 auto; }
+  .link { background: none; border: none; color: var(--text-faint); font-size: 13px; font-weight: 600; min-height: 40px; padding: 0 6px; }
+  .sub { color: var(--text-dim); font-size: 13.5px; margin: 6px 0 16px; line-height: 1.5; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12.5px; color: var(--text-dim); margin-bottom: 6px; }
+  .field input { width: 100%; height: 50px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; color: var(--text); padding: 0 14px; font-size: 16px; }
+  .field input:focus { outline: none; border-color: var(--accent); }
+  .field-error { color: var(--live); font-size: 12.5px; margin-top: 6px; display: none; }
+  .modal-switch { text-align: center; font-size: 14px; color: var(--text-faint); margin-top: 14px; }
+  .modal-switch button { background: none; border: none; color: var(--accent); font-size: 14px; font-weight: 700; min-height: 40px; }
+  .seg { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--surface); padding: 4px; border-radius: 14px; margin-bottom: 12px; }
+  .seg button { min-height: 42px; border: none; border-radius: 11px; background: transparent; color: var(--text-dim); font-weight: 700; font-size: 14px; }
+  .seg button.active { background: var(--accent); color: var(--on-accent); }
+
+  /* boleto */
+  .sl-item { background: var(--surface); border-radius: 14px; padding: 12px; margin-bottom: 8px; }
+  .sl-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+  .sl-desc { font-size: 14.5px; font-weight: 700; line-height: 1.3; }
+  .sl-match { font-size: 12px; color: var(--text-faint); margin-top: 3px; }
+  .sl-rm { width: 40px; height: 40px; margin: -6px -6px 0 0; border: none; background: none; color: var(--text-faint); font-size: 24px; flex: 0 0 auto; }
+  .sl-stake { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+  .sl-stake label { font-size: 12px; color: var(--text-dim); }
+  .sl-stake input { width: 110px; height: 44px; background: var(--bg); border: 1px solid var(--border); border-radius: 10px; color: var(--text); padding: 0 12px; font-size: 16px; }
+  .sl-stake input:focus { outline: none; border-color: var(--accent); }
+  .sl-pay { margin-left: auto; font-size: 13px; color: var(--text-dim); text-align: right; }
+  .sl-pay b { color: var(--accent); }
+  .hint { color: var(--text-faint); font-size: 13px; padding: 8px 2px 12px; line-height: 1.5; }
+  .sl-tot { display: flex; justify-content: space-between; font-size: 14px; color: var(--text-dim); padding: 4px 0; }
+  .sl-tot b { color: var(--text); font-size: 15px; }
+  .sl-tot.big b { color: var(--accent); font-size: 18px; }
+  #slipFoot { border-top: 1px solid var(--border); margin-top: 10px; padding-top: 10px; }
+
+  /* cuenta */
+  .acct-balance { background: var(--surface); border-radius: 16px; padding: 18px; text-align: center; margin: 14px 0; }
+  .acct-balance .n { font-family: var(--font-display); font-size: 42px; font-weight: 800; color: var(--accent); line-height: 1; }
+  .acct-balance .l { font-size: 12.5px; color: var(--text-faint); margin-top: 4px; }
+  .acct-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 18px; }
+  .acct-history h4 { font-size: 13px; color: var(--text-dim); margin: 0 0 8px; }
+  .hist-row { display: flex; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+  .hist-row:last-child { border-bottom: none; }
+  .hist-meta { color: var(--text-faint); font-size: 11.5px; margin-top: 2px; }
+
+  /* info */
+  .info-body p { color: var(--text-dim); font-size: 14px; line-height: 1.6; margin: 0 0 12px; }
+
+  .toast { position: fixed; left: 0; right: 0; margin: 0 auto; width: fit-content; bottom: calc(var(--nav-h) + env(safe-area-inset-bottom, 0px) + 80px); transform: translateY(20px); max-width: calc(100% - 28px); background: #232C45; border: 1px solid var(--border-strong); color: var(--text); padding: 12px 18px; border-radius: 14px; font-size: 14px; font-weight: 600; z-index: 200; opacity: 0; transition: opacity .2s, transform .2s; pointer-events: none; text-align: center; }
+  .toast.show { opacity: 1; transform: translateY(0); }
+
+  /* ---------- Pie de página ---------- */
+  footer.ft { padding-top: 26px; padding-bottom: 8px; margin-top: 26px; border-top: 1px solid var(--border); }
+  .ft-brand { font-family: var(--font-display); font-size: 20px; font-weight: 800; color: var(--accent); margin-bottom: 12px; }
+  .ft-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 10px; }
+  .ft-grid button { min-height: 44px; text-align: left; background: none; border: none; color: var(--text-dim); font-size: 14px; font-weight: 600; padding: 0 2px; }
+  .ft-note { color: var(--text-faint); font-size: 12px; line-height: 1.6; margin: 14px 0 12px; }
+
+  @media (min-width: 700px) {
+    .overlay { align-items: center; }
+    .sheet { border-radius: 22px; border-bottom: 1px solid var(--border); max-height: 86vh; }
+  }
+  @media (max-width: 350px) {
+    .logo { font-size: 20px; }
+    .hbtn { padding: 0 11px; }
+    .mk-row { grid-template-columns: 54px 1fr; }
+  }
+
+  /* =====================================================
+     TEMA CLARO — ajustes de estilo (sin cambiar funciones)
+     ===================================================== */
+  body { background: var(--bg); }
+
+  /* Encabezado oscuro con detalles rojos */
+  header.top {
+    --text: #FFFFFF; --text-dim: #CBD2E0; --text-faint: #98A2B3; --border-strong: rgba(255,255,255,.28);
+    background: var(--header-bg);
+    border-bottom: 3px solid var(--accent);
+    color: var(--text);
+    box-shadow: 0 4px 14px rgba(11,22,48,.18);
+  }
+  .logo-word { color: #fff; }
+  .bal b { color: #fff; }
+  .hbtn { transition: transform .1s, box-shadow .15s, background .15s; }
+  .hbtn.gold { box-shadow: var(--shadow-red); }
+  .hbtn.gold:hover { background: var(--accent-dim); }
+  .hbtn.ghost:hover { background: rgba(255,255,255,.08); }
+  .hbtn:active { transform: scale(.97); }
+
+  /* Menú lateral claro */
+  .drawer { background: #fff; box-shadow: 8px 0 30px rgba(16,24,40,.12); }
+  .drawer .logo-word { color: var(--text); }
+  .drawer-ov { background: rgba(16,24,40,.45); }
+  .dr-main { background: var(--bg); }
+  .dr-main button { color: var(--text-faint); }
+
+  /* Títulos de sección con barra roja */
+  .sec-title { position: relative; padding-left: 14px; font-size: 24px; font-weight: 800; font-style: italic; text-transform: uppercase; letter-spacing: .2px; color: var(--text); margin: 24px 0 12px; }
+  .sec-title::before { content: ""; position: absolute; left: 0; top: 3px; bottom: 3px; width: 5px; border-radius: 3px; background: var(--accent); }
+  .sec-title .count { font-style: normal; text-transform: none; font-size: 12.5px; color: var(--text-dim); background: #fff; border: 1px solid var(--border); border-radius: 999px; padding: 4px 10px; box-shadow: var(--shadow-sm); }
+  .cj-title { font-style: italic; text-transform: uppercase; color: var(--text); }
+
+  /* Pestañas redondeadas */
+  .chips { gap: 8px; margin: 16px 0 6px; }
+  .chip { min-height: 42px; border-radius: 999px; border: none; background: #EAECF2; color: var(--text); font-weight: 700; transition: background .15s, box-shadow .15s; }
+  .chip:hover { background: #E1E4EC; }
+  .chip.active { background: var(--accent); color: #fff; box-shadow: var(--shadow-red); }
+
+  /* Tarjetas blancas */
+  .mcard, .lrow, .bet, .res-card, .combo, .cj-card, .cj-panel, .cj-limit, .cj-tile, .vf-status, .pm {
+    background: #fff; border: 1px solid var(--border); box-shadow: var(--shadow-md);
+  }
+  .mcard { border-radius: 20px; padding: 16px; margin-bottom: 14px; position: relative; overflow: hidden; }
+  .mcard::after { content: ""; position: absolute; top: 14px; bottom: 14px; right: 0; width: 4px; border-radius: 4px 0 0 4px; background: linear-gradient(var(--accent), var(--header-bg)); opacity: .9; }
+  .mcard.flash { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(240,20,70,.18), var(--shadow-md); }
+  .lrow { border-radius: 18px; }
+  .mc-league, .lrow-league { color: var(--accent); }
+  .mc-time { color: var(--text-dim); font-weight: 600; }
+  .mc-badge { width: 40px; height: 40px; font-size: 12px; letter-spacing: .2px; font-family: var(--font-body); }
+  .lrow-team .mc-badge, .res-team .mc-badge { width: 32px; height: 32px; font-size: 10.5px; }
+  .mc-team .nm, .lrow-team .nm { color: var(--text); }
+  .live-tag { background: var(--accent); color: #fff; }
+  .live-tag i { background: #fff; }
+  .lrow-clock { background: var(--bg); }
+
+  /* Botones de cuotas */
+  .odd { background: var(--surface); border: 1px solid var(--border); }
+  .odd:hover { background: var(--surface-hover); }
+  .odd.sel { background: var(--accent); border-color: var(--accent); box-shadow: var(--shadow-red); }
+  .odd.sel .odd-v { color: #fff; }
+  .mk-label { color: var(--text-dim); }
+  .mc-more { background: var(--accent-soft); }
+
+  /* Más jugados / favoritos */
+  .pop { background: #fff; border: 1px solid var(--border); box-shadow: var(--shadow-sm); }
+  .pop-go { background: var(--accent-soft); padding: 6px 10px; border-radius: 999px; }
+
+  /* Mis apuestas */
+  .bet-nums div { background: var(--bg); }
+  .pill.won { background: #DCFAE6; color: #067647; }
+  .pill.lost { background: #FFE4EA; color: var(--accent); }
+  .win-banner { background: linear-gradient(135deg, #ECFDF3, #FFFFFF); border-color: #ABEFC6; box-shadow: var(--shadow-md); }
+  .win-banner button { color: #fff; }
+
+  /* Promociones: tarjeta destacada oscura como la referencia */
+  .promo { background: #fff; border: 1px solid var(--border); box-shadow: var(--shadow-md); }
+  .promo.hero { --text: #fff; --text-dim: #CBD2E0; --text-faint: #98A2B3; color: #fff; border: none;
+    background: var(--header-bg);
+    background-image: linear-gradient(115deg, transparent 70%, var(--accent) 70%, var(--accent) 74%, transparent 74%, transparent 76%, rgba(255,255,255,.1) 76%, rgba(255,255,255,.1) 78%, transparent 78%); }
+  .promo-btn:hover { background: var(--accent-soft); }
+  .promo-btn.solid { box-shadow: var(--shadow-red); }
+
+  /* Botones generales */
+  .btn { border-radius: 999px; background: #fff; border-color: var(--border-strong); transition: transform .1s, box-shadow .15s, background .15s; }
+  .btn:hover { background: var(--bg); }
+  .btn.primary { box-shadow: var(--shadow-red); }
+  .btn.primary:hover { background: var(--accent-dim); border-color: var(--accent-dim); }
+  .btn:active { transform: scale(.98); }
+  .co-btn, .combo-foot button, .win-banner button { border-radius: 999px; }
+  .co-btn.go, .combo-foot button { box-shadow: var(--shadow-red); }
+
+  /* Barra de boleto y navegación inferior */
+  #slipBar { box-shadow: 0 10px 28px rgba(240,20,70,.35); }
+  nav.bottom { background: rgba(255,255,255,.97); border-top: 1px solid var(--border); box-shadow: 0 -4px 20px rgba(16,24,40,.06); }
+  .bn-item { color: var(--text-dim); }
+  .bn-item.active { color: var(--accent); }
+  .badge { border-color: #fff; }
+
+  /* Hojas, formularios y cajero */
+  .overlay { background: rgba(16,24,40,.5); }
+  .sheet { background: #fff; border-color: var(--border); box-shadow: 0 -12px 40px rgba(16,24,40,.18); }
+  .x { background: var(--surface); }
+  .field input, .fld input, .search-box, .cj-input, .sl-stake input { background: #fff; border-color: var(--border-strong); }
+  .field input:focus, .fld input:focus, .sl-stake input:focus { box-shadow: 0 0 0 4px rgba(240,20,70,.12); }
+  .search-box { box-shadow: var(--shadow-sm); }
+  .search-box:focus-within { box-shadow: 0 0 0 4px rgba(240,20,70,.12); }
+  .seg, .lim-seg { background: var(--surface); border-color: var(--border); }
+  .seg button.active { box-shadow: var(--shadow-red); }
+  .lim-seg button.on { background: #fff; box-shadow: var(--shadow-sm); }
+  .sl-item { background: var(--bg); border: 1px solid var(--border); }
+  .acct-balance { background: var(--bg); border: 1px solid var(--border); }
+  .cj-amts button { background: #fff; }
+  .meter { background: var(--surface); }
+  .pm { background: var(--bg); box-shadow: none; }
+  .toast { background: var(--text); color: #fff; border-color: var(--text); box-shadow: var(--shadow-md); }
+
+  /* Pie de página */
+  footer.ft { border-top: 1px solid var(--border); }
+  .ft-brand { font-style: italic; }
+  .ft-grid button:hover { color: var(--accent); }
+
+  /* Escritorio: un poco más de aire */
+  @media (min-width: 900px) {
+    .app-wrap { max-width: 760px; }
+    .bn, #slipBar { max-width: 732px; }
+  }
+
+  /* ---------- Selector de idioma ES / EN ---------- */
+  .lang-sw { display: inline-flex; align-items: center; margin-left: auto; padding: 3px; border-radius: 999px; background: rgba(255,255,255,.10); border: 1px solid rgba(255,255,255,.22); flex: 0 0 auto; }
+  .lang-sw + .top-actions { margin-left: 6px; }
+  .lang-sw button { min-width: 34px; height: 32px; padding: 0 8px; border: none; border-radius: 999px; background: transparent; color: #CBD2E0; font-size: 12px; font-weight: 800; letter-spacing: .4px; transition: background .15s, color .15s; }
+  .lang-sw button.on { background: var(--accent); color: #fff; box-shadow: 0 3px 10px rgba(240,20,70,.35); }
+  @media (max-width: 440px) {
+    .top-left .logo { font-size: 17px; }
+    .top-left .logo > span:first-child, .top-left .logo { gap: 2px; }
+    .top-row { gap: 4px 5px; }
+    .menu-btn { width: 36px; margin-left: -6px; }
+    .top-left .logo { font-size: 16px; }
+    .lang-sw { padding: 2px; }
+    .lang-sw button { min-width: 28px; height: 30px; padding: 0 5px; font-size: 11px; }
+    .lang-sw + .top-actions { margin-left: 4px; }
+    .top-actions { gap: 4px; }
+    .top-actions .hbtn { padding: 0 8px; font-size: 11.5px; min-height: 36px; }
+  }
+  @media (max-width: 370px) { .top-left .logo { font-size: 0; } .top-left .logo::before { content: "👑"; font-size: 22px; } }
+
+  /* ---------- Líderes del partido (NBA) ---------- */
+  .ldr { background: #fff; border: 1px solid var(--border); border-radius: 18px; box-shadow: var(--shadow-md); padding: 14px 14px 10px; margin: -2px 0 12px; }
+  .ldr-title { font-family: var(--font-display); font-style: italic; text-transform: uppercase; font-weight: 800; font-size: 18px; color: var(--text); margin-bottom: 10px; }
+  .ldr-head, .ldr-row { display: grid; grid-template-columns: 1fr 92px 1fr; align-items: center; gap: 8px; }
+  .ldr-head { margin-bottom: 4px; }
+  .ldr-head span:last-child { text-align: right; }
+  .ldr-head .mc-badge { width: 32px; height: 32px; font-size: 10.5px; display: inline-flex; }
+  .ldr-row { padding: 10px 0; border-top: 1px solid var(--border); }
+  .ldr-side { min-width: 0; display: flex; flex-direction: column; }
+  .ldr-side.r { text-align: right; align-items: flex-end; }
+  .ldr-side b { font-family: var(--font-display); font-size: 26px; font-weight: 800; line-height: 1; color: var(--text); }
+  .ldr-side span { font-size: 12.5px; font-weight: 600; color: var(--text-dim); margin-top: 3px; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .ldr-cat { text-align: center; font-size: 11px; font-weight: 800; letter-spacing: .5px; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); border-radius: 999px; padding: 6px 4px; }
+  .ldr-empty { font-size: 13.5px; color: var(--text-dim); padding: 6px 0 8px; }
+  .ldr-src { font-size: 11px; color: var(--text-faint); text-align: center; padding-top: 6px; }
+  .lrow .ldr { border: none; box-shadow: none; border-radius: 0; background: none; padding: 12px 0 0; margin: 12px 0 0; border-top: 1px solid var(--border); }
+
+  /* ---------- Estadísticas completas ---------- */
+  .ldr-more { display: block; width: 100%; min-height: 44px; margin-top: 8px; border: none; border-radius: 999px; background: var(--accent); color: #fff; font-weight: 800; font-size: 14px; box-shadow: var(--shadow-red); }
+  .stats-sheet { max-width: 760px; }
+  .stats-sheet .sheet-head h3 { flex: 1; font-style: italic; text-transform: uppercase; }
+  .st-score { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; background: var(--bg); border: 1px solid var(--border); border-radius: 16px; padding: 12px; margin-bottom: 12px; }
+  .st-team { display: flex; align-items: center; gap: 8px; min-width: 0; }
+  .st-team.r { flex-direction: row-reverse; text-align: right; }
+  .st-team span { font-weight: 700; font-size: 13.5px; line-height: 1.2; min-width: 0; }
+  .st-team .mc-badge { width: 36px; height: 36px; font-size: 11px; display: inline-flex; flex: 0 0 auto; }
+  .st-mid { text-align: center; }
+  .st-mid b { display: block; font-family: var(--font-display); font-size: 30px; font-weight: 800; line-height: 1; white-space: nowrap; }
+  .st-mid small { display: block; font-size: 11.5px; font-weight: 700; color: var(--accent); margin-top: 3px; }
+  .st-tabs { grid-template-columns: repeat(3, 1fr); }
+  .st-cmp { padding: 10px 2px; border-bottom: 1px solid var(--border); }
+  .st-cmp-top { display: grid; grid-template-columns: 70px 1fr 70px; align-items: center; gap: 6px; margin-bottom: 6px; }
+  .st-cmp-top b { font-size: 15px; font-weight: 800; }
+  .st-cmp-top b:last-child { text-align: right; }
+  .st-cmp-top span { text-align: center; font-size: 12.5px; font-weight: 600; color: var(--text-dim); }
+  .st-bar { display: flex; gap: 3px; height: 6px; }
+  .st-bar i { display: block; height: 100%; border-radius: 3px; min-width: 3px; }
+  .st-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; border: 1px solid var(--border); border-radius: 14px; }
+  .st-table { border-collapse: collapse; width: 100%; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .st-table th, .st-table td { padding: 9px 8px; text-align: center; white-space: nowrap; border-bottom: 1px solid var(--border); }
+  .st-table th { font-size: 11px; font-weight: 800; color: var(--text-dim); background: var(--bg); }
+  .st-table .st-name { position: sticky; left: 0; z-index: 1; background: #fff; text-align: left; font-weight: 700; min-width: 112px; max-width: 132px; overflow: hidden; text-overflow: ellipsis; box-shadow: 1px 0 0 var(--border); }
+  .st-table th.st-name { background: var(--bg); }
+  .st-table td.st-pts { font-weight: 800; color: var(--accent); }
+  .st-group td { background: var(--bg); font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .5px; color: var(--text-dim); padding: 6px 8px; }
+  .st-group .st-name { background: var(--bg); }
+  .st-tot td { font-weight: 800; background: #FFF5F7; }
+  .st-tot .st-name { background: #FFF5F7; }
+  .st-dnp td { color: var(--text-faint); font-size: 12px; text-align: left; }
+  .st-note { font-size: 11.5px; color: var(--text-faint); text-align: center; margin: 12px 0 0; }
+  button.bal { background: none; border: none; padding: 0 2px; color: inherit; cursor: pointer; font: inherit; }
+  button.bal b i { font-style: normal; font-size: 11px; opacity: .7; margin-left: 2px; }
+  @media (max-width: 400px) { .top-row:has(button.bal) .top-left .logo { font-size: 0; } .top-row:has(button.bal) .top-left .logo::before { content: "👑"; font-size: 22px; } }
+  button.bal:active { transform: scale(.97); }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="app-wrap">
+    <div class="top-row">
+      <div class="top-left">
+      <button class="menu-btn" id="menuBtn" type="button" aria-label="Abrir menú" aria-controls="drawer" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+      <a class="logo" href="/" aria-label="RapiDeportes.com">👑<span class="logo-word">Rapi<em>deportes</em><small>.com</small></span></a>
+      </div>
+      <div class="lang-sw" role="group" aria-label="Idioma" data-no-i18n><button type="button" data-lang="es" class="on" aria-pressed="true">ES</button><button type="button" data-lang="en" aria-pressed="false">EN</button></div>
+      <div class="top-actions" id="topActions"></div>
+    </div>
+  </div>
+</header>
+
+<div class="drawer-ov" id="drawerOv"></div>
+<nav class="drawer" id="drawer" aria-label="Menú" aria-hidden="true">
+  <div class="dr-head dr-pad">
+    <button class="dr-close" id="drawerClose" type="button" aria-label="Cerrar menú"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg></button>
+    <span class="logo">👑<span class="logo-word">Rapi<em>deportes</em><small>.com</small></span></span>
+  </div>
+  <div class="dr-main dr-pad">
+    <button type="button" data-view="home" class="active">Deportes</button>
+    <button type="button" data-view="live">En vivo<span class="dr-live">LIVE</span></button>
+    <button type="button" data-view="results">Resultados</button>
+  </div>
+  <div class="dr-group u dr-pad">
+    <button type="button" data-info="responsable"><span>Juego responsable</span></button>
+    <button type="button" data-info="soporte"><span>Ayuda</span></button>
+  </div>
+  <div class="dr-group u dr-pad">
+    <button type="button" data-view="promos"><svg viewBox="0 0 24 24"><rect x="3" y="8" width="18" height="12" rx="2"/><path d="M3 12h18M12 8v12M12 8c-1.5-3-5-3.5-5-1.5S10 8 12 8zm0 0c1.5-3 5-3.5 5-1.5S14 8 12 8z"/></svg><span>Promociones</span></button>
+    <button type="button" data-view="bets"><svg viewBox="0 0 24 24"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg><span>Mis apuestas</span></button>
+    <button type="button" data-view="search"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><span>Buscar</span></button>
+  </div>
+  <div class="dr-group dr-pad">
+    <button type="button" data-act="deposit">Depositar</button>
+    <button type="button" data-act="account">Mi cuenta</button>
+    <button type="button" data-info="pagos">Métodos de pago</button>
+    <button type="button" data-info="reglas">Reglas de apuestas</button>
+    <button type="button" data-info="terminos">Términos y condiciones</button>
+  </div>
+  <p class="dr-note dr-pad">Prohibido para menores de 18 años. Apuesta con responsabilidad.</p>
+</nav>
+
+<main class="app-wrap" id="app"></main>
+
+<footer class="ft app-wrap">
+  <div class="ft-brand">RAPIDEPORTES</div>
+  <div class="ft-grid">
+    <button data-info="soporte">Soporte</button>
+    <button data-info="terminos">Términos y condiciones</button>
+    <button data-info="privacidad">Privacidad</button>
+    <button data-info="pagos">Métodos de pago</button>
+    <button data-info="reglas">Reglas de apuestas</button>
+    <button data-info="responsable">Juego responsable</button>
+    <button data-info="contacto">Contacto</button>
+  </div>
+  <p class="ft-note">Apuesta con responsabilidad. Prohibido para menores de 18 años. Si el juego ha dejado de ser un entretenimiento, busca ayuda en tu junta local de juego responsable.</p>
+</footer>
+
+<button id="slipBar" type="button"><span>🎟️ Mi boleto (<b id="slipCount">0</b>) — Ver boleto</span></button>
+
+<nav class="bottom" aria-label="Navegación principal">
+  <div class="bn">
+    <button class="bn-item active" data-view="home"><span class="bn-ic">🏠</span><span>Inicio</span></button>
+    <button class="bn-item" data-view="live"><span class="bn-ic">🔴</span><span>En vivo</span></button>
+    <button class="bn-item bets" data-view="bets"><span class="bn-ic">🎟️</span><span>Mis apuestas</span><b class="badge" id="betsBadge">0</b></button>
+    <button class="bn-item" data-view="promos"><span class="bn-ic">🎁</span><span>Promociones</span></button>
+    <button class="bn-item" data-view="search"><span class="bn-ic">🔍</span><span>Buscar</span></button>
+  </div>
+</nav>
+
+<!-- Boleto -->
+<div class="overlay" id="slipOverlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h3>🎟️ Mi boleto</h3>
+      <button class="link" id="slipClear" type="button">Vaciar</button>
+      <button class="x" id="slipClose" type="button" aria-label="Cerrar">&times;</button>
+    </div>
+    <div class="seg" id="slipModeToggle">
+      <button type="button" class="active" data-mode="singles">Sencillas</button>
+      <button type="button" data-mode="parlay">Combinada</button>
+    </div>
+    <div id="slipBody"></div>
+    <div id="slipFoot" style="display:none;">
+      <div class="sl-tot"><span>Total apostado</span><b id="slipStakeTotal">$0</b></div>
+      <div class="sl-tot"><span>Posible ganancia</span><b id="slipProfitTotal">$0</b></div>
+      <div class="sl-tot big"><span>Total a cobrar</span><b id="slipPayoutTotal">$0</b></div>
+      <button class="btn primary block" id="slipPlace" type="button" style="margin-top:12px;">Confirmar apuesta</button>
+    </div>
+  </div>
+</div>
+
+<!-- Entrar / Registrarse -->
+<div class="overlay" id="authOverlay">
+  <div class="sheet">
+    <div class="sheet-head"><h2 id="authTitle" style="flex:1;">Bienvenido de vuelta</h2><button class="x" id="authClose" type="button" aria-label="Cerrar">&times;</button></div>
+    <p class="sub" id="authSub">Entra para ver tu saldo y tus apuestas.</p>
+    <div class="field">
+      <label for="authEmail">Correo electrónico</label>
+      <input type="email" id="authEmail" placeholder="tunombre@correo.com" autocomplete="email">
+      <div class="field-error" id="authEmailErr">Escribe un correo válido.</div>
+    </div>
+    <div class="field">
+      <label for="authPass">Contraseña</label>
+      <input type="password" id="authPass" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
+      <div class="field-error" id="authPassErr">La contraseña debe tener al menos 6 caracteres.</div>
+    </div>
+    <button class="btn primary block" id="authSubmit" type="button">Entrar</button>
+    <div class="modal-switch"><span id="authSwitchText">¿No tienes cuenta?</span> <button id="authSwitchBtn" type="button">Regístrate</button></div>
+  </div>
+</div>
+
+<!-- Cuenta -->
+<div class="overlay" id="acctOverlay">
+  <div class="sheet">
+    <div class="sheet-head"><h2 style="flex:1;">Tu cuenta</h2><button class="x" id="acctClose" type="button" aria-label="Cerrar">&times;</button></div>
+    <div class="sub" id="acctEmail" style="margin:0;"></div>
+    <div class="acct-balance">
+      <div class="n" id="acctBalanceN">$0</div>
+      <div class="l">Saldo disponible</div>
+    </div>
+    <div class="acct-actions">
+      <button class="btn primary" id="acctDeposit" type="button">+ Depositar</button>
+      <button class="btn" id="acctWithdraw" type="button">Retirar</button>
+    </div>
+    <div class="acct-history">
+      <h4>Historial de apuestas</h4>
+      <div id="acctHistoryList"></div>
+    </div>
+    <button class="btn block" id="acctLogout" type="button" style="margin-top:18px;">Cerrar sesión</button>
+  </div>
+</div>
+
+<!-- Estadísticas completas -->
+<div class="overlay" id="statsOverlay">
+  <div class="sheet stats-sheet">
+    <div class="sheet-head"><h3 id="statsTitle">📋 Estadísticas</h3><button class="x" id="statsClose" type="button" aria-label="Cerrar">&times;</button></div>
+    <div class="st-score" id="statsScore"></div>
+    <div class="seg st-tabs" id="statsTabs"></div>
+    <div id="statsBody"></div>
+    <p class="st-note">Se actualiza solo cada 20 segundos.</p>
+  </div>
+</div>
+
+<!-- Información -->
+<div class="overlay" id="infoOverlay">
+  <div class="sheet">
+    <div class="sheet-head"><h2 id="infoTitle" style="flex:1;"></h2><button class="x" id="infoClose" type="button" aria-label="Cerrar">&times;</button></div>
+    <div class="info-body" id="infoBody"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function () {
+  'use strict';
+
+  function $(id) { return document.getElementById(id); }
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
+
+  /* ---------- API ---------- */
+  /* ---------- Una sola hora: Puerto Rico, tomada del servidor ----------
+     No dependemos del reloj del teléfono o computadora del visitante. */
+  var PR_TZ = 'America/Puerto_Rico';
+  var SERVER_OFFSET = 0;
+  function nowMs() { return Date.now() + SERVER_OFFSET; }
+  function syncClock(r) {
+    try {
+      var d = Date.parse(r.headers.get('date'));
+      if (!isNaN(d)) SERVER_OFFSET = d + 500 - Date.now();
+    } catch (e) {}
+  }
+  function prYMD(ms) {
+    var p = new Intl.DateTimeFormat('en-CA', { timeZone: PR_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(ms));
+    var o = {}; p.forEach(function (x) { o[x.type] = x.value; });
+    return o.year + '-' + o.month + '-' + o.day;
+  }
+  function prTodayDate() { var s = prYMD(nowMs()).split('-'); return new Date(+s[0], +s[1] - 1, +s[2]); }
+  function prLabel(startAt) {
+    var t = Date.parse(startAt); if (isNaN(t)) return '';
+    var day = prYMD(t), today = prYMD(nowMs()), tomorrow = prYMD(nowMs() + 86400000);
+    var dayLabel = day === today ? 'Hoy' : day === tomorrow ? 'Mañana'
+      : new Date(t).toLocaleDateString('es-DO', { timeZone: PR_TZ, weekday: 'short', day: 'numeric', month: 'short' });
+    return dayLabel + ' ' + new Date(t).toLocaleTimeString('es-DO', { timeZone: PR_TZ, hour: 'numeric', minute: '2-digit', hour12: true });
+  }
+  window.nowMs = nowMs; window.prLabel = prLabel;
+  async function apiGet(url) {
+    try {
+      var r = await fetch(url, { credentials: 'include' });
+      syncClock(r);
+      if (!r.ok) return null;
+      return await r.json();
+    } catch (e) { return null; }
+  }
+  async function apiPost(url, body) {
+    try {
+      var r = await fetch(url, {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body || {})
+      });
+      var data = null;
+      try { data = await r.json(); } catch (e) {}
+      return { ok: r.ok, status: r.status, data: data };
+    } catch (e) { return { ok: false, status: 0, data: null }; }
+  }
+
+  /* ---------- Datos y utilidades ---------- */
+  var SPORT_LABELS = { beisbol: 'MLB', lidom: 'LIDOM', baloncesto: 'NBA', nfl: 'NFL', nhl: 'NHL' };
+  var SPORT_ICON = { beisbol: '⚾', lidom: '⚾', baloncesto: '🏀', nfl: '🏈', nhl: '🏒' };
+  var TOTAL_UNIT = { beisbol: 'carreras', lidom: 'carreras', baloncesto: 'puntos', nfl: 'puntos', nhl: 'goles' };
+  var HALFTIME_LABEL = { beisbol: 'Primeras 5 entradas', lidom: 'Primeras 5 entradas', nfl: 'Medio tiempo', baloncesto: 'Medio tiempo', nhl: 'Primer período' };
+
+  /* Colores oficiales de cada equipo: [abreviatura, color principal, color secundario] */
+  var TEAM_COLORS = {
+    /* MLB */
+    'Arizona Diamondbacks': ['ARI', '#A71930', '#E3D4AD'], 'Atlanta Braves': ['ATL', '#CE1141', '#13274F'], 'Baltimore Orioles': ['BAL', '#DF4601', '#000000'],
+    'Boston Red Sox': ['BOS', '#BD3039', '#0C2340'], 'Chicago Cubs': ['CHC', '#0E3386', '#CC3433'], 'Chicago White Sox': ['CWS', '#27251F', '#C4CED4'],
+    'Cincinnati Reds': ['CIN', '#C6011F', '#000000'], 'Cleveland Guardians': ['CLE', '#00385D', '#E50022'], 'Colorado Rockies': ['COL', '#333366', '#C4CED4'],
+    'Detroit Tigers': ['DET', '#0C2340', '#FA4616'], 'Houston Astros': ['HOU', '#002D62', '#EB6E1F'], 'Kansas City Royals': ['KC', '#004687', '#BD9B60'],
+    'Los Angeles Angels': ['LAA', '#BA0021', '#003263'], 'Los Angeles Dodgers': ['LAD', '#005A9C', '#EF3E42'], 'Miami Marlins': ['MIA', '#00A3E0', '#EF3340'],
+    'Milwaukee Brewers': ['MIL', '#12284B', '#FFC52F'], 'Minnesota Twins': ['MIN', '#002B5C', '#D31145'], 'New York Mets': ['NYM', '#002D72', '#FF5910'],
+    'New York Yankees': ['NYY', '#0C2340', '#C4CED3'], 'Philadelphia Phillies': ['PHI', '#E81828', '#002D72'], 'Pittsburgh Pirates': ['PIT', '#27251F', '#FDB827'],
+    'San Diego Padres': ['SD', '#2F241D', '#FFC425'], 'San Francisco Giants': ['SF', '#FD5A1E', '#27251F'], 'Seattle Mariners': ['SEA', '#0C2C56', '#005C5C'],
+    'St. Louis Cardinals': ['STL', '#C41E3A', '#0C2340'], 'Tampa Bay Rays': ['TB', '#092C5C', '#8FBCE6'], 'Texas Rangers': ['TEX', '#003278', '#C0111F'],
+    'Toronto Blue Jays': ['TOR', '#134A8E', '#E8291C'], 'Washington Nationals': ['WSH', '#AB0003', '#14225A'], 'Oakland Athletics': ['ATH', '#003831', '#EFB21E'],
+    'Athletics': ['ATH', '#003831', '#EFB21E'],
+    /* LIDOM */
+    'Tigres del Licey': ['LIC', '#003DA5', '#FFFFFF'], 'Águilas Cibaeñas': ['AGU', '#FFC72C', '#1A1A1A'], 'Leones del Escogido': ['ESC', '#C8102E', '#1A1A1A'],
+    'Gigantes del Cibao': ['GIG', '#7A1C24', '#F2A900'], 'Estrellas Orientales': ['EST', '#00843D', '#FF8200'], 'Toros del Este': ['TOR', '#E35205', '#1A1A1A'],
+    /* NBA */
+    'Atlanta Hawks': ['ATL', '#E03A3E', '#C1D32F'], 'Boston Celtics': ['BOS', '#007A33', '#BA9653'], 'Brooklyn Nets': ['BKN', '#000000', '#FFFFFF'],
+    'Charlotte Hornets': ['CHA', '#1D1160', '#00788C'], 'Chicago Bulls': ['CHI', '#CE1141', '#000000'], 'Cleveland Cavaliers': ['CLE', '#860038', '#FDBB30'],
+    'Dallas Mavericks': ['DAL', '#00538C', '#B8C4CA'], 'Denver Nuggets': ['DEN', '#0E2240', '#FEC524'], 'Detroit Pistons': ['DET', '#C8102E', '#1D42BA'],
+    'Golden State Warriors': ['GSW', '#1D428A', '#FFC72C'], 'Houston Rockets': ['HOU', '#CE1141', '#000000'], 'Indiana Pacers': ['IND', '#002D62', '#FDBB30'],
+    'LA Clippers': ['LAC', '#C8102E', '#1D428A'], 'Los Angeles Clippers': ['LAC', '#C8102E', '#1D428A'], 'Los Angeles Lakers': ['LAL', '#552583', '#FDB927'],
+    'Memphis Grizzlies': ['MEM', '#5D76A9', '#12173F'], 'Miami Heat': ['MIA', '#98002E', '#F9A01B'], 'Milwaukee Bucks': ['MIL', '#00471B', '#EEE1C6'],
+    'Minnesota Timberwolves': ['MIN', '#0C2340', '#78BE20'], 'New Orleans Pelicans': ['NOP', '#0C2340', '#C8102E'], 'New York Knicks': ['NYK', '#006BB6', '#F58426'],
+    'Oklahoma City Thunder': ['OKC', '#007AC1', '#EF3B24'], 'Orlando Magic': ['ORL', '#0077C0', '#C4CED4'], 'Philadelphia 76ers': ['PHI', '#006BB6', '#ED174C'],
+    'Phoenix Suns': ['PHX', '#1D1160', '#E56020'], 'Portland Trail Blazers': ['POR', '#E03A3E', '#000000'], 'Sacramento Kings': ['SAC', '#5A2D81', '#63727A'],
+    'San Antonio Spurs': ['SAS', '#000000', '#C4CED4'], 'Toronto Raptors': ['TOR', '#CE1141', '#000000'], 'Utah Jazz': ['UTA', '#002B5C', '#F9A01B'],
+    'Washington Wizards': ['WAS', '#002B5C', '#E31837'],
+    /* NFL */
+    'Arizona Cardinals': ['ARI', '#97233F', '#000000'], 'Atlanta Falcons': ['ATL', '#A71930', '#000000'], 'Baltimore Ravens': ['BAL', '#241773', '#9E7C0C'],
+    'Buffalo Bills': ['BUF', '#00338D', '#C60C30'], 'Carolina Panthers': ['CAR', '#0085CA', '#101820'], 'Chicago Bears': ['CHI', '#0B162A', '#C83803'],
+    'Cincinnati Bengals': ['CIN', '#FB4F14', '#000000'], 'Cleveland Browns': ['CLE', '#311D00', '#FF3C00'], 'Dallas Cowboys': ['DAL', '#041E42', '#869397'],
+    'Denver Broncos': ['DEN', '#FB4F14', '#002244'], 'Detroit Lions': ['DET', '#0076B6', '#B0B7BC'], 'Green Bay Packers': ['GB', '#203731', '#FFB612'],
+    'Houston Texans': ['HOU', '#03202F', '#A71930'], 'Indianapolis Colts': ['IND', '#002C5F', '#A2AAAD'], 'Jacksonville Jaguars': ['JAX', '#006778', '#D7A22A'],
+    'Kansas City Chiefs': ['KC', '#E31837', '#FFB81C'], 'Las Vegas Raiders': ['LV', '#000000', '#A5ACAF'], 'Los Angeles Chargers': ['LAC', '#0080C6', '#FFC20E'],
+    'Los Angeles Rams': ['LAR', '#003594', '#FFA300'], 'Miami Dolphins': ['MIA', '#008E97', '#FC4C02'], 'Minnesota Vikings': ['MIN', '#4F2683', '#FFC62F'],
+    'New England Patriots': ['NE', '#002244', '#C60C30'], 'New Orleans Saints': ['NO', '#101820', '#D3BC8D'], 'New York Giants': ['NYG', '#0B2265', '#A71930'],
+    'New York Jets': ['NYJ', '#125740', '#FFFFFF'], 'Philadelphia Eagles': ['PHI', '#004C54', '#A5ACAF'], 'Pittsburgh Steelers': ['PIT', '#101820', '#FFB612'],
+    'San Francisco 49ers': ['SF', '#AA0000', '#B3995D'], 'Seattle Seahawks': ['SEA', '#002244', '#69BE28'], 'Tampa Bay Buccaneers': ['TB', '#D50A0A', '#34302B'],
+    'Tennessee Titans': ['TEN', '#0C2340', '#4B92DB'], 'Washington Commanders': ['WAS', '#5A1414', '#FFB612'],
+    /* NHL */
+    'Anaheim Ducks': ['ANA', '#F47A38', '#000000'], 'Boston Bruins': ['BOS', '#FFB81C', '#000000'], 'Buffalo Sabres': ['BUF', '#003087', '#FFB81C'],
+    'Calgary Flames': ['CGY', '#C8102E', '#F1BE48'], 'Carolina Hurricanes': ['CAR', '#CE1126', '#000000'], 'Chicago Blackhawks': ['CHI', '#CF0A2C', '#000000'],
+    'Colorado Avalanche': ['COL', '#6F263D', '#236192'], 'Columbus Blue Jackets': ['CBJ', '#002654', '#CE1126'], 'Dallas Stars': ['DAL', '#006847', '#8F8F8C'],
+    'Detroit Red Wings': ['DET', '#CE1126', '#FFFFFF'], 'Edmonton Oilers': ['EDM', '#041E42', '#FF4C00'], 'Florida Panthers': ['FLA', '#041E42', '#C8102E'],
+    'Los Angeles Kings': ['LAK', '#111111', '#A2AAAD'], 'Minnesota Wild': ['MIN', '#154734', '#A6192E'], 'Montreal Canadiens': ['MTL', '#AF1E2D', '#192168'],
+    'Nashville Predators': ['NSH', '#FFB81C', '#041E42'], 'New Jersey Devils': ['NJD', '#CE1126', '#000000'], 'New York Islanders': ['NYI', '#00539B', '#F47D30'],
+    'New York Rangers': ['NYR', '#0038A8', '#CE1126'], 'Ottawa Senators': ['OTT', '#C52032', '#000000'], 'Philadelphia Flyers': ['PHI', '#F74902', '#000000'],
+    'Pittsburgh Penguins': ['PIT', '#000000', '#FCB514'], 'San Jose Sharks': ['SJS', '#006D75', '#EA7200'], 'Seattle Kraken': ['SEA', '#001628', '#99D9D9'],
+    'St. Louis Blues': ['STL', '#002F87', '#FCB514'], 'Tampa Bay Lightning': ['TBL', '#002868', '#FFFFFF'], 'Toronto Maple Leafs': ['TOR', '#00205B', '#FFFFFF'],
+    'Utah Mammoth': ['UTA', '#090909', '#71AFE5'], 'Vancouver Canucks': ['VAN', '#00205B', '#00843D'], 'Vegas Golden Knights': ['VGK', '#333F42', '#B4975A'],
+    'Washington Capitals': ['WSH', '#041E42', '#C8102E'], 'Winnipeg Jets': ['WPG', '#041E42', '#004C97']
+  };
+  var TEAM_COLOR_INDEX = {};
+  Object.keys(TEAM_COLORS).forEach(function (k) { TEAM_COLOR_INDEX[String(k).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '')] = TEAM_COLORS[k]; });
+  function lightColor(hex) {
+    var h = String(hex).replace('#', ''); if (h.length !== 6) return false;
+    var r = parseInt(h.substr(0, 2), 16), g = parseInt(h.substr(2, 2), 16), b = parseInt(h.substr(4, 2), 16);
+    return (r * 299 + g * 587 + b * 114) / 1000 > 165;
+  }
+  var BADGE_PALETTE = ['#0C2340', '#BD3039', '#005A9C', '#EB6E1F', '#C8102E', '#003DA5', '#007A33', '#8C1D18'];
+  function teamBadge(name) {
+    var key = String(name || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+    var t = TEAM_COLOR_INDEX[key];
+    if (t) return { abbr: t[0], color: t[1], ring: t[2], ink: lightColor(t[1]) ? '#101828' : '#FFFFFF' };
+    var words = String(name).split(' ');
+    var abbr = words[0].charAt(0).toUpperCase() + (words[1] ? words[1].charAt(0).toUpperCase() : '');
+    var hash = 0;
+    for (var i = 0; i < name.length; i++) hash = (hash * 31 + name.charCodeAt(i)) % BADGE_PALETTE.length;
+    return { abbr: abbr, color: BADGE_PALETTE[Math.abs(hash)], ring: '#FFFFFF', ink: '#FFFFFF' };
+  }
+  function badgeStyle(b) {
+    return 'background:' + b.color + ';color:' + (b.ink || '#fff') + ';box-shadow:inset 0 0 0 2.5px ' + (b.ring || '#fff') + ', 0 2px 6px rgba(16,24,40,.18);';
+  }
+  var TEAM_ALIASES = {};
+  function normalize(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, ''); }
+
+  function formatMatchTime(dateStr, timeStr) {
+    if (!dateStr) return 'Por confirmar';
+    var parts = dateStr.split('-');
+    var d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    if (timeStr) {
+      var tp = timeStr.split(':');
+      d.setHours(parseInt(tp[0], 10), parseInt(tp[1], 10));
+    }
+    var today = prTodayDate();
+    var isToday = d.toDateString() === today.toDateString();
+    var tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
+    var isTomorrow = d.toDateString() === tomorrow.toDateString();
+    var dayLabel = isToday ? 'Hoy' : isTomorrow ? 'Mañana' : d.toLocaleDateString('es-DO', { weekday: 'short', day: 'numeric', month: 'short' });
+    var timeLabel = timeStr ? d.toLocaleTimeString('es-DO', { hour: 'numeric', minute: '2-digit', hour12: true }) : '';
+    return timeLabel ? (dayLabel + ' ' + timeLabel) : dayLabel;
+  }
+  // Una vez llega la hora oficial del partido (o ya está en vivo/terminado),
+  // se cierra para nuevas apuestas — sin depender de que el admin marque nada.
+  function isBettingClosed(m) {
+    if (m.live || m.finished) return true;
+    if (m.startAt) {
+      var t = Date.parse(m.startAt);
+      if (!isNaN(t) && nowMs() >= t) return true;
+    }
+    return false;
+  }
+  function stampToday(list) {
+    var t = prTodayDate();
+    var todayStr = t.getFullYear() + '-' + String(t.getMonth() + 1).padStart(2, '0') + '-' + String(t.getDate()).padStart(2, '0');
+    list.forEach(function (m) {
+      if (m.startAt) { var lb = prLabel(m.startAt); if (lb) { m.time = lb; return; } }
+      if (m.hhmm) m.time = formatMatchTime(todayStr, m.hhmm);
+    });
+    return list;
+  }
+  async function loadMatches() {
+    var data = await apiGet('/api/matches');
+    return stampToday(Array.isArray(data) ? data : []);
+  }
+
+  function fmtMoney(n) { return '$' + Math.round(n).toLocaleString('en-US'); }
+  function americanToPayout(odds, stake) {
+    var n = parseInt(odds, 10);
+    if (n > 0) return stake * (n / 100);
+    return stake * (100 / Math.abs(n));
+  }
+  function americanToDecimal(odds) {
+    var n = parseInt(odds, 10);
+    return n > 0 ? 1 + (n / 100) : 1 + (100 / Math.abs(n));
+  }
+  function dispOdds(odds) { return odds ? americanToDecimal(odds).toFixed(2) : '—'; }
+
+  /* ---------- Favoritos (se guardan en este navegador) ---------- */
+  function loadFavs() { try { return JSON.parse(localStorage.getItem('rd_favs') || '[]') || []; } catch (e) { return []; } }
+  function saveFavs() { try { localStorage.setItem('rd_favs', JSON.stringify(state.favs)); } catch (e) {} }
+  function isFav(name) { return state.favs.indexOf(name) >= 0; }
+
+  /* ---------- Estado ---------- */
+  var state = {
+    view: 'home', sport: 'all', slip: {}, slipMode: 'singles', parlayStake: 100,
+    user: null, balance: 0, history: [], matches: [],
+    authMode: 'login', searchQuery: '', expanded: {}, expandedZone: {}, expandedLiveRow: {}, isAdmin: false, cashPanel: null, cashAmt: 50, extrasLoaded: false, cashoutConfirm: null, winDismissed: false, favs: loadFavs(), limits: { period: 'day', amount: 0, used: 0 }, limitDraft: null, verify: { status: 'none' }, vfDraft: { dob: '' }, withdrawals: [], payoutLabel: null
+  };
+
+  var INFO = {
+    soporte: { t: 'Soporte', p: ['¿Necesitas ayuda con tu cuenta, un depósito o una apuesta? Nuestro equipo te atiende todos los días.', 'Antes de escribirnos, revisa la sección “Mis apuestas” para ver el estado de tus jugadas.'] },
+    terminos: { t: 'Términos y condiciones', p: ['Al usar RapiDeportes aceptas cumplir con estas condiciones. Solo pueden jugar personas mayores de 18 años.', 'Cada apuesta confirmada queda registrada con las cuotas que viste al momento de confirmar. Las cuotas pueden cambiar sin previo aviso antes de que confirmes.', 'Nos reservamos el derecho de anular apuestas realizadas con errores evidentes de cuota o de información.'] },
+    privacidad: { t: 'Privacidad', p: ['Solo guardamos los datos necesarios para operar tu cuenta: tu correo, tu saldo y tu historial de apuestas.', 'No compartimos tu información personal con terceros sin tu autorización, salvo cuando la ley lo exija.'] },
+    pagos: { t: 'Métodos de pago', p: ['Depositas y retiras con Stride desde el Cajero.', 'Tus datos de pago los maneja Stride; RapiDeportes no guarda tu tarjeta.'] },
+    reglas: { t: 'Reglas de apuestas', p: ['Una apuesta sencilla se gana cuando tu selección acierta. Una combinada se gana solo si aciertan todas sus selecciones.', 'Las cuotas se muestran en formato decimal. La posible ganancia es lo que recibirías por encima de tu monto apostado.', 'Si un partido se suspende o se cancela, la apuesta se anula según las reglas de cada deporte.'] },
+    responsable: { t: 'Juego responsable', p: ['Apostar debe ser entretenimiento, nunca una forma de resolver problemas de dinero.', 'Juega solo con dinero que puedas permitirte perder, define un límite antes de empezar y no intentes recuperar pérdidas.', 'Si sientes que el juego se te está saliendo de control, busca ayuda profesional. Este sitio es solo para mayores de 18 años.'] },
+    contacto: { t: 'Contacto', p: ['Escríbenos por los canales oficiales de atención de RapiDeportes. Respondemos lo antes posible.', 'Ten a mano tu correo de registro para agilizar tu consulta.'] }
+  };
+
+  /* ---------- Toast / overlays ---------- */
+  function showToast(msg) {
+    var t = $('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(function () { t.classList.remove('show'); }, 2800);
+  }
+  function openOv(id) { $(id).classList.add('open'); document.body.classList.add('no-scroll'); }
+  function closeOv(id) {
+    $(id).classList.remove('open');
+    if (!document.querySelector('.overlay.open')) document.body.classList.remove('no-scroll');
+  }
+
+  /* ---------- Piezas de interfaz ---------- */
+  function oddBtn(selId, key, odds, m, label) {
+    if (!odds) return '<span class="odd off"><span class="odd-l">' + esc(label) + '</span><span class="odd-v">—</span></span>';
+    var sel = !!state.slip[selId];
+    return '<button type="button" class="odd' + (sel ? ' sel' : '') + '" data-selid="' + esc(selId) + '" data-key="' + esc(key) + '" data-odds="' + esc(odds) + '" data-home="' + esc(m.home) + '" data-away="' + esc(m.away) + '">' +
+      '<span class="odd-l">' + esc(label) + '</span><span class="odd-v">' + dispOdds(odds) + '</span></button>';
+  }
+  function mkRow(label, buttons) {
+    return '<div class="mk-row"><div class="mk-label">' + esc(label) + '</div><div class="mk-btns" style="grid-template-columns:repeat(' + buttons.length + ',1fr)">' + buttons.join('') + '</div></div>';
+  }
+  function teamRow(name, score) {
+    var b = teamBadge(name);
+    return '<div class="mc-team"><span class="mc-badge" style="' + badgeStyle(b) + '">' + esc(b.abbr) + '</span><span class="nm">' + esc(name) + '</span>' +
+      (score !== undefined && score !== '' ? '<span class="sc">' + esc(score) + '</span>' : '') +
+      '<button type="button" class="fav' + (isFav(name) ? ' on' : '') + '" data-fav="' + esc(name) + '" aria-label="' + (isFav(name) ? 'Quitar de favoritos' : 'Marcar como favorito') + '" aria-pressed="' + isFav(name) + '">' + (isFav(name) ? '★' : '☆') + '</button></div>';
+  }
+  function extraHTML(m) {
+    var html = '';
+    if (m.halftime) {
+      var htLabel = HALFTIME_LABEL[m.sport] || 'Medio tiempo';
+      html += '<div class="mx-title">' + esc(htLabel) + '</div>';
+      html += '<div class="mk-btns" style="grid-template-columns:1fr 1fr">' +
+        oddBtn(m.id + '-ht-away', htLabel + ' — ' + m.away, m.halftime.away, m, m.away) +
+        oddBtn(m.id + '-ht-home', htLabel + ' — ' + m.home, m.halftime.home, m, m.home) + '</div>';
+    }
+    if (m.props && m.props.length) {
+      html += '<div class="mx-title">Lanzadores</div>';
+      m.props.forEach(function (p, pi) {
+        html += '<div style="margin-bottom:12px"><div class="mx-player">' + esc(p.player) + '</div><div class="mx-stat">' + esc(p.stat) + ' — línea ' + esc(p.line) + '</div>' +
+          '<div class="mk-btns" style="grid-template-columns:1fr 1fr">' +
+          oddBtn(m.id + '-prop-' + pi + '-over', p.player + ' — Más ' + p.line, p.over, m, 'Más ' + p.line) +
+          oddBtn(m.id + '-prop-' + pi + '-under', p.player + ' — Menos ' + p.line, p.under, m, 'Menos ' + p.line) + '</div></div>';
+      });
+    }
+    if (!html) html = '<div class="mx-none">No hay más mercados disponibles para este partido por ahora.</div>';
+    return html;
+  }
+  // Dibuja el diamante de béisbol con las 3 bases; la ocupada se ilumina.
+  function basesDiamondHTML(bases) {
+    bases = bases || {};
+    function baseStyle(on) {
+      return 'width:13px;height:13px;background:' + (on ? 'var(--accent)' : 'var(--surface)') + ';border:2px solid ' + (on ? 'var(--accent)' : 'var(--border-strong)') + ';transform:rotate(45deg);position:absolute;border-radius:2px;';
+    }
+    return '<div style="position:relative; width:42px; height:42px; flex-shrink:0;" aria-hidden="true">' +
+      '<div style="' + baseStyle(bases.second) + 'top:0; left:14px;"></div>' +
+      '<div style="' + baseStyle(bases.first) + 'top:15px; left:29px;"></div>' +
+      '<div style="' + baseStyle(bases.third) + 'top:15px; left:0;"></div>' +
+      '</div>';
+  }
+  // Fila compacta de "En vivo ahora": liga, marcador grande y a la
+  // derecha el detalle según el deporte (diamante + B-S-O en béisbol,
+  // reloj en NBA/NHL). Toca la fila para ir a la tarjeta completa.
+  function dotsRow(count, max, color) {
+    var out = '';
+    for (var i = 0; i < max; i++) out += '<span style="background:' + (i < count ? color : 'var(--surface)') + '; border:1px solid var(--border-strong);"></span>';
+    return out;
+  }
+  function liveRowRight(m) {
+    var d = (m.score && m.score.detail) || {};
+    if (m.sport === 'beisbol' || m.sport === 'lidom') {
+      var outs = typeof d.outs === 'number' ? d.outs : 0;
+      var balls = typeof d.balls === 'number' ? d.balls : 0;
+      var strikes = typeof d.strikes === 'number' ? d.strikes : 0;
+      return '<div style="display:flex; align-items:center; gap:8px;">' +
+        basesDiamondHTML(d.bases) +
+        '<div class="lrow-bso">' +
+        '<div class="lrow-bso-row">B <span class="lrow-bso-dots">' + dotsRow(balls, 4, 'var(--win)') + '</span></div>' +
+        '<div class="lrow-bso-row">S <span class="lrow-bso-dots">' + dotsRow(strikes, 3, 'var(--accent)') + '</span></div>' +
+        '<div class="lrow-bso-row">O <span class="lrow-bso-dots">' + dotsRow(outs, 3, 'var(--live)') + '</span></div>' +
+        '</div></div>';
+    }
+    if (m.sport === 'nhl') {
+      var nhlClock = d.inIntermission ? '—:—' : (d.clock || '--:--');
+      return '<div class="lrow-clock">' + esc(nhlClock) + '</div>';
+    }
+    if (m.sport === 'baloncesto') {
+      return '<div class="lrow-clock">' + esc(d.clock || '--:--') + '</div>';
+    }
+    return '';
+  }
+  function liveRowPeriodLabel(m) {
+    var d = (m.score && m.score.detail) || {};
+    if (m.sport === 'beisbol' || m.sport === 'lidom') {
+      if (!d.inning) return '';
+      var half = d.half === 'Top' ? 'Alta' : d.half === 'Bottom' ? 'Baja' : d.half === 'Middle' ? 'Entre' : d.half === 'End' ? 'Fin' : '';
+      return (half ? half + ' ' : '') + d.inning + 'ª entrada';
+    }
+    if (m.sport === 'nhl') {
+      if (!d.period) return '';
+      return d.periodType === 'OT' ? 'OT' : d.periodType === 'SO' ? 'Tanda de penales' : d.period + 'do período';
+    }
+    if (m.sport === 'baloncesto') {
+      if (!d.quarter) return '';
+      return d.quarterLabel || (d.quarter + 'to cuarto');
+    }
+    return m.score && m.score.period ? m.score.period : '';
+  }
+  function liveRowHTML(m) {
+    var league = (SPORT_ICON[m.sport] || '🏟️') + ' ' + (SPORT_LABELS[m.sport] || m.sportLabel || '');
+    var sc = m.score || {};
+    var open = !!state.expandedLiveRow[m.id];
+    var html = '<div class="lrow" data-live-row-toggle="' + esc(m.id) + '" style="cursor:pointer;">' +
+      '<div class="lrow-head"><span class="lrow-league">' + esc(league) + '</span><span class="lrow-period">' + esc(liveRowPeriodLabel(m)) + '</span></div>' +
+      '<div class="lrow-body">' +
+      '<div class="lrow-teams">' +
+      '<div class="lrow-team"><span class="mc-badge" style="' + badgeStyle(teamBadge(m.away)) + '">' + esc(teamBadge(m.away).abbr) + '</span><span class="nm">' + esc(m.away) + '</span><span class="sc">' + esc(sc.away !== undefined ? sc.away : '0') + '</span></div>' +
+      '<div class="lrow-team"><span class="mc-badge" style="' + badgeStyle(teamBadge(m.home)) + '">' + esc(teamBadge(m.home).abbr) + '</span><span class="nm">' + esc(m.home) + '</span><span class="sc">' + esc(sc.home !== undefined ? sc.home : '0') + '</span></div>' +
+      '</div>' +
+      liveRowRight(m) +
+      '<span class="lrow-chevron">' + (open ? '︿' : '›') + '</span>' +
+      '</div>';
+    // NBA: los líderes se abren dentro del mismo cuadro (un solo cuadro).
+    if (open && m.sport === 'baloncesto') return html + leadersHTML(m) + '</div>';
+    html += '</div>';
+    if (open) html += matchCard(m);
+    return html;
+  }
+  // Líderes del partido (NBA): puntos, rebotes y asistencias de cada equipo,
+  // tal como los publica ESPN. Solo se muestran si el servidor los mandó.
+  function leadersHTML(m) {
+    if (m.sport !== 'baloncesto') return '';
+    var L = m.score && m.score.detail && m.score.detail.leaders;
+    var html = '<div class="ldr"><div class="ldr-title">📊 Líderes del partido</div>';
+    if (!L || (!L.home && !L.away)) return html + '<div class="ldr-empty">Las estadísticas de los jugadores aparecen en unos minutos.</div><button type="button" class="ldr-more" data-stats-open="' + esc(m.id) + '">📋 Ver estadísticas completas</button></div>';
+    var ba = teamBadge(m.away), bh = teamBadge(m.home);
+    html += '<div class="ldr-head"><span><b class="mc-badge" style="' + badgeStyle(ba) + '">' + esc(ba.abbr) + '</b></span><span></span><span><b class="mc-badge" style="' + badgeStyle(bh) + '">' + esc(bh.abbr) + '</b></span></div>';
+    [['points', 'Puntos'], ['rebounds', 'Rebotes'], ['assists', 'Asistencias']].forEach(function (c) {
+      var a = (L.away || {})[c[0]], h = (L.home || {})[c[0]];
+      html += '<div class="ldr-row">' +
+        '<div class="ldr-side">' + (a ? '<b>' + esc(a.value) + '</b><span>' + esc(a.name) + '</span>' : '<span>—</span>') + '</div>' +
+        '<div class="ldr-cat">' + c[1] + '</div>' +
+        '<div class="ldr-side r">' + (h ? '<b>' + esc(h.value) + '</b><span>' + esc(h.name) + '</span>' : '<span>—</span>') + '</div>' +
+        '</div>';
+    });
+    return html + '<button type="button" class="ldr-more" data-stats-open="' + esc(m.id) + '">📋 Ver estadísticas completas</button></div>';
+  }
+  // Línea de "tiempo/entrada + información del juego", siempre a partir
+  // de lo que mandó el servidor (que a su vez viene de la fuente oficial
+  // de cada deporte) — nunca un reloj inventado en el navegador.
+  function liveDetailHTML(m) {
+    if (m.score && m.score.estadoDetallado && !(m.live && m.score.detail)) {
+      return '<div class="mx-none" style="padding:6px 0 0; color:var(--live); font-weight:700; text-align:left;">' + esc(m.score.estadoDetallado) + '</div>';
+    }
+    if (!m.live || !m.score || !m.score.detail) return '';
+    var d = m.score.detail;
+    if (m.sport === 'beisbol' || m.sport === 'lidom') {
+      if (!d.inning) return '';
+      var halfWord = d.half === 'Top' ? 'Alta' : d.half === 'Bottom' ? 'Baja' : d.half === 'Middle' ? 'Entre' : d.half === 'End' ? 'Fin' : '';
+      var outsCount = typeof d.outs === 'number' ? d.outs : 0;
+      var outsDots = '';
+      for (var oi = 0; oi < 3; oi++) {
+        outsDots += '<span style="display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:3px; background:' + (oi < outsCount ? 'var(--live)' : 'var(--surface)') + '; border:1px solid var(--border-strong);"></span>';
+      }
+      return '<div style="display:flex; align-items:center; gap:12px; padding:8px 0 2px;">' +
+        basesDiamondHTML(d.bases) +
+        '<div><div style="font-size:13px; font-weight:700;">' + esc((halfWord ? halfWord + ' ' : '') + d.inning + 'ª entrada') + '</div>' +
+        '<div style="font-size:11px; color:var(--text-faint); margin-top:3px;">Outs: ' + outsDots + '</div></div></div>';
+    }
+    if (m.sport === 'nhl') {
+      if (!d.period) return '';
+      var nhlLabel = d.periodType === 'OT' ? 'OT' : d.periodType === 'SO' ? 'Tanda de penales' : d.period + 'er período';
+      var nhlClock = d.inIntermission ? 'Intermedio' : (d.clock || '');
+      return '<div style="padding:8px 0 2px; font-size:14px; font-weight:700;">' + esc(nhlLabel) + (nhlClock ? ' · ' + esc(nhlClock) : '') + '</div>';
+    }
+    if (m.sport === 'baloncesto') {
+      if (!d.quarter) return '';
+      return '<div style="padding:8px 0 2px; font-size:14px; font-weight:700;">' + esc(d.quarterLabel || (d.quarter + 'er cuarto')) + (d.clock ? ' · ' + esc(d.clock) : '') + '</div>';
+    }
+    return '';
+  }
+  // Cuadrícula de la zona de strike: un punto numerado por cada
+  // lanzamiento del turno al bate actual, en su posición real. Viene tal
+  // cual de la fuente oficial (MLB) — no es un dibujo inventado.
+  function strikeZoneHTML(pitches) {
+    if (!pitches || !pitches.length) {
+      return '<div class="mx-none">Todavía no hay lanzamientos registrados en este turno.</div>';
+    }
+    var plateHalf = 0.9; // un poco más ancho que el plato real, para que quepan lanzamientos cercanos afuera
+    var html = '<div style="position:relative; width:150px; height:150px; margin:6px auto 4px; background:var(--surface); border:2px solid var(--border-strong); border-radius:4px; overflow:visible;">';
+    html += '<div style="position:absolute; left:33.33%; top:0; bottom:0; width:1px; background:var(--border);"></div>';
+    html += '<div style="position:absolute; left:66.66%; top:0; bottom:0; width:1px; background:var(--border);"></div>';
+    html += '<div style="position:absolute; top:33.33%; left:0; right:0; height:1px; background:var(--border);"></div>';
+    html += '<div style="position:absolute; top:66.66%; left:0; right:0; height:1px; background:var(--border);"></div>';
+    pitches.forEach(function (p, i) {
+      var zTop = (typeof p.szTop === 'number') ? p.szTop : 3.5;
+      var zBot = (typeof p.szBot === 'number') ? p.szBot : 1.5;
+      var xFrac = (p.px + plateHalf) / (plateHalf * 2);
+      var yFrac = 1 - ((p.pz - zBot) / (zTop - zBot || 1));
+      var isLast = i === pitches.length - 1;
+      var bg = p.isInPlay ? 'var(--win)' : p.isStrike ? 'var(--live)' : 'var(--accent)';
+      html += '<div style="position:absolute; left:' + (xFrac * 100).toFixed(1) + '%; top:' + (yFrac * 100).toFixed(1) + '%; transform:translate(-50%,-50%); width:22px; height:22px; border-radius:50%; background:' + bg + '; color:#fff; font-size:11px; font-weight:800; display:flex; align-items:center; justify-content:center; border:2px solid var(--bg-raised); box-shadow:0 0 0 ' + (isLast ? '2px var(--text)' : '0px transparent') + ';">' + (i + 1) + '</div>';
+    });
+    html += '</div>';
+    html += '<div style="text-align:center; font-size:11px; color:var(--text-faint);">Lanzamientos de este turno al bate (' + pitches.length + ')</div>';
+    return html;
+  }
+  function matchCard(m) {
+    var odds = m.odds || [];
+    var away = odds[2] || {}, draw = odds[1] || {}, home = odds[0] || {};
+    var unit = TOTAL_UNIT[m.sport] || 'total';
+    var league = '<span class="ic">' + (SPORT_ICON[m.sport] || '🏟️') + '</span>' + esc(SPORT_LABELS[m.sport] || m.sportLabel || '');
+    var status = '';
+    if (m.live) status = '<span class="live-tag"><i></i>EN VIVO' + (m.score && m.score.period ? ' · ' + esc(m.score.period) : '') + '</span>';
+    else if (m.finished) status = '<span class="live-tag" style="background:var(--surface); color:var(--text-dim);">FINAL</span>';
+    else if (m.startAt) {
+      var minsToStart = (new Date(m.startAt).getTime() - nowMs()) / 60000;
+      if (minsToStart > 0 && minsToStart <= 15) {
+        status = '<span class="live-tag" style="background: rgba(240,20,70,.14); color:var(--accent);"><i style="background:var(--accent);"></i>EN CALENTAMIENTO</span>';
+      }
+    }
+    var html = '<article class="mcard" id="mc-' + esc(m.id) + '">';
+    html += '<div class="mc-head"><span class="mc-league">' + league + '</span>' + (status || '<span class="mc-time">' + esc(m.time || '') + '</span>') + '</div>';
+    if (status) html += '<div class="mc-time" style="text-align:left;margin:-4px 0 6px;">' + esc(m.time || '') + '</div>';
+    html += '<div class="mc-teams">' + teamRow(m.away, (m.live || m.finished) && m.score ? m.score.away : undefined) + teamRow(m.home, (m.live || m.finished) && m.score ? m.score.home : undefined) + '</div>';
+    html += liveDetailHTML(m);
+    if (m.live && (m.sport === 'beisbol' || m.sport === 'lidom') && m.score && m.score.detail) {
+      var zoneOpen = !!state.expandedZone[m.id];
+      html += '<button type="button" class="mc-more" data-zone-more="' + esc(m.id) + '" style="margin-top:8px;">' + (zoneOpen ? '🎯 Ocultar zona de strike ▴' : '🎯 Ver zona de strike ▾') + '</button>';
+      html += '<div class="mc-extra' + (zoneOpen ? ' open' : '') + '" id="sz-' + esc(m.id) + '">' + strikeZoneHTML(m.score.detail.pitches) + '</div>';
+    }
+
+    if (m.finished) {
+      html += '<div class="mx-none" style="padding-top:2px;">Partido finalizado — ya no se pueden hacer apuestas.</div>';
+      if (m.sport === 'baloncesto') html += '<button type="button" class="ldr-more" data-stats-open="' + esc(m.id) + '">📋 Ver estadísticas completas</button>';
+      html += '</article>';
+      return html;
+    }
+    if (isBettingClosed(m)) {
+      html += '<div class="mx-none" style="padding-top:2px; color:var(--live); font-weight:800; letter-spacing:.3px;">APUESTAS CERRADAS — PARTIDO EN JUEGO</div>';
+      html += '</article>';
+      return html;
+    }
+
+    var winner = [oddBtn(m.id + '-ml-2', m.away, away.v, m, m.away)];
+    if (draw.v) winner.push(oddBtn(m.id + '-ml-1', 'Empate', draw.v, m, 'Empate'));
+    winner.push(oddBtn(m.id + '-ml-0', m.home, home.v, m, m.home));
+    html += mkRow('Ganador', winner);
+
+    if (m.handicap) {
+      var hA = m.handicap.awayLine, hH = m.handicap.homeLine;
+      var lA = (hA > 0 ? '+' : '') + hA, lH = (hH > 0 ? '+' : '') + hH;
+      html += mkRow('Hándicap', [
+        oddBtn(m.id + '-hcap-away', 'Hándicap ' + lA, m.handicap.awayOdds, m, lA),
+        oddBtn(m.id + '-hcap-home', 'Hándicap ' + lH, m.handicap.homeOdds, m, lH)
+      ]);
+    }
+    if (m.total) {
+      html += mkRow('Total', [
+        oddBtn(m.id + '-tot-over', 'Más ' + m.total.line + ' ' + unit, m.total.over, m, 'Más ' + m.total.line),
+        oddBtn(m.id + '-tot-under', 'Menos ' + m.total.line + ' ' + unit, m.total.under, m, 'Menos ' + m.total.line)
+      ]);
+    }
+    var open = !!state.expanded[m.id];
+    html += '<button type="button" class="mc-more" data-more="' + esc(m.id) + '">' + (open ? 'Ocultar mercados ▴' : 'Ver mercados ▾') + '</button>';
+    html += '<div class="mc-extra' + (open ? ' open' : '') + '" id="ex-' + esc(m.id) + '">' + extraHTML(m) + '</div>';
+    html += '</article>';
+    return html;
+  }
+  function chipsHTML() {
+    var items = [['all', 'Todos'], ['beisbol', 'MLB'], ['lidom', 'LIDOM'], ['baloncesto', 'NBA'], ['nfl', 'NFL'], ['nhl', 'NHL']];
+    return '<div class="chips">' + items.map(function (c) {
+      return '<button type="button" class="chip' + (state.sport === c[0] ? ' active' : '') + '" data-sport="' + c[0] + '">' + c[1] + '</button>';
+    }).join('') + '</div>';
+  }
+  function emptyHTML(icon, text, extra) {
+    return '<div class="empty"><span class="big">' + icon + '</span>' + text + (extra || '') + '</div>';
+  }
+
+  /* ---------- Vistas ---------- */
+  function popularMatches() {
+    var arr = state.matches.filter(function (m) { return !isBettingClosed(m); });
+    arr.sort(function (a, b) { return ((b.live ? 2 : 0) + (b.featured ? 1 : 0)) - ((a.live ? 2 : 0) + (a.featured ? 1 : 0)); });
+    return arr.slice(0, 3);
+  }
+  function unseenWins() { return state.winDismissed ? [] : state.history.filter(function (h) { return betStatusMeta(h).cls === 'won' && h.winSeen === false; }); }
+  function winBannerHTML() {
+    var w = unseenWins(); if (!w.length) return '';
+    var total = w.reduce(function (a, h) { return a + (Number(h.payout) || 0); }, 0);
+    return '<div class="win-banner" role="status"><span class="wb-ic">🎉</span><div class="wb-txt"><b>¡Ganaste ' + fmtMoney(total) + '!</b><span>' + (w.length === 1 ? esc(w[0].desc) : w.length + ' apuestas ganadas') + ' · ya está en tu saldo</span></div><button type="button" data-win-ok="1">¡Bien!</button></div>';
+  }
+  function comboList() {
+    var open = state.matches.filter(function (m) { return !isBettingClosed(m) && m.odds && m.odds[0] && m.odds[0].v && m.odds[2] && m.odds[2].v; });
+    open.sort(function (a, b) { return (Date.parse(a.startAt) || 0) - (Date.parse(b.startAt) || 0); });
+    function fav(m) {
+      var h = americanToDecimal(m.odds[0].v), a = americanToDecimal(m.odds[2].v);
+      return h <= a ? { id: m.id + '-ml-0', key: m.home, odds: m.odds[0].v, m: m } : { id: m.id + '-ml-2', key: m.away, odds: m.odds[2].v, m: m };
+    }
+    var combos = [];
+    if (open.length >= 2) combos.push({ name: 'Favoritos del día', legs: open.slice(0, 2).map(fav) });
+    if (open.length >= 3) combos.push({ name: 'Triple de favoritos', legs: open.slice(0, 3).map(fav) });
+    return combos;
+  }
+  function combosHTML() {
+    var combos = comboList(); if (!combos.length) return '';
+    var html = '<div class="sec-title">🎯 Combinadas populares</div>';
+    combos.forEach(function (c, i) {
+      var dec = c.legs.reduce(function (a, l) { return a * americanToDecimal(l.odds); }, 1);
+      html += '<div class="combo"><div class="combo-head"><b>' + esc(c.name) + '</b><span class="od">' + dec.toFixed(2) + '</span></div>' +
+        c.legs.map(function (l) { return '<div class="combo-leg"><span>' + esc(l.m.away) + ' vs ' + esc(l.m.home) + '</span><span>' + esc(l.key) + ' · ' + dispOdds(l.odds) + '</span></div>'; }).join('') +
+        '<div class="combo-foot"><small>$10 paga ' + fmtMoney(10 * dec) + '</small><button type="button" data-combo="' + i + '">Agregar al boleto</button></div></div>';
+    });
+    return html;
+  }
+  function favsHTML() {
+    if (!state.favs.length) return '';
+    var list = state.matches.filter(function (m) { return !m.finished && (isFav(m.home) || isFav(m.away)); });
+    var html = '<div class="sec-title">⭐ Tus equipos</div>';
+    if (!list.length) return html + '<p class="sec-sub">Tus equipos favoritos no juegan pronto. Te los mostramos aquí cuando tengan partido.</p>';
+    list.forEach(function (m) {
+      html += '<button type="button" class="pop" data-goto="' + esc(m.id) + '"><span class="pop-rank">⭐</span><span class="pop-main"><span class="pop-teams">' + esc(m.away) + ' vs ' + esc(m.home) + '</span>' +
+        '<span class="pop-sub">' + esc((SPORT_ICON[m.sport] || '') + ' ' + (SPORT_LABELS[m.sport] || m.sportLabel || '')) + ' · ' + (m.live ? '🔴 En vivo' : esc(m.time || '')) + '</span></span><span class="pop-go">Ver ›</span></button>';
+    });
+    return html;
+  }
+  function resultsHTML() {
+    var list = state.matches.filter(function (m) { return m.finished && (state.sport === 'all' || m.sport === state.sport); });
+    var html = '<div class="sec-title">🏁 Resultados<span class="count">' + list.length + ' partidos</span></div><p class="sec-sub">Partidos terminados y su marcador final.</p>';
+    if (!list.length) return html + emptyHTML('🏁', 'Todavía no hay partidos terminados.');
+    list.forEach(function (m) {
+      var sa = m.score ? Number(m.score.away) : NaN, sh = m.score ? Number(m.score.home) : NaN;
+      function row(name, sc, win) { var b = teamBadge(name); return '<div class="res-team' + (win ? ' w' : '') + '"><span class="mc-badge" style="' + badgeStyle(b) + '">' + esc(b.abbr) + '</span><span class="nm">' + esc(name) + '</span><span class="sc">' + (isNaN(sc) ? '—' : sc) + '</span></div>'; }
+      html += '<div class="res-card"><div class="res-head"><b>' + esc((SPORT_ICON[m.sport] || '') + ' ' + (SPORT_LABELS[m.sport] || m.sportLabel || '')) + '</b><span>Final · ' + esc(m.time || '') + '</span></div>' +
+        row(m.away, sa, sa > sh) + row(m.home, sh, sh > sa) +
+        (m.sport === 'baloncesto' ? '<button type="button" class="ldr-more" data-stats-open="' + esc(m.id) + '">📋 Ver estadísticas completas</button>' : '') + '</div>';
+    });
+    return html;
+  }
+  function homeHTML() {
+    var list = state.matches.filter(function (m) { return (state.sport === 'all' || m.sport === state.sport) && !isBettingClosed(m); });
+    var html = winBannerHTML() + chipsHTML();
+    if (state.sport === 'all') html += favsHTML();
+    if (state.sport === 'all' && state.matches.length) {
+      html += '<div class="sec-title">🔥 Más jugados</div>';
+      popularMatches().forEach(function (m) {
+        html += '<button type="button" class="pop" data-goto="' + esc(m.id) + '"><span class="pop-rank">🔥</span><span class="pop-main"><span class="pop-teams">' + esc(m.away) + ' vs ' + esc(m.home) + '</span>' +
+          '<span class="pop-sub">' + esc((SPORT_ICON[m.sport] || '') + ' ' + (SPORT_LABELS[m.sport] || m.sportLabel || '')) + ' · ' + (m.live ? '🔴 En vivo' : esc(m.time || '')) + '</span></span><span class="pop-go">Ver ›</span></button>';
+      });
+    }
+    if (state.sport === 'all') html += combosHTML();
+    html += '<div class="sec-title">Partidos<span class="count">' + list.length + (list.length === 1 ? ' partido' : ' partidos') + '</span></div>';
+    if (!list.length) {
+      html += state.matches.length ? emptyHTML('🔎', 'No hay partidos en esta categoría por ahora.') : emptyHTML('⚾', 'Aún no hay partidos disponibles.<br>Vuelve pronto, estamos preparando las líneas.');
+    } else {
+      list.forEach(function (m) { html += matchCard(m); });
+    }
+    return html;
+  }
+  function liveHTML() {
+    var live = state.matches.filter(function (m) { return m.live; });
+    var soon = state.matches.filter(function (m) { return !isBettingClosed(m) && /^hoy/i.test(m.time || ''); });
+    var finished = state.matches.filter(function (m) { return m.finished; });
+    var html = '<div class="sec-title">🔴 En vivo ahora<span class="count">' + live.length + '</span></div>';
+    if (live.length) live.forEach(function (m) { html += liveRowHTML(m); });
+    else html += emptyHTML('📡', 'No hay partidos en vivo en este momento.');
+    if (soon.length) {
+      html += '<div class="sec-title">⏱️ Comienzan hoy<span class="count">' + soon.length + '</span></div>';
+      soon.forEach(function (m) { html += matchCard(m); });
+    }
+    if (finished.length) {
+      html += '<div class="sec-title">✅ Finalizados<span class="count">' + finished.length + '</span></div>';
+      finished.forEach(function (m) { html += matchCard(m); });
+    }
+    return html;
+  }
+  function openBets() {
+    return state.history.filter(function (h) { return !h.status || h.status === 'pending'; });
+  }
+  function betStatusMeta(h) {
+    var s = (h.status || 'pending').toLowerCase();
+    if (s === 'won' || s === 'ganada' || s === 'ganado') return { cls: 'won', label: 'Ganada' };
+    if (s === 'lost' || s === 'perdida' || s === 'perdido') return { cls: 'lost', label: 'Perdida' };
+    if (s === 'void' || s === 'push' || s === 'reembolsada') return { cls: 'void', label: 'Reembolsada' };
+    if (s === 'cashout') return { cls: 'cash', label: 'Cobrada' };
+    return { cls: '', label: 'Pendiente' };
+  }
+  function betsHTML() {
+    var html = winBannerHTML() + '<div class="sec-title">🎟️ Mis apuestas<span class="count">' + openBets().length + ' abiertas</span></div>';
+    if (!state.user) {
+      return html + emptyHTML('🔒', 'Entra a tu cuenta para ver tus apuestas.', '<br><button type="button" class="btn primary btn-inline" data-act="login">Entrar</button>');
+    }
+    if (!state.history.length) return html + emptyHTML('🎟️', 'Aún no tienes apuestas.<br>Elige una cuota en un partido para empezar.');
+    state.history.forEach(function (h) {
+      var meta = betStatusMeta(h);
+      var isParlay = /^Combinada/i.test(h.desc || '');
+      var mult = h.stake ? (Number(h.payout) / Number(h.stake)) : 0;
+      html += '<div class="bet"><div class="bet-top"><div class="bet-desc">' + esc(h.desc) + '</div><span class="pill' + (meta.cls ? ' ' + meta.cls : '') + '">' + esc(meta.label) + '</span></div>' +
+        '<div class="bet-match">' + esc(h.date) + '</div>';
+      if (isParlay && h.match) {
+        html += '<div class="bet-legs">' + h.match.split(' · ').map(function (leg) {
+          var parts = leg.split('@@@');
+          if (parts.length === 3) {
+            return '<div class="bet-leg"><span class="bet-leg-txt">🎯 ' + esc(parts[0]) + '</span><span class="bet-leg-o"><span class="pk">' + esc(parts[1]) + '</span><span class="od">@' + esc(parts[2]) + '</span></span></div>';
+          }
+          var mOdd = leg.match(/\s@([\d.]+)$/);
+          var txt = mOdd ? leg.slice(0, mOdd.index) : leg;
+          var oddTxt = mOdd ? mOdd[1] : '';
+          return '<div class="bet-leg"><span class="bet-leg-txt">🎯 ' + esc(txt) + '</span>' + (oddTxt ? '<span class="bet-leg-o"><span class="od">@' + esc(oddTxt) + '</span></span>' : '') + '</div>';
+        }).join('') + '</div>';
+      } else {
+        html += '<div class="bet-match" style="margin-top:2px;">' + esc(h.match) + '</div>';
+      }
+      html += '<div class="bet-foot"><span>Apostó ' + fmtMoney(h.stake) + (mult ? ' · ' + mult.toFixed(2) + '×' : '') + '</span>' +
+        (meta.cls === 'won' ? '<b>' + fmtMoney(h.payout) + '</b>' : meta.cls === 'cash' ? '<span>Cobraste <b>' + fmtMoney(h.payout) + '</b></span>' : meta.cls === '' ? '<span>Gana <b>' + fmtMoney(Math.max(0, Number(h.payout) - Number(h.stake))) + '</b></span>' : '') + '</div>';
+      if (meta.cls === '' && h.id && typeof h.cashout === 'number') {
+        if (state.cashoutConfirm === h.id) {
+          html += '<div class="co-row"><button type="button" class="btn" data-cashout-no="1">Cancelar</button><button type="button" class="btn primary" data-cashout-go="' + esc(h.id) + '">Cobrar $' + h.cashout.toFixed(2) + '</button></div>' +
+            '<div class="co-note">Recibes $' + h.cashout.toFixed(2) + ' ahora y la apuesta se cierra.</div>';
+        } else {
+          html += '<button type="button" class="co-btn" data-cashout="' + esc(h.id) + '">💵 Cobrar ahora · $' + h.cashout.toFixed(2) + '</button>';
+        }
+      }
+      html += '</div>';
+    });
+    return html;
+  }
+  var PERIOD_LABEL = { day: 'diario', week: 'semanal', month: 'mensual' };
+  var PERIOD_SHORT = { day: 'hoy', week: 'esta semana', month: 'este mes' };
+  async function loadExtras() {
+    var lim = await apiGet('/api/limits');
+    if (lim) { state.limits = { period: lim.period || 'day', amount: Number(lim.amount) || 0, used: Number(lim.used) || 0 }; }
+    var vf = await apiGet('/api/verify');
+    if (vf && vf.status) state.verify = vf;
+    state.withdrawals = (await apiGet('/api/withdrawals')) || [];
+    var pm = await apiGet('/api/payout-method'); state.payoutLabel = pm ? pm.label : null;
+    state.extrasLoaded = true;
+  }
+  function limitLeft() { return state.limits.amount ? Math.max(0, state.limits.amount - state.limits.used) : Infinity; }
+  function cashierHTML() {
+    if (state.user && !state.extrasLoaded) { loadExtras().then(function () { if (state.view === 'cashier') renderView(); }); }
+    if (!state.user) return '<div class="cj-title">Cajero</div>' + emptyHTML('🔒', 'Entra a tu cuenta para depositar o retirar.', '<br><button type="button" class="btn primary btn-inline" data-act="login">Entrar</button>');
+    var inPlay = openBets().reduce(function (a, h) { return a + (Number(h.stake) || 0); }, 0);
+    var bal = Number(state.balance) || 0;
+    var pendW = state.withdrawals.filter(function (w) { return w.status === 'pending'; }).reduce(function (a, w) { return a + w.amount; }, 0);
+    function money(n) { var v = Number(n) || 0; return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+    var ic = {
+      dep: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><path d="M6 10v10h12V10M12 18v-6M9.5 14.5L12 12l2.5 2.5"/></svg>',
+      wd: '<svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="6" rx="1.5"/><path d="M6 10v10h12V10M12 12v6M9.5 15.5L12 18l2.5-2.5"/></svg>',
+      hist: '<svg viewBox="0 0 24 24"><path d="M3.5 12a8.5 8.5 0 1 0 2.5-6"/><path d="M3 4v4h4M12 8v4l3 2"/></svg>',
+      pay: '<svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="13" rx="2"/><path d="M3 10h18M7 15h4"/></svg>'
+    };
+    function tile(k, label, icon) { return '<button type="button" class="cj-tile' + (state.cashPanel === k ? ' on' : '') + '" data-cash="' + k + '">' + icon + '<span>' + label + '</span></button>'; }
+    var html = '<div class="cj-title">Cajero</div>';
+    html += '<div class="cj-card"><div class="cj-top"><span class="cj-label">Saldo disponible</span></div>' +
+      '<div class="cj-amount"><small>USD</small> ' + money(bal) + '</div>' +
+      '<div class="cj-rows">' +
+        '<div class="cj-row main"><span class="cj-flag"><i>$</i>USD</span><b>' + money(bal + inPlay) + '</b></div>' +
+        '<div class="cj-row cj-sub"><span>En juego</span><b>' + money(inPlay) + '</b></div>' +
+        '<div class="cj-row cj-sub"><span>Disponible para retirar</span><b>' + money(bal) + '</b></div>' +
+        (pendW > 0 ? '<div class="cj-row cj-sub"><span>Retiros en revisión</span><b>' + money(pendW) + '</b></div>' : '') +
+      '</div></div>';
+    var lim = state.limits;
+    html += '<button type="button" class="cj-limit" data-cash="limits">' + (lim.amount ? 'Tu límite ' + PERIOD_LABEL[lim.period] + ': $' + money(lim.amount) + ' · te quedan $' + money(limitLeft()) : 'Establecer tu límite de juego') + '</button>';
+    var vs = state.verify.status;
+    var vsTag = vs === 'verified' ? '<span class="st ok">VERIFICADO</span>' : vs === 'pending' ? '<span class="st pending">EN REVISIÓN</span>' : '<span class="st none">SIN VERIFICAR</span>';
+    var vsSub = vs === 'verified' ? 'Ya puedes retirar tus ganancias.' : 'Confirma que eres mayor de 18 años para retirar.';
+    html += '<button type="button" class="vf-status" data-cash="verify"><span><b>Verificación de edad</b><small>' + vsSub + '</small></span>' + vsTag + '</button>';
+    html += '<div class="cj-grid">' + tile('deposit', 'Depositar', ic.dep) + tile('withdraw', 'Retirar fondos', ic.wd) + tile('history', 'Historial de transacciones', ic.hist) + tile('methods', 'Métodos de pago', ic.pay) + '</div>';
+    var p = state.cashPanel;
+    if (p === 'withdraw' && state.verify.status !== 'verified') {
+      html += '<div class="cj-panel"><h3>Retirar fondos</h3><p>' + 'Antes de tu primer retiro confirma tu fecha de nacimiento.' + '</p>' +
+        '<button type="button" class="btn primary block" data-cash="verify">Verificar mi edad</button></div>';
+    } else if (p === 'withdraw' && !state.payoutLabel) {
+      html += '<div class="cj-panel"><h3>Retirar fondos</h3><p>Para cuidar tu dinero, los retiros se envían a la misma tarjeta o cuenta con la que depositaste. Haz tu primer depósito y luego podrás retirar ahí.</p><button type="button" class="btn primary block" data-cash="deposit">Depositar</button></div>';
+    } else if (p === 'deposit' || p === 'withdraw') {
+      var dep = p === 'deposit';
+      var amts = dep ? [25, 50, 100, 250] : [25, 50, 100, 'Todo'];
+      html += '<div class="cj-panel"><h3>' + (dep ? 'Depositar' : 'Retirar fondos') + '</h3>' +
+        '<p>' + (dep ? (state.limits.amount ? 'Puedes depositar hasta $' + money(limitLeft()) + ' ' + PERIOD_SHORT[state.limits.period] + ' por tu límite.' : 'Escoge cuánto quieres añadir a tu saldo.') : 'Puedes retirar hasta $' + money(bal) + '.') + '</p>' +
+        '<div class="cj-amts">' + amts.map(function (a) { var v = a === 'Todo' ? Math.floor(bal) : a; return '<button type="button" data-amt="' + v + '" class="' + (Number(state.cashAmt) === v ? 'on' : '') + '">' + (a === 'Todo' ? 'Todo' : '$' + a) + '</button>'; }).join('') + '</div>' +
+        (dep ? '' : '<div class="pm" style="margin-bottom:12px;"><div class="pm-ic"><svg viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 9.5h19M6 15h4"/></svg></div><div class="pm-body"><div class="pm-meta" style="margin:0;">Se enviará a</div><div class="pm-name">' + esc(state.payoutLabel) + '</div><div class="pm-meta">La misma con la que depositaste</div></div></div>') +
+        '<label class="cj-input" for="cashAmt"><span>$</span><input id="cashAmt" type="number" inputmode="decimal" min="1" step="1" value="' + esc(state.cashAmt) + '"></label>' +
+        '<button type="button" class="btn primary block" data-cash-go="' + p + '">' + (dep ? 'Continuar al pago' : 'Solicitar retiro') + '</button>' +
+        '<div class="cj-note">' + (dep ? 'El pago se procesa de forma segura.' : 'Revisamos cada retiro antes de enviarlo. Normalmente toma menos de 24 horas.') + '</div></div>';
+    } else if (p === 'limits') {
+      var d = state.limitDraft || { period: state.limits.period, amount: state.limits.amount || '' };
+      state.limitDraft = d;
+      var usedPct = state.limits.amount ? Math.min(100, Math.round(state.limits.used / state.limits.amount * 100)) : 0;
+      html += '<div class="cj-panel"><h3>Juego responsable</h3><p>Pon un tope a lo que depositas para jugar con control.</p>';
+      html += '<h4>Límite de depósito</h4>';
+      if (state.limits.amount) html += '<div style="font-size:13px;color:var(--text-dim);">Llevas $' + money(state.limits.used) + ' de $' + money(state.limits.amount) + ' ' + PERIOD_SHORT[state.limits.period] + '</div><div class="meter"><i style="width:' + usedPct + '%"></i></div>';
+      html += '<div class="lim-seg" style="margin-top:10px;">' + ['day', 'week', 'month'].map(function (k) { return '<button type="button" data-lp="' + k + '" class="' + (d.period === k ? 'on' : '') + '">' + { day: 'Diario', week: 'Semanal', month: 'Mensual' }[k] + '</button>'; }).join('') + '</div>' +
+        '<label class="cj-input" for="limitAmt"><span>$</span><input id="limitAmt" type="number" inputmode="decimal" min="1" step="1" placeholder="Ej. 200" value="' + esc(d.amount) + '"></label>' +
+        '<button type="button" class="btn primary block" data-lim-save="1">Guardar límite</button>' +
+        (state.limits.amount ? '<button type="button" class="btn block" data-lim-save="0" style="margin-top:8px;">Quitar límite</button>' : '') +
+        '<div class="cj-note">Si bajas tu límite aplica enseguida. Si lo subes o lo quitas, el cambio aplica en 24 horas.</div>';
+      html += '</div>';
+    } else if (p === 'verify') {
+      html += '<div class="cj-panel"><h3>Verificar edad</h3>';
+      if (state.verify.status === 'verified') html += '<div class="ok-box">Tu cuenta está verificada. Ya puedes retirar.</div>';
+      else html += '<p>Lo pide la ley: tienes que ser mayor de 18 años para jugar y retirar.</p>' +
+          '<label class="fld" for="vfDob"><span>Fecha de nacimiento</span><input id="vfDob" type="date" value="' + esc(state.vfDraft.dob) + '"></label>' +
+          '<button type="button" class="btn primary block" data-vf-send="1">Verificar</button>';
+      html += '</div>';
+    } else if (p === 'methods') {
+      var pmIc = {
+        card: '<svg viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 9.5h19M6 15h4"/></svg>',
+        bank: '<svg viewBox="0 0 24 24"><path d="M3 9.5L12 4l9 5.5M5 10v7M9.5 10v7M14.5 10v7M19 10v7M3 20h18"/></svg>',
+        phone: '<svg viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>'
+      };
+      var methods = [
+        { ic: 'card', n: 'Stride', m: 'Pago seguro procesado por Stride', tags: ['Depositar', 'Retirar'] }
+      ];
+      html += '<div class="cj-panel"><h3>Métodos de pago</h3><p>Así podrás añadir dinero a tu saldo y cobrar tus ganancias.</p><div class="pm-list">' +
+        methods.map(function (x) {
+          return '<div class="pm"><div class="pm-ic">' + pmIc[x.ic] + '</div><div class="pm-body"><div class="pm-name">' + x.n + '</div><div class="pm-meta">' + x.m + '</div><div class="pm-tags">' + x.tags.map(function (t) { return '<span class="pm-tag">' + t + '</span>'; }).join('') + '</div></div><span class="pm-soon">PRONTO</span></div>';
+        }).join('') + '</div><div class="cj-note">Tus datos de pago los maneja Stride; RapiDeportes no guarda tu tarjeta.</div></div>';
+    } else if (p === 'history') {
+      var WST = { pending: ['EN REVISIÓN', 'pending'], approved: ['PAGADO', 'ok'], rejected: ['RECHAZADO', 'none'] };
+      var items = state.withdrawals.map(function (w) {
+        var st = WST[w.status] || WST.pending;
+        return '<div class="hist-row"><div><div>Retiro <span class="st ' + st[1] + '" style="margin-left:6px;">' + st[0] + '</span></div><div class="hist-meta">' + esc(w.date) + (w.note ? ' · ' + esc(w.note) : '') + '</div></div><b>-$' + money(w.amount) + '</b></div>';
+      }).concat(state.history.slice(0, 15).map(function (h) {
+        return '<div class="hist-row"><div><div>Apuesta · ' + esc(h.desc) + '</div><div class="hist-meta">' + esc(h.match) + ' · ' + esc(h.date) + '</div></div><b>-$' + money(h.stake) + '</b></div>';
+      }));
+      html += '<div class="cj-panel"><h3>Historial</h3>' + (items.length ? items.join('') : '<p style="margin:0;">Aún no tienes movimientos.</p>') + '</div>';
+    }
+    return html;
+  }
+  function promosHTML() {
+    return '<div class="sec-title">🎁 Promociones</div><p class="sec-sub">Ofertas pensadas para que juegues con más ventaja.</p>' +
+      '<div class="promo hero"><span class="em">🎉</span><span class="promo-tag">PRÓXIMAMENTE</span><h3>Bono de bienvenida</h3><p>Un impulso extra para tu primer depósito en RapiDeportes.</p>' + (state.user ? '<button type="button" class="promo-btn solid" data-act="deposit">Depositar ahora</button>' : '<button type="button" class="promo-btn solid" data-act="register">Crear mi cuenta</button>') + '<small>Aplican términos y condiciones.</small></div>' +
+      '<div class="promo"><span class="em">🚀</span><span class="promo-tag">PRÓXIMAMENTE</span><h3>Combinada Plus</h3><p>Arma tu combinada y recibe un extra en tu posible ganancia.</p><button type="button" class="promo-btn" data-view="home">Ver partidos</button><small>Aplican términos y condiciones.</small></div>' +
+      '<div class="promo"><span class="em">💸</span><span class="promo-tag">PRÓXIMAMENTE</span><h3>Cashback semanal</h3><p>Recupera una parte de lo apostado cada semana.</p><small>Aplican términos y condiciones.</small></div>' +
+      '<div class="promo"><span class="em">🤝</span><span class="promo-tag">PRÓXIMAMENTE</span><h3>Invita y gana</h3><p>Comparte RapiDeportes con tus amigos y gana recompensas.</p><small>Aplican términos y condiciones.</small></div>';
+  }
+  function searchShell() {
+    var quick = [['MLB', 'MLB'], ['LIDOM', 'LIDOM'], ['NBA', 'NBA'], ['NFL', 'NFL'], ['NHL', 'NHL']];
+    return '<div class="search-box"><span aria-hidden="true">🔍</span><input id="searchInput" type="search" placeholder="Buscar equipo, liga o partido" value="' + esc(state.searchQuery) + '" autocomplete="off" enterkeyhint="search"></div>' +
+      '<div class="chips">' + quick.map(function (q) { return '<button type="button" class="chip" data-q="' + esc(q[0]) + '">' + esc(q[1]) + '</button>'; }).join('') + '</div>' +
+      '<div id="searchResults"></div>';
+  }
+  function haystack(m) {
+    return normalize([m.home, m.away, m.sportLabel || '', SPORT_LABELS[m.sport] || '', m.sport || '', TEAM_ALIASES[m.home] || '', TEAM_ALIASES[m.away] || ''].join(' '));
+  }
+  function updateSearchResults() {
+    var box = $('searchResults');
+    if (!box) return;
+    var tokens = normalize(state.searchQuery).split(/\s+/).filter(function (t) { return t && t !== 'vs' && t !== 'vs.' && t !== 'contra' && t !== '@'; });
+    if (!tokens.length) {
+      box.innerHTML = '<p class="search-hint">Escribe el nombre de un equipo, una liga o un partido.<br>Ejemplos: <b>Yanquis</b>, <b>NFL</b>, <b>Licey vs Águilas</b>.</p>';
+      return;
+    }
+    var res = state.matches.filter(function (m) {
+      var h = haystack(m);
+      return tokens.every(function (t) { return h.indexOf(t) !== -1; });
+    });
+    var html = '<div class="sec-title">Resultados<span class="count">' + res.length + '</span></div>';
+    if (!res.length) html += emptyHTML('🔎', 'No encontramos partidos con “' + esc(state.searchQuery) + '”.');
+    else res.forEach(function (m) { html += matchCard(m); });
+    box.innerHTML = html;
+  }
+
+  function syncNav() {
+    Array.prototype.forEach.call(document.querySelectorAll('.bn-item'), function (b) {
+      b.classList.toggle('active', b.dataset.view === state.view);
+    });
+    Array.prototype.forEach.call(document.querySelectorAll('.dr-main [data-view]'), function (b) {
+      b.classList.toggle('active', b.dataset.view === state.view);
+    });
+  }
+  function renderView() {
+    var app = $('app'), v = state.view;
+    if (v === 'home') app.innerHTML = homeHTML();
+    else if (v === 'live') app.innerHTML = liveHTML();
+    else if (v === 'bets') app.innerHTML = betsHTML();
+    else if (v === 'promos') app.innerHTML = promosHTML();
+    else if (v === 'cashier') app.innerHTML = cashierHTML();
+    else if (v === 'results') app.innerHTML = chipsHTML() + resultsHTML();
+    else if (v === 'search') { app.innerHTML = searchShell(); updateSearchResults(); }
+    syncNav();
+  }
+  function setView(v, focusSearch) {
+    state.view = v;
+    renderView();
+    window.scrollTo(0, 0);
+    if (v === 'search' && focusSearch) { var i = $('searchInput'); if (i) i.focus(); }
+  }
+  function goToMatch(id) {
+    var found = state.matches.filter(function (m) { return String(m.id) === String(id); })[0];
+    if (state.view !== 'home' || (found && state.sport !== 'all' && found.sport !== state.sport)) {
+      state.view = 'home'; state.sport = 'all'; renderView();
+    }
+    var el = document.getElementById('mc-' + id);
+    if (!el) return;
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    el.classList.add('flash');
+    setTimeout(function () { el.classList.remove('flash'); }, 1700);
+  }
+
+  /* ---------- Encabezado / cuenta ---------- */
+  function updateHeader() {
+    var el = $('topActions');
+    if (state.user) {
+      el.innerHTML = '<button type="button" class="bal" data-act="account" aria-label="Mi cuenta"><small>Saldo</small><b>' + fmtMoney(state.balance) + '<i>›</i></b></button>' +
+        '<button type="button" class="hbtn gold" data-act="deposit">Depositar</button>' +
+        '<button type="button" class="hbtn ghost" data-act="account">Cuenta</button>';
+    } else {
+      el.innerHTML = '<button type="button" class="hbtn ghost" data-act="login">Entrar</button><button type="button" class="hbtn gold" data-act="register">Regístrate</button>';
+    }
+  }
+  function updateBadge() {
+    var n = state.user ? openBets().length : 0;
+    var b = $('betsBadge');
+    b.textContent = n > 99 ? '99+' : n;
+    b.style.display = n > 0 ? 'flex' : 'none';
+  }
+  function afterUserChange() {
+    state.extrasLoaded = false; state.verify = { status: 'none' }; state.limits = { period: 'day', amount: 0, used: 0 };
+    updateHeader(); updateBadge();
+    if (state.view === 'bets') renderView();
+  }
+
+  var authMode = 'login';
+  function openAuth(mode) {
+    authMode = mode; state.authMode = mode;
+    $('authTitle').textContent = mode === 'login' ? 'Bienvenido de vuelta' : 'Crea tu cuenta';
+    $('authSub').textContent = mode === 'login' ? 'Entra para ver tu saldo y tus apuestas.' : 'Regístrate para empezar a jugar.';
+    $('authSubmit').textContent = mode === 'login' ? 'Entrar' : 'Crear cuenta';
+    $('authSwitchText').textContent = mode === 'login' ? '¿No tienes cuenta?' : '¿Ya tienes cuenta?';
+    $('authSwitchBtn').textContent = mode === 'login' ? 'Regístrate' : 'Entra';
+    $('authEmailErr').style.display = 'none';
+    $('authPassErr').style.display = 'none';
+    $('authPass').setAttribute('autocomplete', mode === 'login' ? 'current-password' : 'new-password');
+    openOv('authOverlay');
+  }
+  function renderAccount() {
+    $('acctEmail').textContent = state.user ? state.user.email : '';
+    $('acctBalanceN').textContent = fmtMoney(state.balance);
+    var list = $('acctHistoryList');
+    if (!state.history.length) {
+      list.innerHTML = '<p style="color:var(--text-faint);font-size:13px;">Aún no tienes apuestas.</p>';
+    } else {
+      list.innerHTML = state.history.slice(0, 12).map(function (h) {
+        return '<div class="hist-row"><div><div>' + esc(h.desc) + '</div><div class="hist-meta">' + esc(h.match) + ' · ' + esc(h.date) + '</div></div><b>' + fmtMoney(h.stake) + '</b></div>';
+      }).join('');
+    }
+  }
+  function openAccount() {
+    if (!state.user) { openAuth('login'); return; }
+    renderAccount(); openOv('acctOverlay');
+  }
+  function openInfo(key) {
+    var d = INFO[key]; if (!d) return;
+    $('infoTitle').textContent = d.t;
+    $('infoBody').innerHTML = d.p.map(function (p) { return '<p>' + esc(p) + '</p>'; }).join('');
+    openOv('infoOverlay');
+  }
+  function doAct(act) {
+    if (act === 'login') openAuth('login');
+    else if (act === 'register') openAuth('register');
+    else if (act === 'deposit') { state.cashPanel = 'deposit'; setView('cashier'); }
+    else if (act === 'account') openAccount();
+  }
+
+  /* ---------- Boleto ---------- */
+  function slipKeys() { return Object.keys(state.slip); }
+  function syncSelected() {
+    Array.prototype.forEach.call(document.querySelectorAll('.odd[data-selid]'), function (b) {
+      b.classList.toggle('sel', !!state.slip[b.dataset.selid]);
+    });
+  }
+  function toggleSelection(btn) {
+    var id = btn.dataset.selid;
+    if (state.slip[id]) delete state.slip[id];
+    else state.slip[id] = { id: id, odds: btn.dataset.odds, key: btn.dataset.key, home: btn.dataset.home, away: btn.dataset.away, stake: 100 };
+    syncSelected();
+    renderSlip();
+  }
+  function updateSlipBar() {
+    var n = slipKeys().length;
+    $('slipBar').style.display = n ? 'flex' : 'none';
+    $('slipCount').textContent = n;
+    document.body.classList.toggle('has-slip', n > 0);
+  }
+  function computeSlip() {
+    var keys = slipKeys(), totalStake = 0, totalPayout = 0, per = {};
+    if (state.slipMode === 'parlay') {
+      var dec = 1;
+      keys.forEach(function (k) { dec *= americanToDecimal(state.slip[k].odds); });
+      totalStake = state.parlayStake; totalPayout = state.parlayStake * dec;
+    } else {
+      keys.forEach(function (k) {
+        var s = state.slip[k];
+        var p = americanToPayout(s.odds, s.stake) + s.stake;
+        per[k] = p; totalStake += s.stake; totalPayout += p;
+      });
+    }
+    return { totalStake: totalStake, totalPayout: totalPayout, per: per };
+  }
+  function refreshTotals() {
+    var c = computeSlip();
+    $('slipStakeTotal').textContent = fmtMoney(c.totalStake);
+    $('slipProfitTotal').textContent = fmtMoney(Math.max(0, c.totalPayout - c.totalStake));
+    $('slipPayoutTotal').textContent = fmtMoney(c.totalPayout);
+    slipKeys().forEach(function (k, i) {
+      var el = $('pay-' + i);
+      if (el && c.per[k] !== undefined) el.innerHTML = 'Gana <b>' + fmtMoney(Math.max(0, c.per[k] - state.slip[k].stake)) + '</b>';
+    });
+  }
+  function renderSlip() {
+    updateSlipBar();
+    var body = $('slipBody'), foot = $('slipFoot'), keys = slipKeys();
+    if (!keys.length) {
+      body.innerHTML = '<div class="empty" style="padding:26px 10px;">Elige una cuota para empezar tu boleto.</div>';
+      foot.style.display = 'none';
+      if ($('slipOverlay').classList.contains('open')) closeOv('slipOverlay');
+      return;
+    }
+    var html = '';
+    keys.forEach(function (k, i) {
+      var s = state.slip[k];
+      html += '<div class="sl-item"><div class="sl-top"><div><div class="sl-desc">' + esc(s.key) + ' <span class="gold">' + dispOdds(s.odds) + '</span></div>' +
+        '<div class="sl-match">' + esc(s.away) + ' @ ' + esc(s.home) + '</div></div>' +
+        '<button type="button" class="sl-rm" data-rm="' + esc(k) + '" aria-label="Eliminar selección">&times;</button></div>';
+      if (state.slipMode === 'singles') {
+        html += '<div class="sl-stake"><label>Monto</label><input type="number" inputmode="decimal" min="1" step="10" value="' + s.stake + '" data-stake="' + esc(k) + '"><span class="sl-pay" id="pay-' + i + '"></span></div>';
+      }
+      html += '</div>';
+    });
+    if (state.slipMode === 'parlay') {
+      if (keys.length < 2) html += '<div class="hint">Elige al menos 2 selecciones para armar una combinada.</div>';
+      else html += '<div class="sl-item"><div class="sl-stake" style="margin-top:0"><label>Monto total</label><input type="number" inputmode="decimal" min="1" step="10" value="' + state.parlayStake + '" id="parlayStakeInput"></div></div>';
+    }
+    body.innerHTML = html;
+    foot.style.display = (state.slipMode === 'parlay' && keys.length < 2) ? 'none' : 'block';
+    refreshTotals();
+  }
+
+  async function placeBet() {
+    if (!state.user) { closeOv('slipOverlay'); openAuth('login'); showToast('Entra a tu cuenta para confirmar la apuesta.'); return; }
+    var keys = slipKeys();
+    if (!keys.length) return;
+    var betsToSend = [], totalStake = 0;
+    if (state.slipMode === 'parlay') {
+      if (keys.length < 2) { showToast('Necesitas al menos 2 cuotas para una combinada.'); return; }
+      var dec = 1, legs = [];
+      keys.forEach(function (k) {
+        var s2 = state.slip[k];
+        dec *= americanToDecimal(s2.odds);
+        var main2, right2;
+        if (/^Más /.test(s2.key)) { main2 = 'Total ' + s2.away + ' vs ' + s2.home; right2 = '> ' + s2.key.replace(/^Más /, '').split(' ')[0]; }
+        else if (/^Menos /.test(s2.key)) { main2 = 'Total ' + s2.away + ' vs ' + s2.home; right2 = '< ' + s2.key.replace(/^Menos /, '').split(' ')[0]; }
+        else if (/^Hándicap /.test(s2.key)) { main2 = 'Hándicap ' + s2.away + ' vs ' + s2.home; right2 = s2.key.replace(/^Hándicap /, ''); }
+        else { main2 = 'Ganador ' + s2.away + ' vs ' + s2.home; right2 = s2.key; }
+        legs.push(main2 + '@@@' + right2 + '@@@' + dispOdds(s2.odds));
+      });
+      var stake = state.parlayStake;
+      if (stake > state.balance) { showToast('Saldo insuficiente para esta apuesta.'); return; }
+      totalStake = stake;
+      betsToSend = [{ desc: 'Combinada (' + keys.length + ' selecciones)', match: legs.join(' · '), stake: stake, payout: stake * dec }];
+    } else {
+      keys.forEach(function (k) {
+        var s = state.slip[k];
+        totalStake += s.stake;
+        betsToSend.push({ desc: s.key + ' (' + dispOdds(s.odds) + ')', match: s.away + ' @ ' + s.home, stake: s.stake, payout: americanToPayout(s.odds, s.stake) + s.stake });
+      });
+      if (totalStake > state.balance) { showToast('Saldo insuficiente para esta apuesta.'); return; }
+    }
+    var res = await apiPost('/api/bets', { bets: betsToSend });
+    if (!res.ok) {
+      var errCode = res.data && res.data.error;
+      showToast(errCode === 'insufficient' ? 'Saldo insuficiente para esta apuesta.' : errCode === 'closed' ? 'APUESTAS CERRADAS — PARTIDO EN JUEGO' : 'No se pudo confirmar la apuesta.');
+      return;
+    }
+    var wasParlay = state.slipMode === 'parlay';
+    state.balance = res.data.balance;
+    state.history = (await apiGet('/api/bets')) || state.history;
+    state.slip = {};
+    syncSelected(); renderSlip(); closeOv('slipOverlay'); afterUserChange();
+    showToast((wasParlay ? 'Combinada confirmada por ' : 'Apuesta confirmada por ') + fmtMoney(totalStake) + '. Míralas en Mis apuestas.');
+  }
+
+  /* ---------- Eventos ---------- */
+  $('app').addEventListener('click', function (e) {
+    var t = e.target;
+    var odd = t.closest('.odd[data-selid]'); if (odd) { toggleSelection(odd); return; }
+    var fv = t.closest('[data-fav]');
+    if (fv) {
+      var nm = fv.dataset.fav, ix = state.favs.indexOf(nm);
+      if (ix >= 0) state.favs.splice(ix, 1); else state.favs.push(nm);
+      saveFavs(); showToast(ix >= 0 ? nm + ' ya no es favorito.' : '⭐ ' + nm + ' es tu favorito.');
+      var y = window.scrollY; renderView(); window.scrollTo(0, y); return;
+    }
+    var co = t.closest('[data-cashout]'); if (co) { state.cashoutConfirm = Number(co.dataset.cashout) || co.dataset.cashout; renderView(); return; }
+    if (t.closest('[data-cashout-no]')) { state.cashoutConfirm = null; renderView(); return; }
+    var coGo = t.closest('[data-cashout-go]');
+    if (coGo) {
+      coGo.disabled = true;
+      apiPost('/api/bets/' + encodeURIComponent(coGo.dataset.cashoutGo) + '/cashout', {}).then(async function (r) {
+        state.cashoutConfirm = null;
+        if (!r.ok) { showToast('Ya no se puede cobrar esta apuesta. El partido empezó o cambió.'); state.history = (await apiGet('/api/bets')) || state.history; renderView(); return; }
+        state.balance = r.data.balance; updateHeader();
+        state.history = (await apiGet('/api/bets')) || state.history;
+        showToast('Cobraste ' + fmtMoney(r.data.amount) + '. Ya está en tu saldo.'); renderView();
+      });
+      return;
+    }
+    if (t.closest('[data-win-ok]')) { state.winDismissed = true; apiPost('/api/bets/seen', {}); renderView(); return; }
+    var cb = t.closest('[data-combo]');
+    if (cb) {
+      var combo = comboList()[Number(cb.dataset.combo)]; if (!combo) return;
+      state.slip = {};
+      combo.legs.forEach(function (l) { state.slip[l.id] = { id: l.id, odds: l.odds, key: l.key, home: l.m.home, away: l.m.away, stake: 100 }; });
+      state.slipMode = 'parlay'; state.parlayStake = 10;
+      Array.prototype.forEach.call($('slipModeToggle').querySelectorAll('button'), function (x) { x.classList.toggle('active', x.dataset.mode === 'parlay'); });
+      syncSelected(); renderSlip(); openOv('slipOverlay'); return;
+    }
+    var cash = t.closest('[data-cash]');
+    if (cash) {
+      var ck = cash.dataset.cash;
+      state.cashPanel = state.cashPanel === ck ? null : ck;
+      if (ck === 'withdraw') state.cashAmt = Math.min(Number(state.cashAmt) || 0, Math.floor(state.balance)) || 0;
+      renderView(); return;
+    }
+    var amt = t.closest('[data-amt]'); if (amt) { state.cashAmt = Number(amt.dataset.amt); renderView(); return; }
+    var lp = t.closest('[data-lp]'); if (lp) { state.limitDraft.period = lp.dataset.lp; renderView(); return; }
+    var ls = t.closest('[data-lim-save]');
+    if (ls) {
+      var body = ls.dataset.limSave === '1' ? { period: state.limitDraft.period, amount: Number(state.limitDraft.amount) || 0 } : { period: state.limits.period, amount: 0 };
+      if (ls.dataset.limSave === '1' && body.amount < 1) { showToast('Escribe un monto para tu límite.'); return; }
+      apiPost('/api/limits', body).then(function (r) {
+        if (!r.ok) { showToast('No se pudo guardar el límite.'); return; }
+        state.limits = { period: r.data.period, amount: Number(r.data.amount) || 0, used: Number(r.data.used) || 0 };
+        state.limitDraft = null;
+        showToast(r.data.pending ? 'Listo. El cambio aplica en 24 horas.' : (state.limits.amount ? 'Límite guardado.' : 'Límite quitado.'));
+        renderView();
+      });
+      return;
+    }
+    var vfSend = t.closest('[data-vf-send]');
+    if (vfSend) {
+      var dob = state.vfDraft.dob;
+      if (!dob) { showToast('Escribe tu fecha de nacimiento.'); return; }
+      var age = (Date.now() - new Date(dob).getTime()) / (365.25 * 86400000);
+      if (age < 18) { showToast('Tienes que ser mayor de 18 años.'); return; }
+      apiPost('/api/verify', { dob: dob }).then(function (r) {
+        if (!r.ok) { showToast(r.data && r.data.error === 'underage' ? 'Tienes que ser mayor de 18 años.' : 'No se pudo verificar.'); return; }
+        state.verify = { status: r.data.status }; state.vfDraft = { dob: '' };
+        showToast('Cuenta verificada.'); renderView();
+      });
+      return;
+    }
+    var cgo = t.closest('[data-cash-go]');
+    if (cgo) {
+      var n = Number(state.cashAmt) || 0;
+      if (n < 1) { showToast('Escribe un monto válido.'); return; }
+      if (cgo.dataset.cashGo === 'withdraw' && n > state.balance) { showToast('No tienes suficiente saldo para retirar esa cantidad.'); return; }
+      if (cgo.dataset.cashGo === 'deposit' && n > limitLeft()) { showToast('Ese monto pasa tu límite. Puedes depositar hasta $' + Math.floor(limitLeft()) + '.'); return; }
+      if (cgo.dataset.cashGo === 'deposit') { showToast('Los pagos con Stride se conectarán pronto.'); return; }
+      cgo.disabled = true;
+      apiPost('/api/withdraw', { amount: n }).then(async function (r) {
+        if (!r.ok) {
+          var e = r.data && r.data.error;
+          showToast(e === 'not_verified' ? 'Verifica tu edad antes de retirar.' : e === 'no_deposit_method' ? 'Haz un depósito primero para poder retirar.' : e === 'insufficient' ? 'No tienes suficiente saldo para retirar esa cantidad.' : 'No se pudo pedir el retiro.');
+          cgo.disabled = false; return;
+        }
+        state.balance = r.data.balance; updateHeader();
+        state.withdrawals = (await apiGet('/api/withdrawals')) || state.withdrawals;
+        state.cashPanel = 'history';
+        showToast('Pediste un retiro de ' + fmtMoney(n) + '. Te avisamos cuando se apruebe.'); renderView();
+      });
+      return;
+    }
+    var inf = t.closest('[data-info]'); if (inf) { openInfo(inf.dataset.info); return; }
+    var lrowToggle = t.closest('[data-live-row-toggle]');
+    if (lrowToggle) {
+      var lid = lrowToggle.dataset.liveRowToggle;
+      state.expandedLiveRow[lid] = !state.expandedLiveRow[lid];
+      renderView();
+      return;
+    }
+    var more = t.closest('[data-more]');
+    if (more) {
+      var id = more.dataset.more;
+      state.expanded[id] = !state.expanded[id];
+      var ex = document.getElementById('ex-' + id);
+      if (ex) ex.classList.toggle('open', !!state.expanded[id]);
+      more.textContent = state.expanded[id] ? 'Ocultar mercados ▴' : 'Ver mercados ▾';
+      return;
+    }
+    var zoneMore = t.closest('[data-zone-more]');
+    if (zoneMore) {
+      var zid = zoneMore.dataset.zoneMore;
+      state.expandedZone[zid] = !state.expandedZone[zid];
+      var zex = document.getElementById('sz-' + zid);
+      if (zex) zex.classList.toggle('open', !!state.expandedZone[zid]);
+      zoneMore.textContent = state.expandedZone[zid] ? '🎯 Ocultar zona de strike ▴' : '🎯 Ver zona de strike ▾';
+      return;
+    }
+    var go = t.closest('[data-goto]'); if (go) { goToMatch(go.dataset.goto); return; }
+    var chip = t.closest('[data-sport]'); if (chip) { state.sport = chip.dataset.sport; renderView(); return; }
+    var q = t.closest('[data-q]');
+    if (q) { state.searchQuery = q.dataset.q; var inp = $('searchInput'); if (inp) inp.value = state.searchQuery; updateSearchResults(); return; }
+    var act = t.closest('[data-act]'); if (act) { doAct(act.dataset.act); return; }
+    var view = t.closest('[data-view]'); if (view) { setView(view.dataset.view); return; }
+  });
+  $('app').addEventListener('input', function (e) {
+    if (e.target.id === 'searchInput') { state.searchQuery = e.target.value; updateSearchResults(); }
+    if (e.target.id === 'limitAmt' && state.limitDraft) state.limitDraft.amount = e.target.value;
+    if (e.target.id === 'vfDob') state.vfDraft.dob = e.target.value;
+    if (e.target.id === 'cashAmt') {
+      state.cashAmt = parseFloat(e.target.value) || 0;
+      Array.prototype.forEach.call(document.querySelectorAll('.cj-amts button'), function (b) { b.classList.toggle('on', Number(b.dataset.amt) === state.cashAmt); });
+    }
+  });
+  $('topActions').addEventListener('click', function (e) {
+    var a = e.target.closest('[data-act]'); if (a) doAct(a.dataset.act);
+  });
+  document.querySelector('nav.bottom').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-view]'); if (b) setView(b.dataset.view, b.dataset.view === 'search');
+  });
+  document.querySelector('footer.ft').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-info]'); if (b) openInfo(b.dataset.info);
+  });
+  function setDrawer(open) {
+    $('drawer').classList.toggle('open', open);
+    $('drawerOv').classList.toggle('open', open);
+    $('drawer').setAttribute('aria-hidden', open ? 'false' : 'true');
+    $('menuBtn').setAttribute('aria-expanded', open ? 'true' : 'false');
+    document.body.style.overflow = open ? 'hidden' : '';
+  }
+  $('menuBtn').addEventListener('click', function () { setDrawer(true); });
+  $('drawerClose').addEventListener('click', function () { setDrawer(false); });
+  $('drawerOv').addEventListener('click', function () { setDrawer(false); });
+  document.addEventListener('keydown', function (e) { if (e.key === 'Escape') setDrawer(false); });
+  $('drawer').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-view],[data-act],[data-info]'); if (!b) return;
+    setDrawer(false);
+    if (b.dataset.view) setView(b.dataset.view, b.dataset.view === 'search');
+    else if (b.dataset.act) doAct(b.dataset.act);
+    else if (b.dataset.info) openInfo(b.dataset.info);
+  });
+
+  $('slipBar').addEventListener('click', function () { renderSlip(); openOv('slipOverlay'); });
+  $('slipClose').addEventListener('click', function () { closeOv('slipOverlay'); });
+  $('slipClear').addEventListener('click', function () { state.slip = {}; syncSelected(); renderSlip(); });
+  $('slipPlace').addEventListener('click', placeBet);
+  $('slipModeToggle').addEventListener('click', function (e) {
+    var b = e.target.closest('button[data-mode]'); if (!b) return;
+    state.slipMode = b.dataset.mode;
+    Array.prototype.forEach.call($('slipModeToggle').querySelectorAll('button'), function (x) { x.classList.toggle('active', x === b); });
+    renderSlip();
+  });
+  $('slipBody').addEventListener('click', function (e) {
+    var rm = e.target.closest('[data-rm]');
+    if (rm) { delete state.slip[rm.dataset.rm]; syncSelected(); renderSlip(); }
+  });
+  $('slipBody').addEventListener('input', function (e) {
+    var t = e.target;
+    if (t.id === 'parlayStakeInput') {
+      var pv = parseFloat(t.value); state.parlayStake = (isNaN(pv) || pv < 1) ? 1 : pv; refreshTotals();
+    } else if (t.dataset && t.dataset.stake) {
+      var v = parseFloat(t.value); if (isNaN(v) || v < 1) v = 1;
+      state.slip[t.dataset.stake].stake = v; refreshTotals();
+    }
+  });
+
+
+  /* ---------- Estadísticas completas (NBA) ---------- */
+  var statsView = { id: null, tab: 'teams', data: null, timer: null, failed: false };
+  var ST_ORDER = [['PTS', 'PTS'], ['REB', 'REB'], ['AST', 'AST'], ['MIN', 'MIN'], ['FG', 'TC'], ['3PT', '3P'], ['FT', 'TL'], ['STL', 'ROB'], ['BLK', 'TAP'], ['TO', 'PÉR'], ['PF', 'FAL'], ['OREB', 'ROF'], ['DREB', 'RDF'], ['+/-', '+/-']];
+  var ST_TEAM = [['fieldGoalsMade-fieldGoalsAttempted', 'Tiros de campo'], ['fieldGoalPct', 'Tiros de campo %'], ['threePointFieldGoalsMade-threePointFieldGoalsAttempted', 'Triples'], ['threePointFieldGoalPct', 'Triples %'], ['freeThrowsMade-freeThrowsAttempted', 'Tiros libres'], ['freeThrowPct', 'Tiros libres %'], ['totalRebounds', 'Rebotes'], ['offensiveRebounds', 'Rebotes ofensivos'], ['defensiveRebounds', 'Rebotes defensivos'], ['assists', 'Asistencias'], ['steals', 'Robos'], ['blocks', 'Tapones'], ['turnovers', 'Pérdidas'], ['fouls', 'Faltas'], ['pointsInPaint', 'Puntos en la pintura'], ['fastBreakPoints', 'Puntos de contraataque'], ['turnoverPoints', 'Puntos por pérdidas'], ['largestLead', 'Mayor ventaja']];
+  function stNorm(x) { return normalize(x).replace(/[^a-z0-9]/g, ''); }
+  function statsTeams(m, d) {
+    var t = d.teams || [], away = null, home = null;
+    t.forEach(function (x) {
+      if (stNorm(x.name) === stNorm(m.away)) away = x; else if (stNorm(x.name) === stNorm(m.home)) home = x;
+    });
+    if (!away) away = t.filter(function (x) { return x.side === 'away'; })[0] || t[0];
+    if (!home) home = t.filter(function (x) { return x !== away && x.side === 'home'; })[0] || t.filter(function (x) { return x !== away; })[0];
+    var flip = !!(away && away.side === 'home');
+    return { away: away, home: home, flip: flip };
+  }
+  function stNum(v) { var n = parseFloat(String(v).replace(/[^\d.\-]/g, '')); return isNaN(n) ? null : n; }
+  function statsTeamTable(tm) {
+    if (!tm) return '';
+    var idx = ST_ORDER.map(function (c) { return [tm.labels.indexOf(c[0]), c[1]]; }).filter(function (c) { return c[0] >= 0; });
+    var head = '<tr><th class="st-name">Jugador</th>' + idx.map(function (c) { return '<th>' + c[1] + '</th>'; }).join('') + '</tr>';
+    function row(p) {
+      if (p.dnp) return '<tr class="st-dnp"><td class="st-name">' + esc(p.name) + '</td><td colspan="' + idx.length + '">No jugó</td></tr>';
+      return '<tr><td class="st-name">' + esc(p.name) + '</td>' + idx.map(function (c, i) { return '<td' + (i === 0 ? ' class="st-pts"' : '') + '>' + esc(p.stats[c[0]] || '0') + '</td>'; }).join('') + '</tr>';
+    }
+    var starters = tm.players.filter(function (p) { return p.starter; }), bench = tm.players.filter(function (p) { return !p.starter; });
+    var html = '<div class="st-wrap"><table class="st-table"><thead>' + head + '</thead><tbody>';
+    if (starters.length) html += '<tr class="st-group"><td class="st-name">Titulares</td><td colspan="' + idx.length + '"></td></tr>' + starters.map(row).join('');
+    if (bench.length) html += '<tr class="st-group"><td class="st-name">Banca</td><td colspan="' + idx.length + '"></td></tr>' + bench.map(row).join('');
+    if (tm.totals && tm.totals.length) html += '<tr class="st-tot"><td class="st-name">Totales</td>' + idx.map(function (c, i) { return '<td' + (i === 0 ? ' class="st-pts"' : '') + '>' + esc(tm.totals[c[0]] || '') + '</td>'; }).join('') + '</tr>';
+    return html + '</tbody></table></div>';
+  }
+  function statsCompare(m, d, T) {
+    var ts = d.teamStats || {}, rows = '';
+    ST_TEAM.forEach(function (k) {
+      var x = ts[k[0]]; if (!x) return;
+      var a = T.flip ? x.home : x.away, h = T.flip ? x.away : x.home;
+      if (a === undefined && h === undefined) return;
+      var na = stNum(a), nh = stNum(h), pa = 50;
+      if (na !== null && nh !== null && na + nh > 0 && k[0].indexOf('-') < 0) pa = Math.round(na / (na + nh) * 100);
+      rows += '<div class="st-cmp"><div class="st-cmp-top"><b>' + esc(a == null ? '—' : a) + '</b><span>' + k[1] + '</span><b>' + esc(h == null ? '—' : h) + '</b></div>' +
+        '<div class="st-bar"><i style="width:' + pa + '%;background:' + teamBadge(m.away).color + '"></i><i style="width:' + (100 - pa) + '%;background:' + teamBadge(m.home).color + '"></i></div></div>';
+    });
+    return rows || '<div class="ldr-empty">Las estadísticas de este partido todavía no están disponibles. Vuelve a intentarlo en unos minutos.</div>';
+  }
+  function renderStats() {
+    var m = state.matches.filter(function (x) { return String(x.id) === String(statsView.id); })[0];
+    if (!m) { closeStats(); return; }
+    var sc = m.score || {}, ba = teamBadge(m.away), bh = teamBadge(m.home);
+    $('statsScore').innerHTML = '<div class="st-team"><b class="mc-badge" style="' + badgeStyle(ba) + '">' + esc(ba.abbr) + '</b><span>' + esc(m.away) + '</span></div>' +
+      '<div class="st-mid"><b>' + esc(sc.away !== undefined ? sc.away : '-') + ' – ' + esc(sc.home !== undefined ? sc.home : '-') + '</b><small>' + esc(m.live ? liveRowPeriodLabel(m) : (m.finished ? 'Final' : (m.time || ''))) + '</small></div>' +
+      '<div class="st-team r"><b class="mc-badge" style="' + badgeStyle(bh) + '">' + esc(bh.abbr) + '</b><span>' + esc(m.home) + '</span></div>';
+    $('statsTabs').innerHTML = [['teams', 'Equipos'], ['away', ba.abbr], ['home', bh.abbr]].map(function (t) {
+      return '<button type="button" data-stats-tab="' + t[0] + '" class="' + (statsView.tab === t[0] ? 'active' : '') + '">' + esc(t[1]) + '</button>';
+    }).join('');
+    var d = statsView.data;
+    if (!d) { $('statsBody').innerHTML = '<div class="ldr-empty">' + (statsView.failed ? 'Las estadísticas de este partido todavía no están disponibles. Vuelve a intentarlo en unos minutos.' : 'Cargando estadísticas…') + '</div>'; return; }
+    var T = statsTeams(m, d);
+    $('statsBody').innerHTML = statsView.tab === 'teams' ? statsCompare(m, d, T) : statsTeamTable(statsView.tab === 'away' ? T.away : T.home);
+  }
+  async function loadStats() {
+    if (!statsView.id) return;
+    var d = await apiGet('/api/game-stats/' + encodeURIComponent(statsView.id));
+    if (!statsView.id) return;
+    if (d && d.teams) { statsView.data = d; statsView.failed = false; } else if (!statsView.data) statsView.failed = true;
+    renderStats();
+  }
+  function openStats(id) {
+    statsView.id = id; statsView.tab = 'teams'; statsView.data = null; statsView.failed = false;
+    renderStats(); openOv('statsOverlay'); loadStats();
+    clearInterval(statsView.timer);
+    statsView.timer = setInterval(function () {
+      if (!$('statsOverlay').classList.contains('open')) { clearInterval(statsView.timer); statsView.id = null; return; }
+      if (document.visibilityState === 'visible') loadStats();
+    }, 20000);
+  }
+  function closeStats() { clearInterval(statsView.timer); statsView.id = null; closeOv('statsOverlay'); }
+  $('app').addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-stats-open]');
+    if (!b) return;
+    e.stopPropagation(); e.preventDefault();
+    openStats(b.getAttribute('data-stats-open'));
+  }, true);
+  $('statsClose').addEventListener('click', closeStats);
+  $('statsTabs').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-stats-tab]'); if (!b) return;
+    statsView.tab = b.getAttribute('data-stats-tab'); renderStats();
+  });
+
+  Array.prototype.forEach.call(document.querySelectorAll('.overlay'), function (ov) {
+    ov.addEventListener('click', function (e) { if (e.target === ov) closeOv(ov.id); });
+  });
+  $('authClose').addEventListener('click', function () { closeOv('authOverlay'); });
+  $('acctClose').addEventListener('click', function () { closeOv('acctOverlay'); });
+  $('infoClose').addEventListener('click', function () { closeOv('infoOverlay'); });
+  $('authSwitchBtn').addEventListener('click', function () { openAuth(authMode === 'login' ? 'register' : 'login'); });
+
+  $('authSubmit').addEventListener('click', async function () {
+    var email = $('authEmail').value.trim();
+    var pass = $('authPass').value;
+    var emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    var passOk = pass.length >= 6;
+    $('authEmailErr').style.display = emailOk ? 'none' : 'block';
+    $('authPassErr').style.display = passOk ? 'none' : 'block';
+    if (!emailOk || !passOk) return;
+    var res = await apiPost(authMode === 'login' ? '/api/login' : '/api/register', { email: email, password: pass });
+    if (!res.ok) {
+      showToast(res.data && res.data.error === 'email_taken' ? 'Ese correo ya está registrado.' : 'Correo o contraseña incorrectos.');
+      return;
+    }
+    state.user = { email: res.data.email };
+    state.balance = res.data.balance;
+    state.history = (await apiGet('/api/bets')) || [];
+    closeOv('authOverlay');
+    afterUserChange();
+    showToast(authMode === 'login' ? 'Sesión iniciada.' : 'Cuenta creada. Saldo inicial asignado.');
+  });
+  $('acctLogout').addEventListener('click', async function () {
+    await apiPost('/api/logout', {});
+    state.user = null; state.balance = 0; state.history = [];
+    closeOv('acctOverlay');
+    afterUserChange();
+    showToast('Sesión cerrada.');
+  });
+  $('acctDeposit').addEventListener('click', function () { closeOv('acctOverlay'); state.cashPanel = 'deposit'; setView('cashier'); });
+  $('acctWithdraw').addEventListener('click', function () { closeOv('acctOverlay'); state.cashPanel = 'withdraw'; setView('cashier'); });
+
+  document.addEventListener('visibilitychange', async function () {
+    if (document.visibilityState !== 'visible') return;
+    if (document.querySelector('.overlay.open') || state.view === 'search') return;
+    state.matches = await loadMatches();
+    renderView();
+  });
+
+  // Revisa cada 30 segundos si algún partido pasó a "en vivo" (o terminó),
+  // para que se mueva solo entre "Comienzan hoy" y "En vivo ahora" sin que
+  // el jugador tenga que recargar la página.
+  setInterval(async function () {
+    if (document.visibilityState !== 'visible') return;
+    if (document.querySelector('.overlay.open') || state.view === 'search') return;
+    state.matches = await loadMatches();
+    renderView();
+  }, 15000);
+
+  /* ---------- Inicio ---------- */
+  (async function bootstrap() {
+    state.matches = await loadMatches();
+    var me = await apiGet('/api/me');
+    if (me) {
+      state.user = { email: me.email };
+      state.balance = me.balance;
+      state.history = (await apiGet('/api/bets')) || [];
+    }
+    var adminCheck = await apiGet('/api/admin/check');
+    state.isAdmin = !!(adminCheck && adminCheck.ok);
+    renderView();
+    renderSlip();
+    updateHeader();
+    updateBadge();
+  })();
+})();
+</script>
+<script>
+/* ---------- Idioma: Español / English ----------
+   Traduce el texto visible sin tocar la lógica de la página.
+   El idioma elegido se guarda en este navegador. */
+(function () {
+  'use strict';
+  var EXACT = {
+    'Inicio': 'Home', 'En vivo': 'Live', 'Mis apuestas': 'My bets', 'Promociones': 'Promotions', 'Buscar': 'Search',
+    'Deportes': 'Sports', 'Resultados': 'Results', 'Ayuda': 'Help', 'Juego responsable': 'Responsible gaming',
+    'Depositar': 'Deposit', 'Mi cuenta': 'My account', 'Métodos de pago': 'Payment methods', 'Reglas de apuestas': 'Betting rules',
+    'Términos y condiciones': 'Terms and conditions', 'Soporte': 'Support', 'Privacidad': 'Privacy', 'Contacto': 'Contact',
+    'Entrar': 'Log in', 'Regístrate': 'Sign up', 'Cuenta': 'Account', 'Saldo': 'Balance', 'Todos': 'All',
+    'Ganador': 'Winner', 'Hándicap': 'Handicap', 'Total': 'Total', 'Empate': 'Draw', 'Partidos': 'Games',
+    'Ver mercados ▾': 'More markets ▾', 'Ocultar mercados ▴': 'Hide markets ▴', 'Ver ›': 'View ›',
+    'Mi boleto': 'My bet slip', 'Vaciar': 'Clear', 'Sencillas': 'Singles', 'Combinada': 'Parlay', 'Monto': 'Stake', 'Gana': 'Wins',
+    'Total apostado': 'Total stake', 'Posible ganancia': 'Potential win', 'Total a cobrar': 'Total payout',
+    'Confirmar apuesta': 'Place bet', 'Agregar al boleto': 'Add to slip', 'Favoritos del día': "Today's favorites",
+    'Triple de favoritos': 'Favorites treble', 'Bienvenido de vuelta': 'Welcome back', 'Crea tu cuenta': 'Create your account',
+    'Correo electrónico': 'Email', 'Contraseña': 'Password', 'Crear cuenta': 'Create account', 'Crear mi cuenta': 'Create my account',
+    '¿No tienes cuenta?': "Don't have an account?", '¿Ya tienes cuenta?': 'Already have an account?',
+    'Tu cuenta': 'Your account', 'Saldo disponible': 'Available balance', '+ Depositar': '+ Deposit', 'Retirar': 'Withdraw',
+    'Historial de apuestas': 'Bet history', 'Cerrar sesión': 'Log out', 'Cajero': 'Cashier', 'Retirar fondos': 'Withdraw funds',
+    'Historial de transacciones': 'Transaction history', 'En juego': 'In play', 'Disponible para retirar': 'Available to withdraw',
+    'Retiros en revisión': 'Withdrawals under review', 'Establecer tu límite de juego': 'Set your gaming limit',
+    'Límite de depósito': 'Deposit limit', 'Guardar límite': 'Save limit', 'Quitar límite': 'Remove limit',
+    'Solicitar retiro': 'Request withdrawal', 'Continuar al pago': 'Continue to payment', 'Depositar ahora': 'Deposit now',
+    'Verificación de edad': 'Age verification', 'Verificar edad': 'Verify age', 'Verificar mi edad': 'Verify my age',
+    'Fecha de nacimiento': 'Date of birth', 'Ganada': 'Won', 'Perdida': 'Lost', 'Reembolsada': 'Refunded', 'Cobrada': 'Cashed out',
+    'Pendiente': 'Pending', 'Apostó': 'Stake', 'Ver partidos': 'See games', 'Por confirmar': 'TBD', 'Hoy': 'Today', 'Mañana': 'Tomorrow',
+    'EN VIVO': 'LIVE', 'FINAL': 'FINAL', 'EN CALENTAMIENTO': 'WARMING UP', 'Medio tiempo': 'Halftime', 'Primer período': '1st period',
+    'Primeras 5 entradas': 'First 5 innings', 'Tanda de penales': 'Shootout', 'Bono de bienvenida': 'Welcome bonus',
+    'Cashback semanal': 'Weekly cashback', 'Combinada Plus': 'Parlay Plus', 'Invita y gana': 'Invite and earn',
+    'Ejemplos:': 'Examples:', 'Menú': 'Menu', 'Más': 'More', 'Outs:': 'Outs:', 'diario': 'daily', 'semanal': 'weekly', 'mensual': 'monthly',
+    'esta semana': 'this week', 'este mes': 'this month', '¡Bien!': 'Great!', 'Pago seguro procesado por Stride': 'Secure payment processed by Stride',
+    'La misma con la que depositaste': 'The same one you deposited with', 'Monto total': 'Total amount', 'Tu límite': 'Your limit',
+    'Puntos': 'Points', 'Rebotes': 'Rebounds', 'Asistencias': 'Assists', 'Ver estadísticas completas': 'Full stats', 'Jugador': 'Player', 'Estadísticas': 'Stats', 'Equipos': 'Teams', 'Titulares': 'Starters', 'Banca': 'Bench', 'Totales': 'Totals', 'No jugó': 'DNP', 'Se actualiza solo cada 20 segundos.': 'Updates every 20 seconds.', 'Cargando estadísticas…': 'Loading stats…', 'Las estadísticas de este partido todavía no están disponibles. Vuelve a intentarlo en unos minutos.': 'Stats for this game are not available yet. Try again in a few minutes.', 'Tiros de campo': 'Field goals', 'Tiros de campo %': 'Field goal %', 'Triples': '3-pointers', 'Triples %': '3-point %', 'Tiros libres': 'Free throws', 'Tiros libres %': 'Free throw %', 'Rebotes ofensivos': 'Offensive rebounds', 'Rebotes defensivos': 'Defensive rebounds', 'Robos': 'Steals', 'Tapones': 'Blocks', 'Pérdidas': 'Turnovers', 'Faltas': 'Fouls', 'Puntos de contraataque': 'Fast break points', 'Puntos en la pintura': 'Points in the paint', 'Puntos por pérdidas': 'Points off turnovers', 'Mayor ventaja': 'Largest lead'
+  };
+  /* Frases (también dentro de textos más largos). */
+  var PHRASES = [
+    ['Prohibido para menores de 18 años. Apuesta con responsabilidad.', 'Under 18s prohibited. Bet responsibly.'],
+    ['Apuesta con responsabilidad. Prohibido para menores de 18 años. Si el juego ha dejado de ser un entretenimiento, busca ayuda en tu junta local de juego responsable.', 'Bet responsibly. Under 18s prohibited. If gambling has stopped being fun, seek help from your local responsible gaming board.'],
+    ['Al usar RapiDeportes aceptas cumplir con estas condiciones. Solo pueden jugar personas mayores de 18 años.', 'By using RapiDeportes you agree to these conditions. Only people over 18 may play.'],
+    ['Antes de escribirnos, revisa la sección “Mis apuestas” para ver el estado de tus jugadas.', 'Before contacting us, check the “My bets” section to see the status of your bets.'],
+    ['Antes de tu primer retiro confirma tu fecha de nacimiento.', 'Before your first withdrawal, confirm your date of birth.'],
+    ['Aplican términos y condiciones.', 'Terms and conditions apply.'],
+    ['Apostar debe ser entretenimiento, nunca una forma de resolver problemas de dinero.', 'Betting should be entertainment, never a way to solve money problems.'],
+    ['Arma tu combinada y recibe un extra en tu posible ganancia.', 'Build your parlay and get a boost on your potential win.'],
+    ['Así podrás añadir dinero a tu saldo y cobrar tus ganancias.', 'This lets you add money to your balance and collect your winnings.'],
+    ['Aún no hay partidos disponibles.', 'No games available yet.'],
+    ['Aún no tienes apuestas.', "You don't have any bets yet."],
+    ['Aún no tienes movimientos.', 'No transactions yet.'],
+    ['Cada apuesta confirmada queda registrada con las cuotas que viste al momento de confirmar. Las cuotas pueden cambiar sin previo aviso antes de que confirmes.', 'Every confirmed bet is recorded with the odds you saw when confirming. Odds may change without notice before you confirm.'],
+    ['Comparte RapiDeportes con tus amigos y gana recompensas.', 'Share RapiDeportes with your friends and earn rewards.'],
+    ['Confirma que eres mayor de 18 años para retirar.', 'Confirm you are over 18 to withdraw.'],
+    ['Correo o contraseña incorrectos.', 'Incorrect email or password.'],
+    ['Cuenta creada. Saldo inicial asignado.', 'Account created. Starting balance assigned.'],
+    ['Cuenta verificada.', 'Account verified.'],
+    ['Depositas y retiras con Stride desde el Cajero.', 'You deposit and withdraw with Stride from the Cashier.'],
+    ['El pago se procesa de forma segura.', 'Payment is processed securely.'],
+    ['Elige al menos 2 selecciones para armar una combinada.', 'Pick at least 2 selections to build a parlay.'],
+    ['Elige una cuota en un partido para empezar.', 'Pick odds on a game to get started.'],
+    ['Elige una cuota para empezar tu boleto.', 'Pick odds to start your bet slip.'],
+    ['Entra a tu cuenta para confirmar la apuesta.', 'Log in to place your bet.'],
+    ['Entra a tu cuenta para depositar o retirar.', 'Log in to deposit or withdraw.'],
+    ['Entra a tu cuenta para ver tus apuestas.', 'Log in to see your bets.'],
+    ['Entra para ver tu saldo y tus apuestas.', 'Log in to see your balance and bets.'],
+    ['Escoge cuánto quieres añadir a tu saldo.', 'Choose how much to add to your balance.'],
+    ['Escribe el nombre de un equipo, una liga o un partido.', 'Type the name of a team, league or game.'],
+    ['Escribe tu fecha de nacimiento.', 'Enter your date of birth.'],
+    ['Escribe un correo válido.', 'Enter a valid email.'],
+    ['Escribe un monto para tu límite.', 'Enter an amount for your limit.'],
+    ['Escribe un monto válido.', 'Enter a valid amount.'],
+    ['Escríbenos por los canales oficiales de atención de RapiDeportes. Respondemos lo antes posible.', 'Write to us through RapiDeportes official support channels. We reply as soon as possible.'],
+    ['Ese correo ya está registrado.', 'That email is already registered.'],
+    ['Ese monto pasa tu límite. Puedes depositar hasta', 'That amount exceeds your limit. You can deposit up to'],
+    ['Haz un depósito primero para poder retirar.', 'Make a deposit first to be able to withdraw.'],
+    ['Juega solo con dinero que puedas permitirte perder, define un límite antes de empezar y no intentes recuperar pérdidas.', 'Only play with money you can afford to lose, set a limit before you start and never chase losses.'],
+    ['La contraseña debe tener al menos 6 caracteres.', 'Password must be at least 6 characters.'],
+    ['Las cuotas se muestran en formato decimal. La posible ganancia es lo que recibirías por encima de tu monto apostado.', 'Odds are shown in decimal format. Potential win is what you would receive on top of your stake.'],
+    ['Listo. El cambio aplica en 24 horas.', 'Done. The change applies in 24 hours.'],
+    ['Lo pide la ley: tienes que ser mayor de 18 años para jugar y retirar.', 'Required by law: you must be over 18 to play and withdraw.'],
+    ['Los pagos con Stride se conectarán pronto.', 'Stride payments will be connected soon.'],
+    ['Límite guardado.', 'Limit saved.'], ['Límite quitado.', 'Limit removed.'],
+    ['Necesitas al menos 2 cuotas para una combinada.', 'You need at least 2 odds for a parlay.'],
+    ['No compartimos tu información personal con terceros sin tu autorización, salvo cuando la ley lo exija.', 'We do not share your personal information with third parties without your authorization, except when required by law.'],
+    ['No encontramos partidos con', 'No games found for'],
+    ['No hay más mercados disponibles para este partido por ahora.', 'No more markets available for this game right now.'],
+    ['No hay partidos en esta categoría por ahora.', 'No games in this category right now.'],
+    ['No hay partidos en vivo en este momento.', 'No live games right now.'],
+    ['No se pudo confirmar la apuesta.', 'The bet could not be placed.'],
+    ['No se pudo guardar el límite.', 'The limit could not be saved.'],
+    ['No se pudo pedir el retiro.', 'The withdrawal could not be requested.'],
+    ['No se pudo verificar.', 'Verification failed.'],
+    ['No tienes suficiente saldo para retirar esa cantidad.', "You don't have enough balance to withdraw that amount."],
+    ['Nos reservamos el derecho de anular apuestas realizadas con errores evidentes de cuota o de información.', 'We reserve the right to void bets placed with obvious odds or information errors.'],
+    ['Ofertas pensadas para que juegues con más ventaja.', 'Offers designed to give you an edge.'],
+    ['Para cuidar tu dinero, los retiros se envían a la misma tarjeta o cuenta con la que depositaste. Haz tu primer depósito y luego podrás retirar ahí.', 'To protect your money, withdrawals are sent to the same card or account you deposited with. Make your first deposit and then you can withdraw there.'],
+    ['Partido finalizado — ya no se pueden hacer apuestas.', 'Game over — betting is closed.'],
+    ['APUESTAS CERRADAS — PARTIDO EN JUEGO', 'BETTING CLOSED — GAME IN PROGRESS'],
+    ['Partidos terminados y su marcador final.', 'Finished games and their final score.'],
+    ['Pon un tope a lo que depositas para jugar con control.', 'Cap what you deposit so you play in control.'],
+    ['Recupera una parte de lo apostado cada semana.', 'Get part of your stakes back every week.'],
+    ['Regístrate para empezar a jugar.', 'Sign up to start playing.'],
+    ['Revisamos cada retiro antes de enviarlo. Normalmente toma menos de 24 horas.', 'We review every withdrawal before sending it. It usually takes less than 24 hours.'],
+    ['Saldo insuficiente para esta apuesta.', 'Insufficient balance for this bet.'],
+    ['Sesión cerrada.', 'Logged out.'], ['Sesión iniciada.', 'Logged in.'],
+    ['Si bajas tu límite aplica enseguida. Si lo subes o lo quitas, el cambio aplica en 24 horas.', 'Lowering your limit applies right away. Raising or removing it applies in 24 hours.'],
+    ['Si sientes que el juego se te está saliendo de control, busca ayuda profesional. Este sitio es solo para mayores de 18 años.', 'If you feel gambling is getting out of control, seek professional help. This site is for over-18s only.'],
+    ['Si un partido se suspende o se cancela, la apuesta se anula según las reglas de cada deporte.', 'If a game is suspended or cancelled, the bet is voided according to each sport’s rules.'],
+    ['Solo guardamos los datos necesarios para operar tu cuenta: tu correo, tu saldo y tu historial de apuestas.', 'We only store the data needed to run your account: your email, balance and bet history.'],
+    ['Ten a mano tu correo de registro para agilizar tu consulta.', 'Have your registration email handy to speed up your request.'],
+    ['Tienes que ser mayor de 18 años.', 'You must be over 18.'],
+    ['Todavía no hay lanzamientos registrados en este turno.', 'No pitches recorded in this at-bat yet.'],
+    ['Todavía no hay partidos terminados.', 'No finished games yet.'],
+    ['Tu cuenta está verificada. Ya puedes retirar.', 'Your account is verified. You can now withdraw.'],
+    ['Tus datos de pago los maneja Stride; RapiDeportes no guarda tu tarjeta.', 'Your payment details are handled by Stride; RapiDeportes does not store your card.'],
+    ['Tus equipos favoritos no juegan pronto. Te los mostramos aquí cuando tengan partido.', "Your favorite teams aren't playing soon. We'll show them here when they have a game."],
+    ['Un impulso extra para tu primer depósito en RapiDeportes.', 'An extra boost for your first deposit at RapiDeportes.'],
+    ['Una apuesta sencilla se gana cuando tu selección acierta. Una combinada se gana solo si aciertan todas sus selecciones.', 'A single bet wins when your pick is right. A parlay wins only if all its picks are right.'],
+    ['Verifica tu edad antes de retirar.', 'Verify your age before withdrawing.'],
+    ['Vuelve pronto, estamos preparando las líneas.', "Check back soon, we're setting the lines."],
+    ['Ya no se puede cobrar esta apuesta. El partido empezó o cambió.', 'This bet can no longer be cashed out. The game started or changed.'],
+    ['Ya puedes retirar tus ganancias.', 'You can now withdraw your winnings.'],
+    ['¿Necesitas ayuda con tu cuenta, un depósito o una apuesta? Nuestro equipo te atiende todos los días.', 'Need help with your account, a deposit or a bet? Our team is here every day.'],
+    ['Lanzamientos de este turno al bate', 'Pitches in this at-bat'],
+    ['Líderes del partido', 'Game leaders'], ['Las estadísticas de los jugadores aparecen en unos minutos.', 'Player stats will appear in a few minutes.'],
+    ['Apuesta confirmada por', 'Bet placed for'], ['Combinada confirmada por', 'Parlay placed for'],
+    ['Míralas en Mis apuestas.', 'See them in My bets.'], ['Te avisamos cuando se apruebe.', "We'll let you know when it's approved."],
+    ['Ya está en tu saldo.', "It's in your balance."], ['ya está en tu saldo', "it's in your balance"],
+    ['Pediste un retiro de', 'You requested a withdrawal of'], ['Puedes depositar hasta', 'You can deposit up to'],
+    ['Puedes retirar hasta', 'You can withdraw up to'], ['Se enviará a', 'It will be sent to'],
+    ['ahora y la apuesta se cierra.', 'now and the bet is closed.'], ['Recibes', 'You get'], ['Llevas', "You've used"],
+    ['por tu límite.', 'of your limit.'], ['te quedan', 'left'], ['Tu límite', 'Your limit'],
+    ['es tu favorito.', 'is your favorite.'], ['ya no es favorito.', 'is no longer a favorite.'],
+    ['Quitar de favoritos', 'Remove from favorites'], ['Marcar como favorito', 'Mark as favorite'],
+    ['apuestas ganadas', 'winning bets'], ['¡Ganaste', 'You won'], ['Cobrar ahora', 'Cash out now'], ['Cobrar', 'Cash out'],
+    ['Ocultar zona de strike', 'Hide strike zone'], ['Ver zona de strike', 'View strike zone'],
+    ['Combinadas populares', 'Popular parlays'], ['Más jugados', 'Most played'], ['Tus equipos', 'Your teams'],
+    ['En vivo ahora', 'Live now'], ['Comienzan hoy', 'Starting today'], ['Finalizados', 'Finished'],
+    ['Mi boleto', 'My bet slip'], ['Ver boleto', 'View slip'], ['Mis apuestas', 'My bets'],
+    ['Eliminar selección', 'Remove selection'], ['Buscar equipo, liga o partido', 'Search team, league or game'],
+    ['Abrir menú', 'Open menu'], ['Cerrar menú', 'Close menu'], ['Navegación principal', 'Main navigation'],
+    ['Mínimo 6 caracteres', 'At least 6 characters'], ['tunombre@correo.com', 'yourname@email.com'], ['Ej. 200', 'E.g. 200'],
+    ['Tu límite', 'Your limit'], ['selecciones', 'selections'], ['abiertas', 'open'], ['partidos', 'games'], ['partido', 'game'],
+    ['Apuesta', 'Bet'], ['paga', 'pays'], ['Final ·', 'Final ·'], ['Promociones', 'Promotions'], ['Resultados', 'Results'],
+    ['En vivo', 'Live'], ['Ganador', 'Winner'], ['Hándicap', 'Handicap'], ['carreras', 'runs'], ['puntos', 'points'], ['goles', 'goals'],
+    ['Más ', 'Over '], ['Menos ', 'Under '], ['Cerrar', 'Close'], ['Hoy ', 'Today '], ['Mañana ', 'Tomorrow ']
+  ];
+  PHRASES.sort(function (a, b) { return b[0].length - a[0].length; });
+  var REGEX = [
+    [/(\d)\s?p\.\s?m\./g, '$1 PM'], [/(\d)\s?a\.\s?m\./g, '$1 AM'],
+    [/(\d+)\s?ª entrada/g, 'Inning $1'], [/(\d+)\s?er período/g, '$1st period'], [/(\d+)\s?do período/g, '$1nd period'],
+    [/(\d+)\s?er cuarto/g, '$1st quarter'], [/(\d+)\s?to cuarto/g, '$1th quarter'],
+    [/^(\s*)(lun|mar|mié|jue|vie|sáb|dom)\.?(?=[\s,])/, function (m, sp, d) { return sp + { lun: 'Mon', mar: 'Tue', 'mié': 'Wed', jue: 'Thu', vie: 'Fri', 'sáb': 'Sat', dom: 'Sun' }[d]; }],
+    [/(\d+)(\s+(?:de\s+)?)(ene|feb|mar|abr|may|jun|jul|ago|sept?|oct|nov|dic)\.?(?![a-zá-ú])/g, function (m, n, sp, mo) { return n + ' ' + { ene: 'Jan', feb: 'Feb', mar: 'Mar', abr: 'Apr', may: 'May', jun: 'Jun', jul: 'Jul', ago: 'Aug', sep: 'Sep', sept: 'Sep', oct: 'Oct', nov: 'Nov', dic: 'Dec' }[mo]; }]
+  ];
+
+  function toEN(text) {
+    var t = text.trim();
+    if (!t) return text;
+    if (EXACT[t]) return text.replace(t, EXACT[t]);
+    var out = text;
+    for (var i = 0; i < PHRASES.length; i++) {
+      if (out.indexOf(PHRASES[i][0]) !== -1) out = out.split(PHRASES[i][0]).join(PHRASES[i][1]);
+    }
+    for (var j = 0; j < REGEX.length; j++) out = out.replace(REGEX[j][0], REGEX[j][1]);
+    return out;
+  }
+
+  var lang = 'es';
+  try { lang = localStorage.getItem('rd_lang') === 'en' ? 'en' : 'es'; } catch (e) {}
+  var ORIG = new WeakMap();      // texto original en español de cada nodo
+  var busy = false;
+  var ATTRS = ['placeholder', 'aria-label', 'title'];
+
+  function skip(node) {
+    var p = node.parentNode;
+    return !p || /^(SCRIPT|STYLE|INPUT|TEXTAREA)$/.test(p.nodeName) || (p.closest && p.closest('[data-no-i18n]'));
+  }
+  function doText(node) {
+    if (skip(node)) return;
+    var cur = node.nodeValue;
+    var rec = ORIG.get(node);
+    if (!rec || (cur !== rec.es && cur !== rec.en)) { rec = { es: cur, en: toEN(cur) }; ORIG.set(node, rec); }
+    var want = lang === 'en' ? rec.en : rec.es;
+    if (cur !== want) node.nodeValue = want;
+  }
+  function doAttrs(el) {
+    for (var i = 0; i < ATTRS.length; i++) {
+      var a = ATTRS[i], v = el.getAttribute(a);
+      if (v == null) continue;
+      var key = 'data-es-' + a, es = el.getAttribute(key);
+      if (es == null || (v !== es && v !== toEN(es))) { es = v; el.setAttribute(key, es); }
+      var want = lang === 'en' ? toEN(es) : es;
+      if (v !== want) el.setAttribute(a, want);
+    }
+  }
+  function walk(root) {
+    if (root.nodeType === 3) { doText(root); return; }
+    if (root.nodeType !== 1) return;
+    if (/^(SCRIPT|STYLE)$/.test(root.nodeName)) return;
+    doAttrs(root);
+    var tw = document.createTreeWalker(root, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT);
+    var n;
+    while ((n = tw.nextNode())) { if (n.nodeType === 3) doText(n); else doAttrs(n); }
+  }
+  function apply() {
+    busy = true;
+    document.documentElement.lang = lang;
+    walk(document.body);
+    var btns = document.querySelectorAll('.lang-sw button');
+    for (var i = 0; i < btns.length; i++) {
+      var on = btns[i].getAttribute('data-lang') === lang;
+      btns[i].classList.toggle('on', on);
+      btns[i].setAttribute('aria-pressed', on ? 'true' : 'false');
+    }
+    busy = false;
+  }
+  new MutationObserver(function (list) {
+    if (busy) return;
+    busy = true;
+    for (var i = 0; i < list.length; i++) {
+      var m = list[i];
+      if (m.type === 'characterData') doText(m.target);
+      else if (m.type === 'attributes') doAttrs(m.target);
+      else for (var k = 0; k < m.addedNodes.length; k++) walk(m.addedNodes[k]);
+    }
+    busy = false;
+  }).observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ATTRS });
+
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('.lang-sw button');
+    if (!b) return;
+    lang = b.getAttribute('data-lang') === 'en' ? 'en' : 'es';
+    try { localStorage.setItem('rd_lang', lang); } catch (err) {}
+    apply();
+  });
+  apply();
+})();
+</script>
+
+</body>
+</html>
