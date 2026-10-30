@@ -519,6 +519,10 @@
   .amc-time .amc-ampm { flex: 1.15; font-weight: 700; color: var(--accent); }
   .amc-time-sep { font-weight: 800; color: var(--text-dim); }
   @media (max-width: 480px) { .amc-row > .amc-col.amc-col-time { flex-basis: 100%; } }
+
+  .amc-clock { margin-top: 10px; font-size: 13px; font-weight: 600; color: var(--text-dim); }
+  .amc-clock b { color: var(--text); }
+  .amc-past { margin-top: 8px; padding: 10px 12px; border-radius: 10px; background: #FFF1F3; border: 1px solid #FECDD6; color: #B42318; font-size: 13px; font-weight: 600; }
 </style>
 </head>
 <body>
@@ -582,6 +586,8 @@
           <div class="amc-col"><input type="date" id="newDate" class="amc-input"></div>
           <div class="amc-col amc-col-time"><input type="hidden" id="newTimeInput"><div class="amc-time" role="group" aria-label="Hora del partido"><select id="newTimeH" class="amc-select" aria-label="Hora"><option value="">Hora</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option><option value="5">5</option><option value="6">6</option><option value="7">7</option><option value="8">8</option><option value="9">9</option><option value="10">10</option><option value="11">11</option><option value="12">12</option></select><span class="amc-time-sep">:</span><select id="newTimeM" class="amc-select" aria-label="Minutos"><option value="00">00</option><option value="05">05</option><option value="10">10</option><option value="15">15</option><option value="20">20</option><option value="25">25</option><option value="30">30</option><option value="35">35</option><option value="40">40</option><option value="45">45</option><option value="50">50</option><option value="55">55</option></select><select id="newTimeAP" class="amc-select amc-ampm" aria-label="a. m. o p. m."><option value="am">a. m.</option><option value="pm" selected>p. m.</option></select></div></div>
         </div>
+        <div class="amc-clock" id="prClock">🕐 Hora de Puerto Rico: —</div>
+        <div class="amc-past" id="prPastWarn" hidden>⚠️ Esa hora ya pasó en Puerto Rico. El partido no va a salir en la página porque se toma como empezado.</div>
       </div>
 
       <div class="amc-block">
@@ -776,9 +782,35 @@
 
 <script>
 (function () {
+  /* ---------- Una sola hora: Puerto Rico, tomada del servidor ----------
+     No dependemos del reloj del teléfono o computadora del visitante. */
+  var PR_TZ = 'America/Puerto_Rico';
+  var SERVER_OFFSET = 0;
+  function nowMs() { return Date.now() + SERVER_OFFSET; }
+  function syncClock(r) {
+    try {
+      var d = Date.parse(r.headers.get('date'));
+      if (!isNaN(d)) SERVER_OFFSET = d + 500 - Date.now();
+    } catch (e) {}
+  }
+  function prYMD(ms) {
+    var p = new Intl.DateTimeFormat('en-CA', { timeZone: PR_TZ, year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(ms));
+    var o = {}; p.forEach(function (x) { o[x.type] = x.value; });
+    return o.year + '-' + o.month + '-' + o.day;
+  }
+  function prTodayDate() { var s = prYMD(nowMs()).split('-'); return new Date(+s[0], +s[1] - 1, +s[2]); }
+  function prLabel(startAt) {
+    var t = Date.parse(startAt); if (isNaN(t)) return '';
+    var day = prYMD(t), today = prYMD(nowMs()), tomorrow = prYMD(nowMs() + 86400000);
+    var dayLabel = day === today ? 'Hoy' : day === tomorrow ? 'Mañana'
+      : new Date(t).toLocaleDateString('es-DO', { timeZone: PR_TZ, weekday: 'short', day: 'numeric', month: 'short' });
+    return dayLabel + ' ' + new Date(t).toLocaleTimeString('es-DO', { timeZone: PR_TZ, hour: 'numeric', minute: '2-digit', hour12: true });
+  }
+  window.nowMs = nowMs; window.prLabel = prLabel;
   async function apiGet(url) {
     try {
       var r = await fetch(url, { credentials: 'include' });
+      syncClock(r);
       if (!r.ok) return null;
       return await r.json();
     } catch (e) { return null; }
@@ -851,7 +883,7 @@
       var tp = timeStr.split(':');
       d.setHours(parseInt(tp[0], 10), parseInt(tp[1], 10));
     }
-    var today = new Date();
+    var today = prTodayDate();
     var isToday = d.toDateString() === today.toDateString();
     var tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
     var isTomorrow = d.toDateString() === tomorrow.toDateString();
@@ -1023,7 +1055,7 @@
     populateTeamOptions();
     var dateInput = document.getElementById('newDate');
     if (!dateInput.value) {
-      var t = new Date();
+      var t = prTodayDate();
       var mm = String(t.getMonth() + 1).padStart(2, '0');
       var dd = String(t.getDate()).padStart(2, '0');
       dateInput.value = t.getFullYear() + '-' + mm + '-' + dd;
@@ -1239,7 +1271,7 @@
     var html = '';
     state.matches.forEach(function (m, mi) {
       html += '<div class="match-card" style="margin-bottom:12px;">';
-      html += '<div class="match-top"><span class="match-time">' + SPORT_LABELS[m.sport] + ' · ' + m.time + '</span>';
+      html += '<div class="match-top"><span class="match-time">' + SPORT_LABELS[m.sport] + ' · ' + (m.startAt ? (prLabel(m.startAt) || m.time) : m.time) + '</span>';
       html += '<button class="slip-remove" data-del="' + mi + '" aria-label="Eliminar" style="font-size:18px;">&times;</button></div>';
       html += '<div style="font-size:13px; font-weight:600; margin-bottom:8px;">' + m.away + ' @ ' + m.home + '</div>';
       html += '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">';
@@ -1462,7 +1494,7 @@
       var tp = timeStr.split(':');
       d.setHours(parseInt(tp[0], 10), parseInt(tp[1], 10));
     }
-    var today = new Date();
+    var today = prTodayDate();
     var isToday = d.toDateString() === today.toDateString();
     var tomorrow = new Date(today); tomorrow.setDate(today.getDate() + 1);
     var isTomorrow = d.toDateString() === tomorrow.toDateString();
@@ -1600,6 +1632,23 @@
     if (!hid.value) { h.value = ''; m.value = '00'; ap.value = 'pm'; }
   });
   sync();
+})();
+</script>
+<script>
+/* Reloj de Puerto Rico y aviso si la hora del partido ya pasó */
+(function () {
+  var clock = document.getElementById('prClock'), warn = document.getElementById('prPastWarn');
+  var dateEl = document.getElementById('newDate'), timeEl = document.getElementById('newTimeInput');
+  function tick() {
+    if (clock) clock.innerHTML = '🕐 Hora de Puerto Rico ahora: <b>' + prLabel(new Date(nowMs()).toISOString()) + '</b> · pon la hora del partido en hora de Puerto Rico';
+    if (warn) {
+      var past = false;
+      if (dateEl.value && timeEl.value) past = Date.parse(dateEl.value + 'T' + timeEl.value + ':00-04:00') <= nowMs();
+      warn.hidden = !past;
+    }
+  }
+  ['change', 'input'].forEach(function (ev) { document.addEventListener(ev, function (e) { if (e.target && /^newTime|^newDate/.test(e.target.id || '')) setTimeout(tick, 0); }); });
+  tick(); setInterval(tick, 20000);
 })();
 </script>
 </body>
