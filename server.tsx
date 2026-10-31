@@ -1486,13 +1486,16 @@ app.post('/api/bets', async (c) => {
   if (stakeSum > currentBalance) return c.json({ error: 'insufficient' }, 400);
   const newBalance = currentBalance - stakeSum;
   await sql`UPDATE users SET balance = ${newBalance} WHERE id = ${user.id}`;
+  const ids = [];
   for (const b of bets) {
-    await sql`
+    const ins = await sql`
       INSERT INTO bets (user_id, desc_text, match_text, stake, payout)
       VALUES (${user.id}, ${String(b.desc || '')}, ${String(b.match || '')}, ${Number(b.stake)}, ${Number(b.payout) || 0})
+      RETURNING id
     `;
+    ids.push(ins[0].id);
   }
-  return c.json({ balance: newBalance });
+  return c.json({ balance: newBalance, ids: ids });
 });
 
 // Cash out: antes de que empiece el partido, el jugador puede cobrar su apuesta
