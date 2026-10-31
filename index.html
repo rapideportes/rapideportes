@@ -1219,6 +1219,7 @@
     var status = '';
     if (m.live) status = '<span class="live-tag"><i></i>EN VIVO' + (m.score && m.score.period ? ' · ' + esc(m.score.period) : '') + '</span>';
     else if (m.finished) status = '<span class="live-tag" style="background:var(--surface); color:var(--text-dim);">FINAL</span>';
+    else if (isBettingClosed(m)) status = '<span class="live-tag"><i></i>COMENZANDO</span>';
     else if (m.startAt) {
       var minsToStart = (new Date(m.startAt).getTime() - nowMs()) / 60000;
       if (minsToStart > 0 && minsToStart <= 15) {
@@ -1244,7 +1245,8 @@
       return html;
     }
     if (isBettingClosed(m)) {
-      html += '<div class="mx-none" style="padding-top:2px; color:var(--live); font-weight:800; letter-spacing:.3px;">APUESTAS CERRADAS — PARTIDO EN JUEGO</div>';
+      html += '<div class="mx-none" style="padding-top:2px; color:var(--live); font-weight:800; letter-spacing:.3px;">' + (m.live ? 'APUESTAS CERRADAS — PARTIDO EN JUEGO' : 'APUESTAS CERRADAS — EL PARTIDO ESTÁ COMENZANDO') + '</div>' +
+        (m.live ? '' : '<div class="mx-none" style="padding-top:0;">El marcador aparece aquí en cuanto empiece.</div>');
       html += '</article>';
       return html;
     }
@@ -1370,11 +1372,14 @@
   }
   function liveHTML() {
     var live = state.matches.filter(function (m) { return m.live; });
+    // Ya llegó su hora pero la fuente todavía no lo marca en vivo: se enseña como "Comenzando".
+    var starting = state.matches.filter(function (m) { return !m.live && !m.finished && isBettingClosed(m); });
     var soon = state.matches.filter(function (m) { return !isBettingClosed(m) && /^hoy/i.test(m.time || ''); });
     var finished = state.matches.filter(function (m) { return m.finished; });
-    var html = '<div class="sec-title">🔴 En vivo ahora<span class="count">' + live.length + '</span></div>';
+    var html = '<div class="sec-title">🔴 En vivo ahora<span class="count">' + (live.length + starting.length) + '</span></div>';
     if (live.length) live.forEach(function (m) { html += liveRowHTML(m); });
-    else html += emptyHTML('📡', 'No hay partidos en vivo en este momento.');
+    starting.forEach(function (m) { html += matchCard(m); });
+    if (!live.length && !starting.length) html += emptyHTML('📡', 'No hay partidos en vivo en este momento.');
     if (soon.length) {
       html += '<div class="sec-title">⏱️ Comienzan hoy<span class="count">' + soon.length + '</span></div>';
       soon.forEach(function (m) { html += matchCard(m); });
@@ -2205,7 +2210,7 @@
     'Verificación de edad': 'Age verification', 'Verificar edad': 'Verify age', 'Verificar mi edad': 'Verify my age',
     'Fecha de nacimiento': 'Date of birth', 'Ganada': 'Won', 'Perdida': 'Lost', 'Reembolsada': 'Refunded', 'Cobrada': 'Cashed out',
     'Pendiente': 'Pending', 'Apostó': 'Stake', 'Ver partidos': 'See games', 'Por confirmar': 'TBD', 'Hoy': 'Today', 'Mañana': 'Tomorrow',
-    'EN VIVO': 'LIVE', 'FINAL': 'FINAL', 'EN CALENTAMIENTO': 'WARMING UP', 'Medio tiempo': 'Halftime', 'Primer período': '1st period',
+    'EN VIVO': 'LIVE', 'FINAL': 'FINAL', 'EN CALENTAMIENTO': 'WARMING UP', 'COMENZANDO': 'STARTING', 'Medio tiempo': 'Halftime', 'Primer período': '1st period',
     'Primeras 5 entradas': 'First 5 innings', 'Tanda de penales': 'Shootout', 'Bono de bienvenida': 'Welcome bonus',
     'Cashback semanal': 'Weekly cashback', 'Combinada Plus': 'Parlay Plus', 'Invita y gana': 'Invite and earn',
     'Ejemplos:': 'Examples:', 'Menú': 'Menu', 'Más': 'More', 'Outs:': 'Outs:', 'diario': 'daily', 'semanal': 'weekly', 'mensual': 'monthly',
@@ -2275,7 +2280,7 @@
     ['Ofertas pensadas para que juegues con más ventaja.', 'Offers designed to give you an edge.'],
     ['Para cuidar tu dinero, los retiros se envían a la misma tarjeta o cuenta con la que depositaste. Haz tu primer depósito y luego podrás retirar ahí.', 'To protect your money, withdrawals are sent to the same card or account you deposited with. Make your first deposit and then you can withdraw there.'],
     ['Partido finalizado — ya no se pueden hacer apuestas.', 'Game over — betting is closed.'],
-    ['APUESTAS CERRADAS — PARTIDO EN JUEGO', 'BETTING CLOSED — GAME IN PROGRESS'],
+    ['APUESTAS CERRADAS — PARTIDO EN JUEGO', 'BETTING CLOSED — GAME IN PROGRESS'], ['APUESTAS CERRADAS — EL PARTIDO ESTÁ COMENZANDO', 'BETTING CLOSED — GAME IS STARTING'], ['El marcador aparece aquí en cuanto empiece.', 'The score will show here as soon as it starts.'],
     ['Partidos terminados y su marcador final.', 'Finished games and their final score.'],
     ['Pon un tope a lo que depositas para jugar con control.', 'Cap what you deposit so you play in control.'],
     ['Recupera una parte de lo apostado cada semana.', 'Get part of your stakes back every week.'],
