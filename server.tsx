@@ -1535,6 +1535,7 @@ app.get('/api/bets', async (c) => {
       status: r.status,
       cashout: cashoutOffer(r, byKey),
       winSeen: !!r.win_seen,
+      createdAt: r.created_at,
       date: new Date(r.created_at).toLocaleDateString('es-DO')
     };
   }));
