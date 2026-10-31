@@ -1181,6 +1181,92 @@ app.get('/api/admin/check', async (c) => {
   return c.json({ ok: isAdminReq(c) });
 });
 
+// ---------- Apuestas de partidos que el admin borró ----------
+// Una apuesta pendiente cuyo partido ya no está en la línea nunca se podría
+// calificar. Al resolverla: una sencilla se anula y se devuelve lo apostado;
+// en una combinada se quita esa selección y se recalcula el pago con las demás
+// (si no queda ninguna, se anula y se devuelve).
+function betLegs(b) {
+  if (/^Combinada/i.test(b.desc_text || '')) {
+    return String(b.match_text || '').split(' · ').map(function (leg) {
+      var parts = leg.split('@@@');
+      var tm = /^(Ganador|Hándicap|Total) (.*) vs (.*)$/.exec(parts[0] || '');
+      return { raw: leg, key: tm ? matchKey(tm[2], tm[3]) : null, odds: parseFloat(parts[2]), label: tm ? tm[2] + ' vs ' + tm[3] : leg };
+    });
+  }
+  var mm = /^(.*) @ (.*)$/.exec(b.match_text || '');
+  return [{ raw: b.match_text, key: mm ? matchKey(mm[1], mm[2]) : null, odds: NaN, label: b.match_text }];
+}
+async function currentMatchKeys() {
+  const rows = await sql`SELECT value FROM app_state WHERE key = 'matches'`;
+  var list = rows[0] ? rows[0].value : [];
+  if (typeof list === 'string') { try { list = JSON.parse(list); } catch (e) { list = []; } }
+  var keys = {};
+  (Array.isArray(list) ? list : []).forEach(function (m) { keys[matchKey(m.away, m.home)] = true; });
+  return keys;
+}
+async function findOrphanBets(onlyKey) {
+  const keys = await currentMatchKeys();
+  const pending = await sql`SELECT b.id, b.user_id, b.desc_text, b.match_text, b.stake, b.payout, b.created_at, u.email
+    FROM bets b JOIN users u ON u.id = b.user_id WHERE b.status = 'pending' ORDER BY b.created_at ASC`;
+  var out = [];
+  pending.forEach(function (b) {
+    var legs = betLegs(b);
+    var missing = legs.filter(function (l) { return l.key && !keys[l.key] && (!onlyKey || l.key === onlyKey); });
+    if (missing.length) out.push({ bet: b, legs: legs, missing: missing });
+  });
+  return out;
+}
+async function resolveOrphan(o) {
+  var b = o.bet, stake = Number(b.stake);
+  var keep = o.legs.filter(function (l) { return o.missing.indexOf(l) < 0; });
+  var isParlay = /^Combinada/i.test(b.desc_text || '');
+  if (!isParlay || !keep.length || keep.some(function (l) { return !(l.odds > 1); })) {
+    var vr = await sql`UPDATE bets SET status = 'void' WHERE id = ${b.id} AND status = 'pending' RETURNING id`;
+    if (vr[0]) await sql`UPDATE users SET balance = balance + ${stake} WHERE id = ${b.user_id}`;
+    return { id: b.id, action: 'refund', amount: stake };
+  }
+  var dec = keep.reduce(function (p, l) { return p * l.odds; }, 1);
+  var payout = Math.round(stake * dec * 100) / 100;
+  var desc = 'Combinada (' + keep.length + (keep.length === 1 ? ' selección)' : ' selecciones)');
+  await sql`UPDATE bets SET match_text = ${keep.map(function (l) { return l.raw; }).join(' · ')}, desc_text = ${desc}, payout = ${payout}
+    WHERE id = ${b.id} AND status = 'pending'`;
+  return { id: b.id, action: 'leg_removed', payout: payout };
+}
+function orphanView(o) {
+  var b = o.bet;
+  return { id: b.id, email: b.email, desc: b.desc_text, stake: Number(b.stake), payout: Number(b.payout), createdAt: b.created_at,
+    parlay: /^Combinada/i.test(b.desc_text || ''), legs: o.legs.length, missing: o.missing.map(function (l) { return l.label; }) };
+}
+// Apuestas pendientes de un partido (para avisar antes de borrarlo).
+app.get('/api/admin/match-bets', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
+  const key = matchKey(c.req.query('away') || '', c.req.query('home') || '');
+  const pending = await sql`SELECT id, desc_text, match_text, stake FROM bets WHERE status = 'pending'`;
+  var n = 0, total = 0, parlays = 0;
+  pending.forEach(function (b) {
+    if (betLegs(b).some(function (l) { return l.key === key; })) { n++; total += Number(b.stake); if (/^Combinada/i.test(b.desc_text || '')) parlays++; }
+  });
+  return c.json({ count: n, stake: Math.round(total * 100) / 100, parlays: parlays });
+});
+app.get('/api/admin/orphan-bets', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
+  return c.json((await findOrphanBets()).map(orphanView));
+});
+// Resuelve las apuestas de partidos borrados. Con "away"/"home" solo las de ese partido.
+app.post('/api/admin/orphan-bets/resolve', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
+  let body = {};
+  try { body = await c.req.json(); } catch (e) {}
+  const onlyKey = body && body.away && body.home ? matchKey(body.away, body.home) : null;
+  const ids = body && Array.isArray(body.ids) ? body.ids.map(Number) : null;
+  var list = await findOrphanBets(onlyKey);
+  if (ids) list = list.filter(function (o) { return ids.indexOf(o.bet.id) >= 0; });
+  var done = [];
+  for (const o of list) done.push(await resolveOrphan(o));
+  return c.json({ ok: true, resolved: done });
+});
+
 app.post('/api/admin/matches', async (c) => {
   if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
   let matches;
