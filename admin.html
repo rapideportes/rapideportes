@@ -1034,13 +1034,31 @@
     return data || [];
   }
   var saveQueue = Promise.resolve();
+  // Si el guardado falla (por ejemplo, se cerró la sesión del admin), avisamos claro
+  // y pedimos entrar de nuevo, en vez de decir que se guardó.
+  function adminSaveFailed(status) {
+    var expired = status === 401 || status === 403;
+    var t = document.getElementById('toast');
+    t.textContent = expired ? '⚠️ Tu sesión se cerró y NO se guardó el cambio. Entra de nuevo con tu clave y vuelve a hacerlo.' : '⚠️ No se pudo guardar el cambio. Revisa tu internet y vuelve a intentarlo.';
+    t.classList.add('show'); clearTimeout(t._timer);
+    t._timer = setTimeout(function () { t.classList.remove('show'); }, 7000);
+    if (expired) {
+      state.isAdmin = false;
+      document.getElementById('panelSection').style.display = 'none';
+      document.getElementById('gateSection').style.display = 'block';
+      window.scrollTo(0, 0);
+    }
+  }
   function saveMatches(list) {
     // Encadenamos los guardados en orden: si el usuario agrega varios
     // partidos muy seguido, esto evita que una petición que llega tarde
     // (con menos partidos) sobrescriba a una más nueva que ya tenía todo.
     var snapshot = JSON.stringify(list);
     saveQueue = saveQueue.then(function () {
-      return apiPost('/api/admin/matches', JSON.parse(snapshot));
+      return apiPost('/api/admin/matches', JSON.parse(snapshot)).then(function (r) {
+        if (!r.ok) adminSaveFailed(r.status);
+        return r;
+      });
     });
     return saveQueue;
   }
@@ -1067,6 +1085,7 @@
     var res = await apiPost('/api/admin/login', { password: v });
     if (res.ok) {
       state.isAdmin = true;
+      state.matches = await loadMatches();
       document.getElementById('gateSection').style.display = 'none';
       document.getElementById('panelSection').style.display = 'block';
       openAdminPanel();
