@@ -634,6 +634,8 @@
   .sl-item.clash { border-color: #FDA29B !important; background: #FFFBFA; }
   .sl-clash-tag { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 800; color: #B42318; background: #FFE4EA; border-radius: 999px; padding: 2px 9px; }
   #slipPlace:disabled { opacity: .45; cursor: not-allowed; }
+  .bet-leg-txt .bl-pk { display: block; color: var(--text); font-size: 13.5px; }
+  .bet-leg-txt .bl-g { display: block; color: var(--text-faint); font-size: 11.5px; margin-top: 1px; }
   .hh { border: 1px solid var(--border); border-radius: 14px; padding: 10px 12px; margin-bottom: 10px; background: #fff; }
   .hh-top { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 4px; }
   .hh-top b { font-size: 14px; }
@@ -1315,7 +1317,7 @@
     if (m.handicap) { var hA = m.handicap.awayLine, hH = m.handicap.homeLine; lA = (hA > 0 ? '+' : '') + hA; lH = (hH > 0 ? '+' : '') + hH; }
     function cell(col, side) {
       if (col === 'ml') return side === 'away' ? oddBtn(m.id + '-ml-2', m.away, away.v, m, '') : oddBtn(m.id + '-ml-0', m.home, home.v, m, '');
-      if (col === 'hcap') return side === 'away' ? oddBtn(m.id + '-hcap-away', 'Hándicap ' + lA, m.handicap.awayOdds, m, lA) : oddBtn(m.id + '-hcap-home', 'Hándicap ' + lH, m.handicap.homeOdds, m, lH);
+      if (col === 'hcap') return side === 'away' ? oddBtn(m.id + '-hcap-away', 'Hándicap ' + m.away + ' ' + lA, m.handicap.awayOdds, m, lA) : oddBtn(m.id + '-hcap-home', 'Hándicap ' + m.home + ' ' + lH, m.handicap.homeOdds, m, lH);
       return side === 'away' ? oddBtn(m.id + '-tot-over', 'Más ' + m.total.line + ' ' + unit, m.total.over, m, '> ' + m.total.line) : oddBtn(m.id + '-tot-under', 'Menos ' + m.total.line + ' ' + unit, m.total.under, m, '< ' + m.total.line);
     }
     function glTeam(name) {
@@ -1466,23 +1468,14 @@
       var meta = betStatusMeta(h);
       var isParlay = /^Combinada/i.test(h.desc || '');
       var mult = h.stake ? (Number(h.payout) / Number(h.stake)) : 0;
-      html += '<div class="bet"><div class="bet-top"><div class="bet-desc">' + esc(h.desc) + '</div><span class="pill' + (meta.cls ? ' ' + meta.cls : '') + '">' + esc(meta.label) + '</span></div>' +
+      var legsR = readBetLegs(h);
+      html += '<div class="bet"><div class="bet-top"><div class="bet-desc">' + (isParlay ? 'Combinada · ' + legsR.length + ' selecciones' : 'Apuesta sencilla') + '</div><span class="pill' + (meta.cls ? ' ' + meta.cls : '') + '">' + esc(meta.label) + '</span></div>' +
         '<div class="bet-match">' + esc(h.date) + '</div>';
-      if (isParlay && h.match) {
-        html += '<div class="bet-legs">' + h.match.split(' · ').map(function (leg) {
-          var parts = leg.split('@@@');
-          if (parts.length === 3) {
-            return '<div class="bet-leg"><span class="bet-leg-txt">🎯 ' + esc(parts[0]) + '</span><span class="bet-leg-o"><span class="pk">' + esc(parts[1]) + '</span><span class="od">@' + esc(parts[2]) + '</span></span></div>';
-          }
-          var mOdd = leg.match(/\s@([\d.]+)$/);
-          var txt = mOdd ? leg.slice(0, mOdd.index) : leg;
-          var oddTxt = mOdd ? mOdd[1] : '';
-          return '<div class="bet-leg"><span class="bet-leg-txt">🎯 ' + esc(txt) + '</span>' + (oddTxt ? '<span class="bet-leg-o"><span class="od">@' + esc(oddTxt) + '</span></span>' : '') + '</div>';
-        }).join('') + '</div>';
-      } else {
-        html += '<div class="bet-match" style="margin-top:2px;">' + esc(h.match) + '</div>';
-      }
-      html += '<div class="bet-foot"><span>Apostó ' + fmtMoney(h.stake) + (mult ? ' · ' + mult.toFixed(2) + '×' : '') + '</span>' +
+      html += '<div class="bet-legs">' + legsR.map(function (l) {
+        return '<div class="bet-leg"><span class="bet-leg-txt"><b class="bl-pk">' + esc(l.pick) + '</b>' + (l.game ? '<small class="bl-g">' + esc(l.game) + '</small>' : '') + '</span>' +
+          (l.odds ? '<span class="bet-leg-o"><span class="od">' + esc(l.odds) + '</span></span>' : '') + '</div>';
+      }).join('') + '</div>';
+      html += '<div class="bet-foot"><span>Apostó ' + fmtMoney(h.stake) + (mult && meta.cls !== 'cash' && meta.cls !== 'void' ? ' · cuota ' + mult.toFixed(2) : '') + '</span>' +
         (meta.cls === 'won' ? '<b>' + fmtMoney(h.payout) + '</b>' : meta.cls === 'cash' ? '<span>Cobraste <b>' + fmtMoney(h.payout) + '</b></span>' : meta.cls === '' ? '<span>Gana <b>' + fmtMoney(Math.max(0, Number(h.payout) - Number(h.stake))) + '</b></span>' : '') + '</div>';
       if (meta.cls === '' && h.id && typeof h.cashout === 'number') {
         if (state.cashoutConfirm === h.id) {
@@ -1716,6 +1709,7 @@
     if (/ — /.test(pick)) { var pp = pick.split(' — '); return pp[0] + ': ' + readPick('', pp.slice(1).join(' — '), away, home); }
     if ((m = pick.match(/^(?:>|Más)\s*([\d.]+)(.*)$/))) return 'Más de ' + m[1] + m[2];
     if ((m = pick.match(/^(?:<|Menos)\s*([\d.]+)(.*)$/))) return 'Menos de ' + m[1] + m[2];
+    if ((m = pick.match(/^Hándicap\s+(.+\S)\s+([+-]?\d+(?:\.\d+)?)$/))) return m[1] + ' ' + m[2];
     if ((m = pick.match(/^(?:Hándicap\s+)?([+-]?\d+(?:\.\d+)?)$/)) && (market === 'Hándicap' || /^Hándicap/.test(pick))) {
       var line = parseFloat(m[1]), g = state.matches.filter(function (x) { return x.away === away && x.home === home; })[0], team = '';
       if (g && g.handicap) {
