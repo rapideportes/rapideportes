@@ -1676,6 +1676,7 @@
     if (/ — /.test(pick)) { var pp = pick.split(' — '); return { mk: pp[0], pick: jpReadPick('', pp.slice(1).join(' — '), away, home).pick }; }
     if ((m = pick.match(/^(?:>|Más)\s*([\d.]+)(.*)$/))) return { mk: market || 'Total', pick: 'Más de ' + m[1] + m[2] };
     if ((m = pick.match(/^(?:<|Menos)\s*([\d.]+)(.*)$/))) return { mk: market || 'Total', pick: 'Menos de ' + m[1] + m[2] };
+    if ((m = pick.match(/^Hándicap\s+(.+\S)\s+([+-]?\d+(?:\.\d+)?)$/))) return { mk: 'Hándicap', pick: m[1] + ' ' + m[2] };
     if ((m = pick.match(/^(?:Hándicap\s+)?([+-]?\d+(?:\.\d+)?)$/)) && (market === 'Hándicap' || /^Hándicap/.test(pick))) {
       var line = parseFloat(m[1]), g = jpFindMatch(away, home), team = '';
       if (g && g.handicap) {
