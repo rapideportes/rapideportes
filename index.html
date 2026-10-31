@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -1662,6 +1663,19 @@
     syncSelected();
     renderSlip();
   }
+  // Si el admin borró un partido (o ya empezó), sus selecciones salen del boleto.
+  function pruneSlip() {
+    var gone = [];
+    slipKeys().forEach(function (k) {
+      var sl = state.slip[k];
+      var m = state.matches.filter(function (x) { return x.away === sl.away && x.home === sl.home; })[0];
+      if (!m || isBettingClosed(m)) { gone.push(sl.away + ' @ ' + sl.home); delete state.slip[k]; }
+    });
+    if (!gone.length) return;
+    autoSlipMode(); syncSelected(); renderSlip();
+    var uniq = gone.filter(function (x, i) { return gone.indexOf(x) === i; });
+    showToast('Se quitó del boleto: ' + uniq.join(', ') + '. Ese partido ya no está disponible.');
+  }
   function setSlipMode(mode) {
     state.slipMode = mode;
     Array.prototype.forEach.call($('slipModeToggle').querySelectorAll('button'), function (x) { x.classList.toggle('active', x.dataset.mode === mode); });
@@ -2093,7 +2107,7 @@
   document.addEventListener('visibilitychange', async function () {
     if (document.visibilityState !== 'visible') return;
     if (document.querySelector('.overlay.open') || state.view === 'search') return;
-    state.matches = await loadMatches();
+    state.matches = await loadMatches(); pruneSlip();
     renderView();
   });
 
@@ -2103,7 +2117,7 @@
   setInterval(async function () {
     if (document.visibilityState !== 'visible') return;
     if (document.querySelector('.overlay.open') || state.view === 'search') return;
-    state.matches = await loadMatches();
+    state.matches = await loadMatches(); pruneSlip();
     renderView();
   }, 15000);
 
@@ -2119,7 +2133,7 @@
 
   /* ---------- Inicio ---------- */
   (async function bootstrap() {
-    state.matches = await loadMatches();
+    state.matches = await loadMatches(); pruneSlip();
     var me = await apiGet('/api/me');
     if (me) {
       state.user = { email: me.email };
@@ -2209,6 +2223,7 @@
     ['Escribe un monto válido.', 'Enter a valid amount.'],
     ['Escríbenos por los canales oficiales de atención de RapiDeportes. Respondemos lo antes posible.', 'Write to us through RapiDeportes official support channels. We reply as soon as possible.'],
     ['Ese correo ya está registrado.', 'That email is already registered.'],
+    ['Se quitó del boleto:', 'Removed from your slip:'], ['Ese partido ya no está disponible.', 'That game is no longer available.'],
     ['Ese monto pasa tu límite. Puedes depositar hasta', 'That amount exceeds your limit. You can deposit up to'],
     ['Haz un depósito primero para poder retirar.', 'Make a deposit first to be able to withdraw.'],
     ['Juega solo con dinero que puedas permitirte perder, define un límite antes de empezar y no intentes recuperar pérdidas.', 'Only play with money you can afford to lose, set a limit before you start and never chase losses.'],
