@@ -523,6 +523,11 @@
   .amc-clock { margin-top: 10px; font-size: 13px; font-weight: 600; color: var(--text-dim); }
   .amc-clock b { color: var(--text); }
   .amc-past { margin-top: 8px; padding: 10px 12px; border-radius: 10px; background: #FFF1F3; border: 1px solid #FECDD6; color: #B42318; font-size: 13px; font-weight: 600; }
+
+  .line-note { margin: 2px 0 10px; padding: 9px 12px; border-radius: 10px; font-size: 12.5px; line-height: 1.4; background: var(--bg); border: 1px solid var(--border); color: var(--text-dim); }
+  .line-note.ok { background: #ECFDF3; border-color: #ABEFC6; color: #067647; }
+  .line-note.ok b { color: #054F31; }
+  .line-note.warn { background: #FFF1F3; border-color: #FECDD6; color: #B42318; }
 </style>
 </head>
 <body>
@@ -603,6 +608,7 @@
           </div>
         </div>
         <datalist id="teamOptions"></datalist>
+        <datalist id="nbaStatOptions"><option value="Puntos"><option value="Rebotes"><option value="Asistencias"><option value="Triples"><option value="Robos"><option value="Tapones"></datalist>
       </div>
 
       <div class="amc-block">
@@ -676,6 +682,7 @@
             <div class="field">
               <label for="newPropPlayer">Nombre del jugador</label>
               <input type="text" id="newPropPlayer" placeholder="Ej. G. Cole (Yanquis)" class="odds-num-input">
+              <select class="amc-select roster-sel" data-roster-for="newPropPlayer" hidden><option value="">Elige el jugador…</option></select>
               <button type="button" class="amc-market-add-player" data-find-pitcher="newPropPlayer" style="margin-top:6px;">🔍 Buscar lanzadores de hoy (MLB)</button>
               <div data-pitcher-results="newPropPlayer" style="display:none; margin-top:6px; background:var(--bg-raised); border:1px solid var(--border); border-radius:7px; max-height:160px; overflow-y:auto;"></div>
             </div>
@@ -685,11 +692,13 @@
               <div class="field" style="flex:1;"><label for="newPropOver">Cuota Más</label><input type="number" step="0.01" id="newPropOver" placeholder="1.91" class="odds-num-input"></div>
               <div class="field" style="flex:1;"><label for="newPropUnder">Cuota Menos</label><input type="number" step="0.01" id="newPropUnder" placeholder="1.91" class="odds-num-input"></div>
             </div>
+            <div class="line-note" data-line-note="1" hidden></div>
           </div>
           <div class="amc-prop-block" id="prop2Block" hidden>
             <div class="field">
               <label for="newProp2Player">Nombre del jugador</label>
               <input type="text" id="newProp2Player" placeholder="Ej. F. Valdez (Astros)" class="odds-num-input">
+              <select class="amc-select roster-sel" data-roster-for="newProp2Player" hidden><option value="">Elige el jugador…</option></select>
               <button type="button" class="amc-market-add-player" data-find-pitcher="newProp2Player" style="margin-top:6px;">🔍 Buscar lanzadores de hoy (MLB)</button>
               <div data-pitcher-results="newProp2Player" style="display:none; margin-top:6px; background:var(--bg-raised); border:1px solid var(--border); border-radius:7px; max-height:160px; overflow-y:auto;"></div>
             </div>
@@ -699,6 +708,7 @@
               <div class="field" style="flex:1;"><label for="newProp2Over">Cuota Más</label><input type="number" step="0.01" id="newProp2Over" placeholder="1.91" class="odds-num-input"></div>
               <div class="field" style="flex:1;"><label for="newProp2Under">Cuota Menos</label><input type="number" step="0.01" id="newProp2Under" placeholder="1.91" class="odds-num-input"></div>
             </div>
+            <div class="line-note" data-line-note="2" hidden></div>
           </div>
           <button type="button" class="amc-market-add-player" id="addProp2Btn">+ Agregar otro lanzador</button>
         </div>
@@ -913,6 +923,135 @@
   }
   document.getElementById('newSport').addEventListener('change', populateTeamOptions);
 
+  /* ---------- Apuestas de jugadores: NBA ---------- */
+  var NBA_PROP_STATS = ['Puntos', 'Rebotes', 'Asistencias', 'Triples', 'Robos', 'Tapones'];
+  function nbaStatCanon(s) {
+    var n = String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]/g, '');
+    var map = { puntos: 'Puntos', punto: 'Puntos', pts: 'Puntos', points: 'Puntos', rebotes: 'Rebotes', rebote: 'Rebotes', reb: 'Rebotes', rebounds: 'Rebotes',
+      asistencias: 'Asistencias', asistencia: 'Asistencias', ast: 'Asistencias', assists: 'Asistencias', triples: 'Triples', triple: 'Triples', '3pt': 'Triples', '3p': 'Triples',
+      robos: 'Robos', robo: 'Robos', stl: 'Robos', tapones: 'Tapones', tapon: 'Tapones', blk: 'Tapones' };
+    return map[n] || null;
+  }
+  var NBA_STAT_MSG = 'Para la NBA la estadística tiene que ser: Puntos, Rebotes, Asistencias, Triples, Robos o Tapones.';
+  function propWord(sport) { return (sport === 'beisbol' || sport === 'lidom') ? 'lanzador' : 'jugador'; }
+  function propTitle(sport) { return (sport === 'beisbol' || sport === 'lidom') ? 'Lanzadores' : 'Jugadores'; }
+  function applyPropMode() {
+    var sport = document.getElementById('newSport').value, nba = sport === 'baloncesto', mlb = sport === 'beisbol' || sport === 'lidom';
+    MARKET_CHIP_LABELS.props = '+ ' + propTitle(sport);
+    var chip = document.querySelector('[data-market="props"]');
+    if (chip) chip.textContent = chip.classList.contains('active') ? '✓ ' + propTitle(sport) : MARKET_CHIP_LABELS.props;
+    var head = document.querySelector('#marketProps .amc-market-head span'); if (head) head.textContent = propTitle(sport);
+    Array.prototype.forEach.call(document.querySelectorAll('#marketProps [data-find-pitcher]'), function (b) { b.hidden = !mlb; });
+    [['newPropPlayer', 'Ej. G. Cole (Yanquis)', 'Ej. J. Harden'], ['newProp2Player', 'Ej. F. Valdez (Astros)', 'Ej. E. Mobley']].forEach(function (x) { var el = document.getElementById(x[0]); if (el) el.placeholder = nba ? x[2] : x[1]; });
+    ['newPropStat', 'newProp2Stat'].forEach(function (id) {
+      var el = document.getElementById(id); if (!el) return;
+      el.placeholder = nba ? 'Puntos, Rebotes, Asistencias…' : 'Ej. Ponches';
+      if (nba) el.setAttribute('list', 'nbaStatOptions'); else el.removeAttribute('list');
+    });
+    var add2 = document.getElementById('addProp2Btn'); if (add2) add2.textContent = '+ Agregar otro ' + propWord(sport);
+  }
+  document.getElementById('newSport').addEventListener('change', applyPropMode);
+
+  /* ---------- Lista de jugadores de los dos equipos (NBA) ---------- */
+  var rosterCache = {};
+  function loadRoster(team) {
+    team = String(team || '').trim();
+    if (!team) return Promise.resolve(null);
+    if (!rosterCache[team]) {
+      rosterCache[team] = fetch('/api/admin/roster?team=' + encodeURIComponent(team), { credentials: 'include' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .catch(function () { return null; })
+        .then(function (d) { if (!d) delete rosterCache[team]; return d; });
+    }
+    return rosterCache[team];
+  }
+  function escH(s) { return String(s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function fillRosterSelect(sel, away, home) {
+    if (!sel) return;
+    if (!away || !home) { sel.innerHTML = '<option value="">Primero escribe los dos equipos</option>'; return; }
+    sel.innerHTML = '<option value="">Cargando jugadores…</option>';
+    Promise.all([loadRoster(away), loadRoster(home)]).then(function (rs) {
+      var html = '<option value="">Elige el jugador…</option>', any = false;
+      rs.forEach(function (r, i) {
+        var label = (i === 0 ? '✈️ ' : '🏠 ') + (r ? r.team : (i === 0 ? away : home));
+        if (!r || !r.players.length) { html += '<optgroup label="' + escH(label) + ' — no se encontró"></optgroup>'; return; }
+        any = true;
+        html += '<optgroup label="' + escH(label) + '">' + r.players.map(function (p) {
+          return '<option value="' + escH(p.name) + '">' + escH(p.name) + (p.pos ? ' · ' + escH(p.pos) : '') + (p.jersey ? ' · #' + escH(p.jersey) : '') + '</option>';
+        }).join('') + '</optgroup>';
+      });
+      sel.innerHTML = any ? html : '<option value="">No se pudo cargar la lista. Escribe el nombre.</option>';
+    });
+  }
+  function refreshNewFormRosters() {
+    var nba = document.getElementById('newSport').value === 'baloncesto';
+    var away = document.getElementById('newAway').value.trim(), home = document.getElementById('newHome').value.trim();
+    Array.prototype.forEach.call(document.querySelectorAll('#marketProps [data-roster-for]'), function (sel) {
+      sel.hidden = !nba;
+      if (nba) fillRosterSelect(sel, away, home);
+    });
+  }
+  ['newSport', 'newAway', 'newHome'].forEach(function (id) { document.getElementById(id).addEventListener('change', refreshNewFormRosters); });
+
+  /* ---------- Línea sugerida con el promedio de la temporada (NBA) ---------- */
+  function propCtx(el) {
+    var id = el.id || '', mi = el.dataset ? (el.dataset.newpropPlayer || el.dataset.newpropStat) : null;
+    var q = function (x) { return document.getElementById(x); };
+    if (/^newProp2(Player|Stat)$/.test(id) || /^newProp(Player|Stat)$/.test(id)) {
+      var p = /^newProp2/.test(id) ? 'newProp2' : 'newProp';
+      return { sport: q('newSport').value, away: q('newAway').value.trim(), home: q('newHome').value.trim(),
+        player: q(p + 'Player'), stat: q(p + 'Stat'), line: q(p + 'Line'), over: q(p + 'Over'), under: q(p + 'Under'),
+        note: document.querySelector('[data-line-note="' + (p === 'newProp2' ? 2 : 1) + '"]') };
+    }
+    if (mi !== null && mi !== undefined && state.matches[parseInt(mi, 10)]) {
+      var m = state.matches[parseInt(mi, 10)], r = document.getElementById('adminMatchList');
+      var g = function (k) { return r.querySelector('[data-newprop-' + k + '="' + mi + '"]'); };
+      return { sport: m.sport, away: m.away, home: m.home, player: g('player'), stat: g('stat'), line: g('line'), over: g('over-num'), under: g('under-num'),
+        note: r.querySelector('[data-line-note-match="' + mi + '"]') };
+    }
+    return null;
+  }
+  var suggestSeq = 0;
+  function suggestLine(ctx) {
+    if (!ctx || ctx.sport !== 'baloncesto' || !ctx.note) return;
+    var player = ctx.player.value.trim(), stat = nbaStatCanon(ctx.stat.value);
+    if (!player || !stat) { ctx.note.hidden = true; return; }
+    if (!ctx.away || !ctx.home) { ctx.note.hidden = false; ctx.note.className = 'line-note'; ctx.note.textContent = 'Escribe los dos equipos para sugerir la línea.'; return; }
+    var seq = ++suggestSeq;
+    ctx.note.hidden = false; ctx.note.className = 'line-note'; ctx.note.textContent = '⏳ Buscando el promedio de ' + player + '…';
+    fetch('/api/admin/player-line?player=' + encodeURIComponent(player) + '&stat=' + encodeURIComponent(stat) + '&away=' + encodeURIComponent(ctx.away) + '&home=' + encodeURIComponent(ctx.home), { credentials: 'include' })
+      .then(function (r) { return r.ok ? r.json() : null; }).catch(function () { return null; })
+      .then(function (d) {
+        if (seq !== suggestSeq) return;
+        if (!d || typeof d.line !== 'number') {
+          ctx.note.className = 'line-note warn';
+          ctx.note.textContent = 'No se encontró el promedio de este jugador. Pon la línea a mano.';
+          return;
+        }
+        if (!ctx.line.value.trim() || ctx.line.dataset.auto === '1') { ctx.line.value = d.line; ctx.line.dataset.auto = '1'; }
+        if (!ctx.over.value.trim()) ctx.over.value = '1.91';
+        if (!ctx.under.value.trim()) ctx.under.value = '1.91';
+        ctx.note.className = 'line-note ok';
+        ctx.note.innerHTML = '⚡ <b>Línea sugerida: ' + d.line + '</b> · promedio de ' + escH(d.player) + ': ' + (Math.round(d.avg * 10) / 10) + ' ' + stat.toLowerCase() +
+          (d.games ? ' en ' + d.games + (d.games === 1 ? ' juego' : ' juegos') : '') + '. Revísala antes de guardar.';
+      });
+  }
+  document.addEventListener('change', function (e) {
+    var t = e.target;
+    if (!t || !t.matches) return;
+    if (t.matches('#newPropPlayer,#newPropStat,#newProp2Player,#newProp2Stat,[data-newprop-player],[data-newprop-stat]')) suggestLine(propCtx(t));
+  });
+  document.addEventListener('input', function (e) {
+    var t = e.target;
+    if (t && t.matches && t.matches('#newPropLine,#newProp2Line,[data-newprop-line]')) t.dataset.auto = '';
+  });
+  document.addEventListener('change', function (e) {
+    var sel = e.target.closest && e.target.closest('[data-roster-for],[data-roster-match]');
+    if (!sel || !sel.value) return;
+    var input = sel.dataset.rosterFor ? document.getElementById(sel.dataset.rosterFor) : document.querySelector('[data-newprop-player="' + sel.dataset.rosterMatch + '"]');
+    if (input) { input.value = sel.value; input.dispatchEvent(new Event('change', { bubbles: true })); }
+  });
+
   var MARKET_CHIP_LABELS = {
     hcap: '+ Hándicap',
     total: '+ Total (Más/Menos)',
@@ -928,7 +1067,7 @@
     }
     if (!open) {
       Array.prototype.forEach.call(box.querySelectorAll('input,select'), function (el) { el.value = ''; });
-      if (market === 'props') document.getElementById('prop2Block').hidden = true;
+      if (market === 'props') { document.getElementById('prop2Block').hidden = true; Array.prototype.forEach.call(box.querySelectorAll('.line-note'), function (n) { n.hidden = true; }); }
       if (market === 'hcap') {
         if (lineSelectSyncers.newHcapAwayLine) lineSelectSyncers.newHcapAwayLine();
         if (lineSelectSyncers.newHcapHomeLine) lineSelectSyncers.newHcapHomeLine();
@@ -940,6 +1079,7 @@
       var market = chip.dataset.market;
       var isOpen = chip.classList.contains('active');
       setMarketOpen(market, !isOpen);
+      if (market === 'props' && !isOpen) refreshNewFormRosters();
     });
   });
   Array.prototype.forEach.call(document.querySelectorAll('[data-close-market]'), function (btn) {
@@ -1312,7 +1452,7 @@
       html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota Menos</label><input type="number" step="0.01" class="odds-num-input" style="width:70px; padding:6px 8px; font-size:13px;" data-total-under-num="' + mi + '" value="' + tUnderDec + '" placeholder="1.91"></div>';
       html += '</div>';
       html += '<div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">';
-      html += '<div style="font-size:11px; color:var(--text-faint); margin-bottom:6px;">Lanzadores</div>';
+      html += '<div style="font-size:11px; color:var(--text-faint); margin-bottom:6px;">' + propTitle(m.sport) + '</div>';
       (m.props || []).forEach(function (p, pi) {
         var pOverDec = p.over ? americanToDecimalStr(p.over) : '';
         var pUnderDec = p.under ? americanToDecimalStr(p.under) : '';
@@ -1326,16 +1466,19 @@
         html += '</div>';
       });
       html += '<div style="padding:12px; background:var(--surface); border-radius:8px; margin-top:8px;">';
-      html += '<div style="font-size:11px; color:var(--accent); font-weight:600; margin-bottom:8px;">+ Agregar lanzador</div>';
+      html += '<div style="font-size:11px; color:var(--accent); font-weight:600; margin-bottom:8px;">+ Agregar ' + propWord(m.sport) + '</div>';
       html += '<div style="display:flex; flex-direction:column; gap:8px; max-width:320px;">';
-      html += '<div><label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:3px;">Nombre del jugador</label><input type="text" class="odds-num-input" style="width:100%;" data-newprop-player="' + mi + '" placeholder="Ej. G. Cole (Yanquis)"></div>';
-      html += '<div><label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:3px;">Estadística</label><input type="text" class="odds-num-input" style="width:100%;" data-newprop-stat="' + mi + '" placeholder="Ej. Ponches"></div>';
+      html += '<div><label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:3px;">Nombre del jugador</label>' +
+        (m.sport === 'baloncesto' ? '<select class="amc-select roster-sel" style="margin-bottom:6px;" data-roster-match="' + mi + '"><option value="">Cargando jugadores…</option></select>' : '') +
+        '<input type="text" class="odds-num-input" style="width:100%;" data-newprop-player="' + mi + '" placeholder="' + (m.sport === 'baloncesto' ? 'O escríbelo: Ej. J. Harden' : 'Ej. G. Cole (Yanquis)') + '"></div>';
+      html += '<div><label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:3px;">Estadística</label><input type="text" class="odds-num-input" style="width:100%;" data-newprop-stat="' + mi + '" placeholder="' + (m.sport === 'baloncesto' ? 'Puntos, Rebotes, Asistencias…" list="nbaStatOptions' : 'Ej. Ponches') + '"></div>';
       html += '<div style="display:flex; gap:8px;">';
       html += '<div style="flex:1;"><label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:3px;">Línea</label><input type="number" step="0.5" class="odds-num-input" style="width:100%;" data-newprop-line="' + mi + '" placeholder="6.5"></div>';
       html += '<div style="flex:1;"><label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:3px;">Cuota Más</label><input type="number" step="0.01" class="odds-num-input" style="width:100%;" data-newprop-over-num="' + mi + '" placeholder="1.91"></div>';
       html += '<div style="flex:1;"><label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:3px;">Cuota Menos</label><input type="number" step="0.01" class="odds-num-input" style="width:100%;" data-newprop-under-num="' + mi + '" placeholder="1.91"></div>';
       html += '</div>';
-      html += '<button class="btn primary" data-newprop-add="' + mi + '" style="padding:8px; font-size:13px; margin-top:4px;">+ Agregar lanzador</button>';
+      html += '<div class="line-note" data-line-note-match="' + mi + '" hidden></div>';
+      html += '<button class="btn primary" data-newprop-add="' + mi + '" style="padding:8px; font-size:13px; margin-top:4px;">+ Agregar ' + propWord(m.sport) + '</button>';
       html += '</div></div></div></div>';
     });
     root.innerHTML = html;
@@ -1406,7 +1549,13 @@
       var underNum = root.querySelector('[data-prop-under-num="' + mi + '-' + pi + '"]');
       var p = state.matches[mi].props[pi];
       p.player = playerEl.value.trim() || p.player;
-      p.stat = statEl.value.trim() || p.stat;
+      var newStat = statEl.value.trim();
+      if (newStat && state.matches[mi].sport === 'baloncesto') {
+        var cs = nbaStatCanon(newStat);
+        if (!cs) { statEl.value = p.stat; showToast(NBA_STAT_MSG); return; }
+        newStat = cs;
+      }
+      p.stat = newStat || p.stat;
       if (lineEl.value.trim()) p.line = parseFloat(lineEl.value.trim());
       if (overNum.value.trim()) p.over = decimalToAmerican(overNum.value.trim());
       if (underNum.value.trim()) p.under = decimalToAmerican(underNum.value.trim());
@@ -1429,11 +1578,16 @@
         showToast('Jugador eliminado.');
       });
     });
+    Array.prototype.forEach.call(root.querySelectorAll('[data-roster-match]'), function (sel) {
+      var rm = state.matches[parseInt(sel.dataset.rosterMatch, 10)];
+      if (rm) fillRosterSelect(sel, rm.away, rm.home);
+    });
     Array.prototype.forEach.call(root.querySelectorAll('[data-newprop-add]'), function (btn) {
       btn.addEventListener('click', function () {
         var mi = parseInt(btn.dataset.newpropAdd, 10);
         var player = root.querySelector('[data-newprop-player="' + mi + '"]').value.trim();
         var stat = root.querySelector('[data-newprop-stat="' + mi + '"]').value.trim();
+        if (stat && state.matches[mi].sport === 'baloncesto') { stat = nbaStatCanon(stat); if (!stat) { showToast(NBA_STAT_MSG); return; } }
         var line = root.querySelector('[data-newprop-line="' + mi + '"]').value.trim();
         var overNum = root.querySelector('[data-newprop-over-num="' + mi + '"]').value.trim();
         var underNum = root.querySelector('[data-newprop-under-num="' + mi + '"]').value.trim();
@@ -1558,6 +1712,10 @@
     var prop2Over = document.getElementById('newProp2Over').value.trim();
     var prop2Under = document.getElementById('newProp2Under').value.trim();
     var newProps = [];
+    if (sport === 'baloncesto') {
+      if (propPlayer && propStat) { propStat = nbaStatCanon(propStat); if (!propStat) { showToast(NBA_STAT_MSG); return; } }
+      if (prop2Player && prop2Stat) { prop2Stat = nbaStatCanon(prop2Stat); if (!prop2Stat) { showToast(NBA_STAT_MSG); return; } }
+    }
     if (propPlayer && propStat && propLine && propOver && propUnder) {
       newProps.push({ player: propPlayer, stat: propStat, line: parseFloat(propLine), over: decimalToAmerican(propOver), under: decimalToAmerican(propUnder) });
     }
