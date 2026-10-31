@@ -685,6 +685,7 @@
   .rc-acts.show { opacity: 1; }
   .rc-acts .btn { margin: 0; }
   @media (prefers-reduced-motion: reduce) { .rc-paper.go { animation: none; transform: none; } }
+  .co-left-note { font-size: 12px; color: #067647; background: #ECFDF3; border-radius: 10px; padding: 7px 10px; margin-top: 6px; line-height: 1.35; text-align: center; }
 </style>
 </head>
 <body>
@@ -1532,10 +1533,11 @@
         (meta.cls === 'won' ? '<b>' + fmtMoney(h.payout) + '</b>' : meta.cls === 'cash' ? '<span>Cobraste <b>' + fmtMoney(h.payout) + '</b></span>' : meta.cls === '' ? '<span>Gana <b>' + fmtMoney(Math.max(0, Number(h.payout) - Number(h.stake))) + '</b></span>' : '') + '</div>';
       if (meta.cls === '' && h.id && typeof h.cashout === 'number') {
         if (state.cashoutConfirm === h.id) {
-          html += '<div class="co-row"><button type="button" class="btn" data-cashout-no="1">Cancelar</button><button type="button" class="btn primary" data-cashout-go="' + esc(h.id) + '">Cobrar $' + h.cashout.toFixed(2) + '</button></div>' +
+          html += '<div class="co-row"><button type="button" class="btn" data-cashout-no="1">Cancelar</button><button type="button" class="btn primary" data-cashout-go="' + esc(h.id) + '" data-expect="' + h.cashout.toFixed(2) + '">Cobrar $' + h.cashout.toFixed(2) + '</button></div>' +
             '<div class="co-note">Recibes $' + h.cashout.toFixed(2) + ' ahora y la apuesta se cierra.</div>';
         } else {
-          html += '<button type="button" class="co-btn" data-cashout="' + esc(h.id) + '">💵 Cobrar ahora · $' + h.cashout.toFixed(2) + '</button>';
+          html += '<button type="button" class="co-btn" data-cashout="' + esc(h.id) + '">💵 Cobrar ahora · $' + h.cashout.toFixed(2) + '</button>' +
+            (h.cashoutWon ? '<div class="co-left-note">✅ Ya ganaste ' + h.cashoutWon + (h.cashoutWon === 1 ? ' jugada' : ' jugadas') + '. Te ' + (h.cashoutLeft === 1 ? 'falta 1 juego' : 'faltan ' + h.cashoutLeft + ' juegos') + ': puedes cobrar ahora o esperar a que se ' + (h.cashoutLeft === 1 ? 'juegue' : 'jueguen') + '.</div>' : '');
         }
       }
       if (h.id) html += '<button type="button" class="tk-btn" data-ticket="' + esc(h.id) + '">🧾 Ver ticket y compartir</button>';
@@ -2151,9 +2153,13 @@
     var coGo = t.closest('[data-cashout-go]');
     if (coGo) {
       coGo.disabled = true;
-      apiPost('/api/bets/' + encodeURIComponent(coGo.dataset.cashoutGo) + '/cashout', {}).then(async function (r) {
+      apiPost('/api/bets/' + encodeURIComponent(coGo.dataset.cashoutGo) + '/cashout', { expect: Number(coGo.dataset.expect) || 0 }).then(async function (r) {
+        if (!r.ok && r.data && r.data.error === 'changed') {
+          state.history = (await apiGet('/api/bets')) || state.history; renderView();
+          showToast('La oferta cambió a $' + Number(r.data.offer).toFixed(2) + '. Revísala y confirma otra vez.'); return;
+        }
         state.cashoutConfirm = null;
-        if (!r.ok) { showToast('Ya no se puede cobrar esta apuesta. El partido empezó o cambió.'); state.history = (await apiGet('/api/bets')) || state.history; renderView(); return; }
+        if (!r.ok) { showToast('Ahora mismo no se puede cobrar esta apuesta.'); state.history = (await apiGet('/api/bets')) || state.history; renderView(); return; }
         state.balance = r.data.balance; updateHeader();
         state.history = (await apiGet('/api/bets')) || state.history;
         showToast('Cobraste ' + fmtMoney(r.data.amount) + '. Ya está en tu saldo.'); renderView();
@@ -2549,12 +2555,18 @@
   // Revisa cada 30 segundos si algún partido pasó a "en vivo" (o terminó),
   // para que se mueva solo entre "Comienzan hoy" y "En vivo ahora" sin que
   // el jugador tenga que recargar la página.
+  // Con juegos en vivo se actualiza cada 7 segundos; si no, cada 15.
+  var lastPoll = 0;
   setInterval(async function () {
     if (document.visibilityState !== 'visible') return;
     if (document.querySelector('.overlay.open') || state.view === 'search') return;
+    var anyLive = state.matches.some(function (m) { return m.live; });
+    if (!anyLive && Date.now() - lastPoll < 15000) return;
+    lastPoll = Date.now();
     state.matches = await loadMatches(); pruneSlip();
-    renderView();
-  }, 15000);
+    if (state.view === 'bets' && state.user && openBets().length) state.history = (await apiGet('/api/bets')) || state.history;
+    var y = window.scrollY; renderView(); window.scrollTo(0, y);
+  }, 7000);
 
   // Avisa al servidor que el jugador sigue en la página (para "En línea" en el panel)
   // y de paso trae el saldo al día, por si el admin le recargó o descontó.
@@ -2709,7 +2721,7 @@
     ['Una apuesta sencilla se gana cuando tu selección acierta. Una combinada se gana solo si aciertan todas sus selecciones.', 'A single bet wins when your pick is right. A parlay wins only if all its picks are right.'],
     ['Verifica tu edad antes de retirar.', 'Verify your age before withdrawing.'],
     ['Vuelve pronto, estamos preparando las líneas.', "Check back soon, we're setting the lines."],
-    ['Ya no se puede cobrar esta apuesta. El partido empezó o cambió.', 'This bet can no longer be cashed out. The game started or changed.'],
+    ['Ahora mismo no se puede cobrar esta apuesta.', 'This bet cannot be cashed out right now.'],
     ['Ya puedes retirar tus ganancias.', 'You can now withdraw your winnings.'],
     ['¿Necesitas ayuda con tu cuenta, un depósito o una apuesta? Nuestro equipo te atiende todos los días.', 'Need help with your account, a deposit or a bet? Our team is here every day.'],
     ['Lanzamientos de este turno al bate', 'Pitches in this at-bat'],
