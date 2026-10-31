@@ -961,7 +961,7 @@
 
   /* ---------- Estado ---------- */
   var state = {
-    view: 'home', sport: 'all', slip: {}, slipMode: 'singles', parlayStake: 100,
+    view: 'home', sport: 'all', slip: {}, slipMode: 'singles', slipModeManual: false, parlayStake: 10,
     user: null, balance: 0, history: [], matches: [],
     authMode: 'login', searchQuery: '', expanded: {}, expandedZone: {}, expandedLiveRow: {}, isAdmin: false, cashPanel: null, cashAmt: 50, extrasLoaded: false, cashoutConfirm: null, winDismissed: false, favs: loadFavs(), limits: { period: 'day', amount: 0, used: 0 }, limitDraft: null, verify: { status: 'none' }, vfDraft: { dob: '' }, withdrawals: [], payoutLabel: null
   };
@@ -1657,9 +1657,24 @@
   function toggleSelection(btn) {
     var id = btn.dataset.selid;
     if (state.slip[id]) delete state.slip[id];
-    else state.slip[id] = { id: id, odds: btn.dataset.odds, key: btn.dataset.key, home: btn.dataset.home, away: btn.dataset.away, stake: 100 };
+    else state.slip[id] = { id: id, odds: btn.dataset.odds, key: btn.dataset.key, home: btn.dataset.home, away: btn.dataset.away, stake: 10 };
+    autoSlipMode();
     syncSelected();
     renderSlip();
+  }
+  function setSlipMode(mode) {
+    state.slipMode = mode;
+    Array.prototype.forEach.call($('slipModeToggle').querySelectorAll('button'), function (x) { x.classList.toggle('active', x.dataset.mode === mode); });
+  }
+  // Con 2 o más selecciones de partidos distintos se arma la combinada sola,
+  // salvo que el jugador haya escogido "Sencillas" a mano.
+  function autoSlipMode() {
+    var keys = slipKeys();
+    if (keys.length < 2) { state.slipModeManual = false; if (state.slipMode !== 'singles') setSlipMode('singles'); return; }
+    if (state.slipModeManual) return;
+    var games = {};
+    keys.forEach(function (k) { var s = state.slip[k]; games[s.away + ' @ ' + s.home] = true; });
+    setSlipMode(Object.keys(games).length >= 2 ? 'parlay' : 'singles');
   }
   function updateSlipBar() {
     var n = slipKeys().length;
@@ -1708,13 +1723,13 @@
         '<div class="sl-match">' + esc(s.away) + ' @ ' + esc(s.home) + '</div></div>' +
         '<button type="button" class="sl-rm" data-rm="' + esc(k) + '" aria-label="Eliminar selección">&times;</button></div>';
       if (state.slipMode === 'singles') {
-        html += '<div class="sl-stake"><label>Monto</label><input type="number" inputmode="decimal" min="1" step="10" value="' + s.stake + '" data-stake="' + esc(k) + '"><span class="sl-pay" id="pay-' + i + '"></span></div>';
+        html += '<div class="sl-stake"><label>Monto</label><input type="number" inputmode="decimal" min="1" step="1" value="' + s.stake + '" data-stake="' + esc(k) + '"><span class="sl-pay" id="pay-' + i + '"></span></div>';
       }
       html += '</div>';
     });
     if (state.slipMode === 'parlay') {
       if (keys.length < 2) html += '<div class="hint">Elige al menos 2 selecciones para armar una combinada.</div>';
-      else html += '<div class="sl-item"><div class="sl-stake" style="margin-top:0"><label>Monto total</label><input type="number" inputmode="decimal" min="1" step="10" value="' + state.parlayStake + '" id="parlayStakeInput"></div></div>';
+      else html += '<div class="sl-item"><div class="sl-stake" style="margin-top:0"><label>Monto total</label><input type="number" inputmode="decimal" min="1" step="1" value="' + state.parlayStake + '" id="parlayStakeInput"></div></div>';
     }
     body.innerHTML = html;
     foot.style.display = (state.slipMode === 'parlay' && keys.length < 2) ? 'none' : 'block';
@@ -1760,7 +1775,7 @@
     var wasParlay = state.slipMode === 'parlay';
     state.balance = res.data.balance;
     state.history = (await apiGet('/api/bets')) || state.history;
-    state.slip = {};
+    state.slip = {}; state.slipModeManual = false; setSlipMode('singles'); state.parlayStake = 10;
     syncSelected(); renderSlip(); closeOv('slipOverlay'); afterUserChange();
     showToast((wasParlay ? 'Combinada confirmada por ' : 'Apuesta confirmada por ') + fmtMoney(totalStake) + '. Míralas en Mis apuestas.');
   }
@@ -1795,7 +1810,7 @@
     if (cb) {
       var combo = comboList()[Number(cb.dataset.combo)]; if (!combo) return;
       state.slip = {};
-      combo.legs.forEach(function (l) { state.slip[l.id] = { id: l.id, odds: l.odds, key: l.key, home: l.m.home, away: l.m.away, stake: 100 }; });
+      combo.legs.forEach(function (l) { state.slip[l.id] = { id: l.id, odds: l.odds, key: l.key, home: l.m.home, away: l.m.away, stake: 10 }; });
       state.slipMode = 'parlay'; state.parlayStake = 10;
       Array.prototype.forEach.call($('slipModeToggle').querySelectorAll('button'), function (x) { x.classList.toggle('active', x.dataset.mode === 'parlay'); });
       syncSelected(); renderSlip(); openOv('slipOverlay'); return;
@@ -1928,17 +1943,17 @@
 
   $('slipBar').addEventListener('click', function () { renderSlip(); openOv('slipOverlay'); });
   $('slipClose').addEventListener('click', function () { closeOv('slipOverlay'); });
-  $('slipClear').addEventListener('click', function () { state.slip = {}; syncSelected(); renderSlip(); });
+  $('slipClear').addEventListener('click', function () { state.slip = {}; autoSlipMode(); syncSelected(); renderSlip(); });
   $('slipPlace').addEventListener('click', placeBet);
   $('slipModeToggle').addEventListener('click', function (e) {
     var b = e.target.closest('button[data-mode]'); if (!b) return;
-    state.slipMode = b.dataset.mode;
+    state.slipMode = b.dataset.mode; state.slipModeManual = true;
     Array.prototype.forEach.call($('slipModeToggle').querySelectorAll('button'), function (x) { x.classList.toggle('active', x === b); });
     renderSlip();
   });
   $('slipBody').addEventListener('click', function (e) {
     var rm = e.target.closest('[data-rm]');
-    if (rm) { delete state.slip[rm.dataset.rm]; syncSelected(); renderSlip(); }
+    if (rm) { delete state.slip[rm.dataset.rm]; autoSlipMode(); syncSelected(); renderSlip(); }
   });
   $('slipBody').addEventListener('input', function (e) {
     var t = e.target;
