@@ -615,6 +615,21 @@
   .jp-h-r small { display: block; font-size: 11px; color: var(--text-faint); margin-top: 2px; }
   .jp-pill { display: inline-block; margin-top: 4px; font-style: normal; font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: var(--surface); color: var(--text-dim); }
   .jp-pill.ok { background: #DCFAE6; color: #067647; } .jp-pill.bad { background: #FFE4EA; color: #B42318; } .jp-pill.pend { background: #FEF0C7; color: #93370D; }
+
+  /* ---------- Borrar partido / apuestas colgadas ---------- */
+  #delTitle { font-size: 20px !important; text-transform: none !important; }
+  .del-body { font-size: 14px; color: var(--text-dim); line-height: 1.5; }
+  .del-body ul { padding-left: 18px; margin: 6px 0 0; }
+  .del-warn { background: #FFF1F3; border: 1px solid #FECDD6; color: #B42318; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .del-acts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 16px; }
+  .del-acts .btn { min-height: 46px; }
+  .orph { background: #FFFAEB; border: 1px solid #FEDF89; border-radius: 16px; padding: 14px; margin-bottom: 14px; }
+  .orph-h { font-size: 14px; color: #93370D; margin-bottom: 10px; line-height: 1.45; }
+  .orph-row { display: flex; justify-content: space-between; gap: 10px; background: #fff; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; font-size: 13px; }
+  .orph-row b { display: block; overflow-wrap: anywhere; }
+  .orph-row small { display: block; color: var(--text-dim); margin-top: 2px; }
+  .orph-row span { flex: 0 0 auto; max-width: 42%; text-align: right; font-weight: 700; color: #067647; font-size: 12.5px; }
+  .orph .btn { width: 100%; margin-top: 4px; }
 </style>
 </head>
 <body>
@@ -655,6 +670,7 @@
     <div id="tabLineas">
     <h2>Controlar la línea</h2>
     <p class="sub">Edita cuotas, marca partidos en vivo o agrega nuevos.</p>
+    <div id="orphanBox"></div>
     <div id="adminMatchList"></div>
     <div class="amc">
       <div class="amc-header">
@@ -908,6 +924,14 @@
   <div class="jp-sheet">
     <div class="jp-sheet-head"><h3>Perfil del jugador</h3><button type="button" class="jp-x" data-jp-close="jpProfOv" aria-label="Cerrar">&times;</button></div>
     <div id="jpProfBody"></div>
+  </div>
+</div>
+
+<div class="jp-ov" id="delOv" hidden>
+  <div class="jp-sheet jp-sheet-sm">
+    <div class="jp-sheet-head"><h3 id="delTitle">¿Borrar partido?</h3></div>
+    <div id="delBody" class="del-body"></div>
+    <div class="del-acts"><button type="button" class="btn" id="delCancel">Cancelar</button><button type="button" class="btn bad solid" id="delGo">Borrar</button></div>
   </div>
 </div>
 
@@ -1313,7 +1337,60 @@
     }
   });
 
+  /* ---------- Borrar partido y devolver apuestas ---------- */
+  var delState = { mi: null, m: null };
+  async function askDeleteMatch(mi) {
+    var m = state.matches[mi]; if (!m) return;
+    delState = { mi: mi, m: m };
+    var info = await apiGet('/api/admin/match-bets?away=' + encodeURIComponent(m.away) + '&home=' + encodeURIComponent(m.home));
+    var n = info ? info.count : 0;
+    document.getElementById('delTitle').textContent = '¿Borrar ' + m.away + ' @ ' + m.home + '?';
+    document.getElementById('delBody').innerHTML = n
+      ? '<div class="del-warn">Este partido tiene <b>' + n + (n === 1 ? ' apuesta pendiente' : ' apuestas pendientes') + '</b> por <b>' + pgMoney(info.stake) + '</b>.</div>' +
+        '<p>Si lo borras:</p><ul><li>A las <b>sencillas</b> se les <b>devuelve</b> lo que apostaron.</li>' +
+        (info.parlays ? '<li>En las <b>combinadas</b> se quita este partido y se recalcula el pago con las demás selecciones (si no queda ninguna, se devuelve el dinero).</li>' : '') + '</ul>'
+      : '<p>No tiene apuestas pendientes. Se quita de la página enseguida.</p>';
+    document.getElementById('delGo').textContent = n ? 'Borrar y devolver' : 'Borrar partido';
+    document.getElementById('delOv').hidden = false;
+  }
+  async function doDeleteMatch() {
+    var m = delState.m; if (!m) return;
+    var go = document.getElementById('delGo'); go.disabled = true;
+    var mi = state.matches.indexOf(m);
+    if (mi >= 0) state.matches.splice(mi, 1);
+    await saveMatches(state.matches);
+    var r = await apiPost('/api/admin/orphan-bets/resolve', { away: m.away, home: m.home });
+    go.disabled = false;
+    document.getElementById('delOv').hidden = true;
+    renderAdminList(); loadOrphans();
+    var k = r.ok && r.data ? r.data.resolved.length : 0;
+    showToast(k ? 'Partido eliminado. Se arreglaron ' + k + (k === 1 ? ' apuesta.' : ' apuestas.') : 'Partido eliminado.');
+  }
+  document.getElementById('delGo').addEventListener('click', doDeleteMatch);
+  document.getElementById('delCancel').addEventListener('click', function () { document.getElementById('delOv').hidden = true; });
+
+  // Apuestas que se quedaron colgadas de partidos ya borrados.
+  async function loadOrphans() {
+    var list = await apiGet('/api/admin/orphan-bets');
+    var box = document.getElementById('orphanBox');
+    if (!list || !list.length) { box.innerHTML = ''; return; }
+    var total = list.reduce(function (t, o) { return t + o.stake; }, 0);
+    box.innerHTML = '<div class="orph"><div class="orph-h">⚠️ Hay <b>' + list.length + (list.length === 1 ? ' apuesta' : ' apuestas') + '</b> de partidos que ya borraste (' + pgMoney(total) + ' apostado). Se quedaron pendientes y nunca se van a calificar.</div>' +
+      '<div class="orph-list">' + list.map(function (o) {
+        return '<div class="orph-row"><div><b>' + esc(o.email) + '</b><small>' + esc(o.desc) + ' · ' + pgMoney(o.stake) + '</small><small>Partido borrado: ' + esc(o.missing.join(', ')) + '</small></div><span>' +
+          (o.parlay && o.legs > o.missing.length ? 'Se quita ese partido de la combinada' : 'Se devuelven ' + pgMoney(o.stake)) + '</span></div>';
+      }).join('') + '</div>' +
+      '<button type="button" class="btn primary" id="orphFix">Arreglar ' + (list.length === 1 ? 'esta apuesta' : 'estas ' + list.length + ' apuestas') + '</button></div>';
+    document.getElementById('orphFix').addEventListener('click', async function () {
+      this.disabled = true;
+      var r = await apiPost('/api/admin/orphan-bets/resolve', { ids: list.map(function (o) { return o.id; }) });
+      showToast(r.ok ? '✅ Listo. Se arreglaron ' + r.data.resolved.length + ' apuestas.' : 'No se pudo. Intenta de nuevo.');
+      loadOrphans();
+    });
+  }
+
   function openAdminPanel() {
+    loadOrphans();
     renderAdminList();
     populateTeamOptions();
     var dateInput = document.getElementById('newDate');
@@ -1961,13 +2038,7 @@
       });
     });
     Array.prototype.forEach.call(root.querySelectorAll('[data-del]'), function (btn) {
-      btn.addEventListener('click', function () {
-        var mi = parseInt(btn.dataset.del, 10);
-        state.matches.splice(mi, 1);
-        saveMatches(state.matches);
-          renderAdminList();
-        showToast('Partido eliminado.');
-      });
+      btn.addEventListener('click', function () { askDeleteMatch(parseInt(btn.dataset.del, 10)); });
     });
   }
 
