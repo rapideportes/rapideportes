@@ -693,8 +693,10 @@ async function updateLiveScores() {
         sportDetail = g.sportDetail;
       } else if (m.sport === 'nhl' && g.sportDetail) {
         sportDetail = g.sportDetail;
+      } else if (m.sport === 'nfl') {
+        sportDetail = { quarter: g.period || null, quarterLabel: g.period ? (g.period > 4 ? 'Tiempo extra' : g.period + ['', 'er', 'do', 'er', 'to'][g.period] + ' cuarto') : null, clock: g.clock || null };
       } else if (m.sport === 'baloncesto') {
-        var quarterLabel = g.period ? (g.period > 4 ? 'OT' : g.period + 'er cuarto') : null;
+        var quarterLabel = g.period ? (g.period > 4 ? 'Tiempo extra' : g.period + ['', 'er', 'do', 'er', 'to'][g.period] + ' cuarto') : null;
         var gl = g.leaders || {};
         var leaders = (gl.home || gl.away) ? (reversed ? { home: gl.away || null, away: gl.home || null } : { home: gl.home || null, away: gl.away || null }) : null;
         sportDetail = { quarter: g.period || null, quarterLabel: quarterLabel, clock: g.clock || null, leaders: leaders };
