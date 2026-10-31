@@ -1067,8 +1067,51 @@
   }
   async function loadMatches() {
     var data = await apiGet('/api/matches');
-    return stampToday(Array.isArray(data) ? data : []);
+    var list = stampToday(Array.isArray(data) ? data : []);
+    noteClocks(list);
+    return list;
   }
+
+  /* ---------- Reloj que corre segundo a segundo ----------
+     El marcador llega cada pocos segundos; entre una actualización y otra el reloj
+     sigue bajando en la pantalla. Si el reloj del juego está parado (tiempo muerto,
+     tiros libres, intermedio) no se mueve. */
+  var clockMem = {};
+  function clockSecs(txt) {
+    var t = String(txt || '').trim(), m = /^(\d+):(\d{1,2})(?:\.\d+)?$/.exec(t);
+    if (m) return Number(m[1]) * 60 + Number(m[2]);
+    m = /^(\d+(?:\.\d+)?)$/.exec(t); if (m) return Math.floor(Number(m[1]));
+    return null;
+  }
+  function noteClocks(list) {
+    var now = Date.now();
+    list.forEach(function (m) {
+      var d = m.score && m.score.detail;
+      if (!m.live || !d || !d.clock || d.inIntermission) { delete clockMem[m.id]; return; }
+      var secs = clockSecs(d.clock); if (secs === null) { delete clockMem[m.id]; return; }
+      var per = d.quarter || d.period || 0, prev = clockMem[m.id];
+      if (!prev || prev.per !== per) { clockMem[m.id] = { secs: secs, at: now, per: per, running: false }; return; }
+      if (secs !== prev.secs) clockMem[m.id] = { secs: secs, at: now, per: per, running: secs < prev.secs };
+      else if (now - prev.at > 30000) prev.running = false; // lleva rato igual: está parado
+    });
+  }
+  function liveClockText(m, fallback) {
+    var c = clockMem[m.id]; if (!c) return fallback;
+    var left = c.secs;
+    if (c.running) left = Math.max(0, c.secs - Math.min(30, Math.floor((Date.now() - c.at) / 1000)));
+    return Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
+  }
+  function clockSpan(m, fallback) {
+    return '<span class="lclock" data-mid="' + esc(m.id) + '" data-fb="' + esc(fallback) + '">' + esc(liveClockText(m, fallback)) + '</span>';
+  }
+  setInterval(function () {
+    Array.prototype.forEach.call(document.querySelectorAll('.lclock'), function (el) {
+      var m = state.matches.filter(function (x) { return String(x.id) === el.dataset.mid; })[0];
+      if (!m) return;
+      var t = liveClockText(m, el.dataset.fb);
+      if (el.textContent !== t) el.textContent = t;
+    });
+  }, 1000);
 
   // Muestra los centavos cuando los hay ($0.60, $28.04); si es exacto, sin decimales ($10).
   function fmtMoney(n) {
@@ -1197,11 +1240,11 @@
         '</div></div>';
     }
     if (m.sport === 'nhl') {
-      var nhlClock = d.inIntermission ? '—:—' : (d.clock || '--:--');
-      return '<div class="lrow-clock">' + esc(nhlClock) + '</div>';
+      if (d.inIntermission || !d.clock) return '<div class="lrow-clock">' + (d.inIntermission ? '—:—' : '--:--') + '</div>';
+      return '<div class="lrow-clock">' + clockSpan(m, d.clock) + '</div>';
     }
-    if (m.sport === 'baloncesto') {
-      return '<div class="lrow-clock">' + esc(d.clock || '--:--') + '</div>';
+    if (m.sport === 'baloncesto' || m.sport === 'nfl') {
+      return '<div class="lrow-clock">' + (d.clock ? clockSpan(m, d.clock) : '--:--') + '</div>';
     }
     return '';
   }
@@ -1216,9 +1259,9 @@
       if (!d.period) return '';
       return d.periodType === 'OT' ? 'OT' : d.periodType === 'SO' ? 'Tanda de penales' : d.period + 'do período';
     }
-    if (m.sport === 'baloncesto') {
-      if (!d.quarter) return '';
-      return d.quarterLabel || (d.quarter + 'to cuarto');
+    if (m.sport === 'baloncesto' || m.sport === 'nfl') {
+      if (!d.quarter) return m.score && m.score.period ? m.score.period : '';
+      return d.quarterLabel || (d.quarter > 4 ? 'Tiempo extra' : d.quarter + ['', 'er', 'do', 'er', 'to'][d.quarter] + ' cuarto');
     }
     return m.score && m.score.period ? m.score.period : '';
   }
@@ -1286,12 +1329,12 @@
     if (m.sport === 'nhl') {
       if (!d.period) return '';
       var nhlLabel = d.periodType === 'OT' ? 'OT' : d.periodType === 'SO' ? 'Tanda de penales' : d.period + 'er período';
-      var nhlClock = d.inIntermission ? 'Intermedio' : (d.clock || '');
-      return '<div style="padding:8px 0 2px; font-size:14px; font-weight:700;">' + esc(nhlLabel) + (nhlClock ? ' · ' + esc(nhlClock) : '') + '</div>';
+      var nhlClock = d.inIntermission ? esc('Intermedio') : (d.clock ? clockSpan(m, d.clock) : '');
+      return '<div style="padding:8px 0 2px; font-size:14px; font-weight:700;">' + esc(nhlLabel) + (nhlClock ? ' · ' + nhlClock : '') + '</div>';
     }
-    if (m.sport === 'baloncesto') {
+    if (m.sport === 'baloncesto' || m.sport === 'nfl') {
       if (!d.quarter) return '';
-      return '<div style="padding:8px 0 2px; font-size:14px; font-weight:700;">' + esc(d.quarterLabel || (d.quarter + 'er cuarto')) + (d.clock ? ' · ' + esc(d.clock) : '') + '</div>';
+      return '<div style="padding:8px 0 2px; font-size:14px; font-weight:700;">' + esc(d.quarterLabel || (d.quarter > 4 ? 'Tiempo extra' : d.quarter + ['', 'er', 'do', 'er', 'to'][d.quarter] + ' cuarto')) + (d.clock ? ' · ' + clockSpan(m, d.clock) : '') + '</div>';
     }
     return '';
   }
