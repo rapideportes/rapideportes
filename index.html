@@ -630,6 +630,10 @@
 
   .pw-forgot { display: block; margin: 8px 0 0 auto; background: none; border: none; color: var(--accent); font: inherit; font-size: 13.5px; font-weight: 700; padding: 4px 0; cursor: pointer; }
   .pw-ok { background: #ECFDF3; border: 1px solid #ABEFC6; color: #067647; border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.5; }
+  .sl-clash { background: #FFF1F3; border: 1px solid #FECDD6; color: #B42318; border-radius: 12px; padding: 10px 12px; font-size: 13px; line-height: 1.4; margin-bottom: 10px; }
+  .sl-item.clash { border-color: #FDA29B !important; background: #FFFBFA; }
+  .sl-clash-tag { display: inline-block; margin-top: 6px; font-size: 11px; font-weight: 800; color: #B42318; background: #FFE4EA; border-radius: 999px; padding: 2px 9px; }
+  #slipPlace:disabled { opacity: .45; cursor: not-allowed; }
 </style>
 </head>
 <body>
@@ -1727,7 +1731,11 @@
   function toggleSelection(btn) {
     var id = btn.dataset.selid;
     if (state.slip[id]) delete state.slip[id];
-    else state.slip[id] = { id: id, odds: btn.dataset.odds, key: btn.dataset.key, home: btn.dataset.home, away: btn.dataset.away, stake: 10 };
+    else {
+      var dupe = slipKeys().some(function (k) { return state.slip[k].away === btn.dataset.away && state.slip[k].home === btn.dataset.home && slipGroup(k) === slipGroup(id); });
+      state.slip[id] = { id: id, odds: btn.dataset.odds, key: btn.dataset.key, home: btn.dataset.home, away: btn.dataset.away, stake: 10 };
+      if (dupe) showToast('Ganador y hándicap del mismo partido no se pueden combinar: van como apuestas sencillas.');
+    }
     autoSlipMode();
     syncSelected();
     renderSlip();
@@ -1755,7 +1763,22 @@
     var keys = slipKeys();
     if (keys.length < 2) { state.slipModeManual = false; if (state.slipMode !== 'singles') setSlipMode('singles'); return; }
     if (state.slipModeManual) return;
-    setSlipMode('parlay');
+    setSlipMode(sameGameKeys().length ? 'singles' : 'parlay');
+  }
+  // Grupo de la jugada: Ganador y Hándicap cuentan como lo mismo (quién gana);
+  // Total, medio tiempo y cada jugador son aparte.
+  function slipGroup(id) {
+    var m = /-(ml|hcap|tot|ht|prop-\d+)-[^-]*$/.exec(id || '');
+    if (!m) return id;
+    return m[1] === 'ml' || m[1] === 'hcap' ? 'lado' : m[1];
+  }
+  // Selecciones del mismo partido y del mismo grupo: no se pueden combinar.
+  function sameGameKeys() {
+    var by = {};
+    slipKeys().forEach(function (k) { var s = state.slip[k], g = s.away + '|' + s.home + '|' + slipGroup(k); (by[g] = by[g] || []).push(k); });
+    var out = [];
+    Object.keys(by).forEach(function (g) { if (by[g].length > 1) out = out.concat(by[g]); });
+    return out;
   }
   function updateSlipBar() {
     var n = slipKeys().length;
@@ -1797,12 +1820,14 @@
       if ($('slipOverlay').classList.contains('open')) closeOv('slipOverlay');
       return;
     }
-    var html = '';
+    var html = '', clash = state.slipMode === 'parlay' ? sameGameKeys() : [];
+    if (clash.length) html += '<div class="sl-clash">⚠️ <b>No se puede combinar.</b> Ganador y hándicap (o los dos lados) del mismo partido no van juntos. Quita una o apuéstalas como <b>Sencillas</b>.</div>';
     keys.forEach(function (k, i) {
       var s = state.slip[k];
-      html += '<div class="sl-item"><div class="sl-top"><div><div class="sl-desc">' + esc(s.key) + ' <span class="gold">' + dispOdds(s.odds) + '</span></div>' +
+      html += '<div class="sl-item' + (clash.indexOf(k) >= 0 ? ' clash' : '') + '"><div class="sl-top"><div><div class="sl-desc">' + esc(s.key) + ' <span class="gold">' + dispOdds(s.odds) + '</span></div>' +
         '<div class="sl-match">' + esc(s.away) + ' @ ' + esc(s.home) + '</div></div>' +
         '<button type="button" class="sl-rm" data-rm="' + esc(k) + '" aria-label="Eliminar selección">&times;</button></div>';
+      if (clash.indexOf(k) >= 0) html += '<div class="sl-clash-tag">No se combina con la otra</div>';
       if (state.slipMode === 'singles') {
         html += '<div class="sl-stake"><label>Monto</label><input type="number" inputmode="decimal" min="1" step="1" value="' + s.stake + '" data-stake="' + esc(k) + '"><span class="sl-pay" id="pay-' + i + '"></span></div>';
       }
@@ -1814,6 +1839,7 @@
     }
     body.innerHTML = html;
     foot.style.display = (state.slipMode === 'parlay' && keys.length < 2) ? 'none' : 'block';
+    $('slipPlace').disabled = clash.length > 0;
     refreshTotals();
   }
 
@@ -1824,6 +1850,7 @@
     var betsToSend = [], totalStake = 0;
     if (state.slipMode === 'parlay') {
       if (keys.length < 2) { showToast('Necesitas al menos 2 cuotas para una combinada.'); return; }
+      if (sameGameKeys().length) { showToast('Ganador y hándicap del mismo partido no se pueden combinar.'); return; }
       var dec = 1, legs = [];
       keys.forEach(function (k) {
         var s2 = state.slip[k];
@@ -1850,7 +1877,7 @@
     var res = await apiPost('/api/bets', { bets: betsToSend });
     if (!res.ok) {
       var errCode = res.data && res.data.error;
-      showToast(errCode === 'insufficient' ? 'Saldo insuficiente para esta apuesta.' : errCode === 'closed' ? 'APUESTAS CERRADAS — PARTIDO EN JUEGO' : 'No se pudo confirmar la apuesta.');
+      showToast(errCode === 'insufficient' ? 'Saldo insuficiente para esta apuesta.' : errCode === 'closed' ? 'APUESTAS CERRADAS — PARTIDO EN JUEGO' : errCode === 'same_game' ? 'Ganador y hándicap del mismo partido no se pueden combinar.' : 'No se pudo confirmar la apuesta.');
       return;
     }
     var wasParlay = state.slipMode === 'parlay';
