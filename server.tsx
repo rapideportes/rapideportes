@@ -92,6 +92,10 @@ async function payoutMethod(userId) {
 }
 
 const adminTokens = new Set();
+// Las sesiones del admin se guardan en la base para que no se cierren cada vez que el servidor se reinicia (al subir cambios).
+await sql`CREATE TABLE IF NOT EXISTS admin_sessions (token TEXT PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT now())`;
+await sql`DELETE FROM admin_sessions WHERE created_at < now() - interval '8 hours'`;
+(await sql`SELECT token FROM admin_sessions`).forEach(function (r) { adminTokens.add(r.token); });
 
 // ---------- Quién está en la plataforma ahora mismo ----------
 // Cada jugador con sesión abierta avisa cada 30 s (/api/ping). Se cuenta "en línea"
@@ -1175,6 +1179,7 @@ app.post('/api/admin/login', async (c) => {
   if (body.password !== Bun.env.ADMIN_PASS) return c.json({ error: 'invalid' }, 401);
   const token = crypto.randomUUID();
   adminTokens.add(token);
+  await sql`INSERT INTO admin_sessions (token) VALUES (${token}) ON CONFLICT DO NOTHING`;
   setCookie(c, 'admin_session', token, { httpOnly: true, path: '/', maxAge: 60 * 60 * 8, sameSite: 'Lax' });
   return c.json({ ok: true });
 });
