@@ -528,6 +528,93 @@
   .line-note.ok { background: #ECFDF3; border-color: #ABEFC6; color: #067647; }
   .line-note.ok b { color: #054F31; }
   .line-note.warn { background: #FFF1F3; border-color: #FECDD6; color: #B42318; }
+
+  /* ---------- Pestaña Jugadores ---------- */
+  .adm-tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 18px; }
+  .adm-tabs .btn { padding: 11px 6px !important; }
+  @media (max-width: 560px) { .adm-tabs { grid-template-columns: 1fr 1fr; } }
+  .jp-online-badge { background: var(--win) !important; }
+  .jp-sum { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 12px; }
+  .jp-sum b { display: flex; align-items: center; gap: 8px; }
+  .jp-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; background: var(--border-strong); flex: 0 0 auto; }
+  .jp-dot.on { background: var(--win); box-shadow: 0 0 0 4px rgba(18,183,106,.18); animation: jpPulse 1.8s ease-in-out infinite; }
+  @keyframes jpPulse { 50% { box-shadow: 0 0 0 7px rgba(18,183,106,.06); } }
+  .jp-tools { display: grid; grid-template-columns: 1fr auto; gap: 8px; margin-bottom: 12px; }
+  @media (max-width: 480px) { .jp-tools { grid-template-columns: 1fr; } }
+  .jp-seg { display: inline-flex; gap: 4px; background: var(--surface); border-radius: 999px; padding: 4px; }
+  .jp-seg button { border: none; background: transparent; border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 13px; font-weight: 700; color: var(--text-dim); flex: 1; }
+  .jp-seg button.on { background: #fff; color: var(--text); box-shadow: var(--shadow-sm); }
+  .jp-row { background: #fff; border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow-sm); padding: 12px 14px; margin-bottom: 10px; }
+  .jp-who { display: flex; align-items: center; gap: 10px; }
+  .jp-who-t { flex: 1; min-width: 0; }
+  .jp-who-t b { display: block; font-size: 14.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .jp-who-t small { display: block; font-size: 12px; color: var(--text-faint); margin-top: 2px; }
+  .jp-live { color: var(--win); font-weight: 700; }
+  .jp-bal { text-align: right; flex: 0 0 auto; }
+  .jp-bal small { display: block; font-size: 10.5px; color: var(--text-faint); text-transform: uppercase; letter-spacing: .5px; font-weight: 700; }
+  .jp-bal b { font-family: var(--font-display); font-size: 22px; font-weight: 800; }
+  .jp-acts { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 10px; }
+  .jp-btn { padding: 9px 4px !important; font-size: 12.5px !important; font-weight: 700; white-space: nowrap; }
+  .jp-btn.ok { background: #ECFDF3; border-color: #ABEFC6; color: #067647; }
+  .jp-btn.bad { background: #FFF1F3; border-color: #FECDD6; color: #B42318; }
+  .jp-note { font-size: 11.5px; color: var(--text-faint); margin-top: 10px; }
+  .jp-ov { position: fixed; inset: 0; z-index: 150; background: rgba(16,24,40,.5); display: flex; align-items: flex-end; justify-content: center; }
+  .jp-ov[hidden] { display: none; }
+  .jp-sheet { position: relative; width: 100%; max-width: 760px; max-height: 92vh; max-height: 92dvh; overflow-y: auto; background: #fff; border-radius: 22px 22px 0 0; padding: 18px 16px calc(20px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -12px 40px rgba(16,24,40,.18); }
+  .jp-sheet-sm { max-width: 460px; }
+  @media (min-width: 700px) { .jp-ov { align-items: center; } .jp-sheet { border-radius: 22px; } }
+  .jp-sheet-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .jp-sheet-head h3 { flex: 1; margin: 0; font-family: var(--font-display); font-size: 24px; font-weight: 800; font-style: italic; text-transform: uppercase; }
+  .jp-x { width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--surface); font-size: 22px; color: var(--text-dim); }
+  .jp-adj-who { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin-bottom: 12px; }
+  .jp-adj-who > b { display: block; font-size: 14.5px; overflow-wrap: anywhere; }
+  .jp-adj-who span { font-size: 12.5px; color: var(--text-dim); }
+  .jp-amts { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 12px; }
+  .jp-amts button { flex: 1; min-width: 56px; min-height: 40px; border-radius: 10px; border: 1px solid var(--border-strong); background: #fff; font: inherit; font-weight: 700; font-size: 14px; color: var(--text); }
+  .jp-lbl { display: block; font-size: 12.5px; color: var(--text-dim); margin: 0 0 6px; }
+  .jp-money { display: flex; align-items: center; gap: 6px; height: 56px; border: 1px solid var(--border-strong); border-radius: 12px; padding: 0 14px; margin-bottom: 12px; background: #fff; }
+  .jp-money:focus-within { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(240,20,70,.12); }
+  .jp-money span { font-size: 22px; font-weight: 800; color: var(--text-dim); }
+  .jp-money input { flex: 1; min-width: 0; border: none; outline: none; font: inherit; font-size: 24px; font-weight: 800; background: transparent; color: var(--text); }
+  .jp-adj-after { font-size: 14px; color: var(--text-dim); margin: 12px 0 6px; min-height: 20px; }
+  .jp-adj-after b.neg { color: #B42318; }
+  .jp-adj-go { width: 100%; min-height: 50px; margin-top: 8px; font-size: 16px !important; }
+  .jp-adj-go.ok { background: var(--win); border-color: var(--win); color: #fff; }
+  .jp-prof-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+  .jp-avatar { width: 52px; height: 52px; border-radius: 50%; background: var(--header-bg); color: #fff; display: grid; place-items: center; font-size: 22px; font-weight: 800; flex: 0 0 auto; box-shadow: inset 0 0 0 3px var(--accent); }
+  .jp-prof-id { min-width: 0; }
+  .jp-prof-id b { display: block; font-size: 16px; overflow-wrap: anywhere; }
+  .jp-prof-id small { display: block; font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+  .jp-prof-bal { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: var(--header-bg); color: #fff; border-radius: 18px; padding: 14px 16px; margin-bottom: 12px; }
+  .jp-prof-bal small { display: block; font-size: 11px; color: #CBD2E0; text-transform: uppercase; letter-spacing: .5px; font-weight: 700; }
+  .jp-prof-bal b { font-family: var(--font-display); font-size: 34px; font-weight: 800; }
+  .jp-prof-acts { display: flex; gap: 8px; }
+  .jp-stats { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .jp-stat { background: var(--bg); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; min-width: 0; }
+  .jp-stat small { display: block; font-size: 11.5px; color: var(--text-dim); }
+  .jp-stat b { display: block; font-size: 18px; font-weight: 800; margin-top: 2px; font-variant-numeric: tabular-nums; }
+  .jp-stat span { display: block; font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+  .jp-stat.pos b { color: #067647; } .jp-stat.neg b { color: #B42318; }
+  .jp-info { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: 8px; margin: 12px 0; }
+  .jp-info div { border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; }
+  .jp-info small { display: block; font-size: 11.5px; color: var(--text-dim); }
+  .jp-info b { display: block; font-size: 13.5px; margin-top: 2px; overflow-wrap: anywhere; }
+  .jp-htabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; margin: 14px 0 8px; }
+  .jp-htabs button { flex: 0 0 auto; border: none; border-radius: 999px; padding: 8px 12px; background: #EAECF2; font: inherit; font-size: 13px; font-weight: 700; color: var(--text); }
+  .jp-htabs button i { font-style: normal; opacity: .6; margin-left: 2px; }
+  .jp-htabs button.on { background: var(--accent); color: #fff; box-shadow: var(--shadow-red); }
+  .jp-h { display: flex; gap: 10px; padding: 11px 2px; border-bottom: 1px solid var(--border); align-items: flex-start; }
+  .jp-h-ic { font-size: 20px; width: 26px; text-align: center; flex: 0 0 auto; }
+  .jp-h-t { flex: 1; min-width: 0; }
+  .jp-h-t b { display: block; font-size: 13.5px; line-height: 1.3; }
+  .jp-h-t small { display: block; font-size: 12px; color: var(--text-dim); margin-top: 2px; line-height: 1.35; }
+  .jp-h-t .jp-h-when { color: var(--text-faint); }
+  .jp-h-r { text-align: right; flex: 0 0 auto; max-width: 45%; }
+  .jp-h-r b { display: block; font-size: 14.5px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .jp-h-r b.pos { color: #067647; } .jp-h-r b.neg { color: var(--text); }
+  .jp-h-r small { display: block; font-size: 11px; color: var(--text-faint); margin-top: 2px; }
+  .jp-pill { display: inline-block; margin-top: 4px; font-style: normal; font-size: 10.5px; font-weight: 800; padding: 2px 8px; border-radius: 999px; background: var(--surface); color: var(--text-dim); }
+  .jp-pill.ok { background: #DCFAE6; color: #067647; } .jp-pill.bad { background: #FFE4EA; color: #B42318; } .jp-pill.pend { background: #FEF0C7; color: #93370D; }
 </style>
 </head>
 <body>
@@ -559,10 +646,11 @@
 
 <div id="panelSection" style="display:none; max-width:820px; margin:30px auto; padding:0 20px 60px;">
   <div class="modal" style="position:static; max-width:none;">
-    <div style="display:flex; gap:8px; margin-bottom:18px;">
+    <div class="adm-tabs">
       <button type="button" class="btn" id="tabBtnLineas" style="flex:1; padding:11px;">⚽ Controlar la línea</button>
       <button type="button" class="btn" id="tabBtnFinanciero" style="flex:1; padding:11px;">💰 Financiero</button>
       <button type="button" class="btn" id="tabBtnPagos" style="flex:1; padding:11px; position:relative;">💳 Pagos<b class="pg-badge" id="pagosBadge" hidden>0</b></button>
+      <button type="button" class="btn" id="tabBtnJugadores" style="flex:1; padding:11px; position:relative;">👥 Jugadores<b class="pg-badge jp-online-badge" id="onlineBadge" hidden>0</b></button>
     </div>
     <div id="tabLineas">
     <h2>Controlar la línea</h2>
@@ -773,6 +861,17 @@
       <div id="ticketList"></div>
     </div>
     </div>
+    <div id="tabJugadores" hidden>
+      <h2>Jugadores</h2>
+      <p class="sub">Quién está en la plataforma ahora mismo, sus saldos y su historial.</p>
+      <div class="jp-sum" id="jpSum"></div>
+      <div class="jp-tools">
+        <input type="search" id="jpSearch" class="amc-input" placeholder="Buscar por correo o número de jugador" autocomplete="off">
+        <div class="jp-seg" id="jpFilter"><button type="button" data-jp-filter="online" class="on">🟢 En línea</button><button type="button" data-jp-filter="all">Todos</button></div>
+      </div>
+      <div id="jpList"><div class="pg-empty">Cargando jugadores…</div></div>
+      <p class="jp-note">Se actualiza solo cada 10 segundos. "En línea" = tiene la página abierta ahora mismo.</p>
+    </div>
     <div id="tabPagos" hidden>
       <div class="pg-sum" id="pgSum"></div>
       <div class="pg-h">Retiros por aprobar</div>
@@ -787,6 +886,30 @@
 </div>
 
 
+
+<!-- Recargar / Descontar -->
+<div class="jp-ov" id="jpAdjOv" hidden>
+  <div class="jp-sheet jp-sheet-sm">
+    <div class="jp-sheet-head"><h3 id="jpAdjTitle">Recargar</h3><button type="button" class="jp-x" data-jp-close="jpAdjOv" aria-label="Cerrar">&times;</button></div>
+    <div class="jp-adj-who" id="jpAdjWho"></div>
+    <div class="jp-amts" id="jpAdjQuick"></div>
+    <label class="jp-lbl" for="jpAdjAmount">Monto</label>
+    <div class="jp-money"><span>$</span><input type="number" id="jpAdjAmount" inputmode="decimal" min="0.01" step="0.01" placeholder="0.00"></div>
+    <label class="jp-lbl" for="jpAdjNote">Motivo (opcional)</label>
+    <input type="text" id="jpAdjNote" class="amc-input" maxlength="200" placeholder="Ej. Pago en efectivo, bono, corrección…">
+    <div class="jp-adj-after" id="jpAdjAfter"></div>
+    <div class="field-error" id="jpAdjErr"></div>
+    <button type="button" class="btn primary jp-adj-go" id="jpAdjGo">Confirmar</button>
+  </div>
+</div>
+
+<!-- Perfil del jugador -->
+<div class="jp-ov" id="jpProfOv" hidden>
+  <div class="jp-sheet">
+    <div class="jp-sheet-head"><h3>Perfil del jugador</h3><button type="button" class="jp-x" data-jp-close="jpProfOv" aria-label="Cerrar">&times;</button></div>
+    <div id="jpProfBody"></div>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
@@ -1202,6 +1325,7 @@
     }
     setAdminTab('lineas');
     apiGet('/api/admin/payments').then(function (d) { if (d) { pgState.data = d; renderPayments(); } });
+    apiGet('/api/admin/players').then(function (d) { if (d) { jp.data = d; var b = document.getElementById('onlineBadge'); b.textContent = d.online; b.hidden = !d.online; } });
     if (!window._financeInterval) {
       window._financeInterval = setInterval(function () {
         if (!document.getElementById('tabFinanciero').hidden) refreshFinanceAndTickets();
@@ -1214,6 +1338,10 @@
     document.getElementById('tabLineas').hidden = tab !== 'lineas';
     document.getElementById('tabFinanciero').hidden = tab !== 'financiero';
     document.getElementById('tabPagos').hidden = tab !== 'pagos';
+    document.getElementById('tabJugadores').hidden = tab !== 'jugadores';
+    document.getElementById('tabBtnJugadores').classList.toggle('primary', tab === 'jugadores');
+    jp.tab = tab;
+    if (tab === 'jugadores') loadPlayers();
     document.getElementById('tabBtnLineas').classList.toggle('primary', tab === 'lineas');
     document.getElementById('tabBtnFinanciero').classList.toggle('primary', tab === 'financiero');
     document.getElementById('tabBtnPagos').classList.toggle('primary', tab === 'pagos');
@@ -1221,6 +1349,208 @@
     if (tab === 'pagos') loadPayments();
   }
   document.getElementById('tabBtnPagos').addEventListener('click', function () { setAdminTab('pagos'); });
+  document.getElementById('tabBtnJugadores').addEventListener('click', function () { setAdminTab('jugadores'); });
+
+  /* =========================================================
+     Pestaña JUGADORES: en línea, recargar, descontar y perfil
+     ========================================================= */
+  var jp = { tab: null, filter: 'online', q: '', data: null, adj: null, prof: null, profTab: 'todo', busy: false };
+  function jpMoney(n) { var v = Number(n) || 0; return (v < 0 ? '−' : '') + '$' + Math.abs(v).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function jpAgo(d) {
+    if (!d) return 'Nunca ha entrado';
+    var s = Math.max(0, (nowMs() - Date.parse(d)) / 1000);
+    if (s < 90) return 'Visto hace un momento';
+    if (s < 3600) return 'Visto hace ' + Math.round(s / 60) + ' min';
+    if (s < 86400) return 'Visto hace ' + Math.round(s / 3600) + ' h';
+    var days = Math.round(s / 86400); return 'Visto hace ' + days + (days === 1 ? ' día' : ' días');
+  }
+  function jpWhen(d) { return d ? prLabel(d) || new Date(d).toLocaleString('es-DO') : ''; }
+  async function loadPlayers() {
+    var d = await apiGet('/api/admin/players' + (jp.q ? '?q=' + encodeURIComponent(jp.q) : ''));
+    if (!d) { document.getElementById('jpList').innerHTML = '<div class="pg-empty">No se pudo cargar la lista. Recarga el panel.</div>'; return; }
+    jp.data = d; renderPlayers();
+  }
+  function renderPlayers() {
+    var d = jp.data; if (!d) return;
+    var badge = document.getElementById('onlineBadge');
+    badge.textContent = d.online; badge.hidden = !d.online;
+    document.getElementById('jpSum').innerHTML =
+      '<div class="pg-tile"><small>En línea ahora</small><b><i class="jp-dot on"></i>' + d.online + '</b><span>con la página abierta</span></div>' +
+      '<div class="pg-tile"><small>Jugadores registrados</small><b>' + d.total + '</b><span>en total</span></div>';
+    Array.prototype.forEach.call(document.querySelectorAll('[data-jp-filter]'), function (b) { b.classList.toggle('on', b.dataset.jpFilter === jp.filter); });
+    var list = d.players.filter(function (p) { return jp.filter === 'all' || p.online; });
+    if (!list.length) {
+      document.getElementById('jpList').innerHTML = '<div class="pg-empty">' + (jp.q ? 'No hay jugadores con "' + esc(jp.q) + '".' : jp.filter === 'online' ? 'No hay nadie en línea ahora mismo. Toca "Todos" para ver a todos los jugadores.' : 'Todavía no hay jugadores registrados.') + '</div>';
+      return;
+    }
+    document.getElementById('jpList').innerHTML = list.map(function (p) {
+      return '<div class="jp-row">' +
+        '<div class="jp-who"><i class="jp-dot' + (p.online ? ' on' : '') + '"></i><div class="jp-who-t"><b>' + esc(p.email) + '</b><small>#' + p.id + ' · ' + (p.online ? '<span class="jp-live">En línea ahora</span>' : esc(jpAgo(p.lastSeen))) + '</small></div>' +
+        '<div class="jp-bal"><small>Saldo</small><b>' + jpMoney(p.balance) + '</b></div></div>' +
+        '<div class="jp-acts">' +
+          '<button type="button" class="btn jp-btn ok" data-jp-adj="credit" data-jp-id="' + p.id + '">+ Recargar</button>' +
+          '<button type="button" class="btn jp-btn bad" data-jp-adj="debit" data-jp-id="' + p.id + '">− Descontar</button>' +
+          '<button type="button" class="btn jp-btn" data-jp-prof="' + p.id + '">👤 Perfil</button>' +
+        '</div></div>';
+    }).join('');
+  }
+  function jpFind(id) { return (jp.data && jp.data.players.filter(function (p) { return p.id === id; })[0]) || (jp.prof && jp.prof.id === id ? jp.prof : null); }
+  function jpOpen(id) { document.getElementById(id).hidden = false; document.body.style.overflow = 'hidden'; }
+  function jpClose(id) { document.getElementById(id).hidden = true; if (document.getElementById('jpAdjOv').hidden && document.getElementById('jpProfOv').hidden) document.body.style.overflow = ''; }
+
+  // ---- Recargar / Descontar ----
+  function openAdjust(type, id) {
+    var p = jpFind(id); if (!p) return;
+    jp.adj = { type: type, id: id, email: p.email, balance: p.balance };
+    var credit = type === 'credit';
+    document.getElementById('jpAdjTitle').textContent = credit ? '➕ Recargar saldo' : '➖ Descontar saldo';
+    document.getElementById('jpAdjWho').innerHTML = '<b>' + esc(p.email) + '</b><span>#' + p.id + ' · Saldo actual: <b>' + jpMoney(p.balance) + '</b></span>';
+    document.getElementById('jpAdjQuick').innerHTML = [10, 25, 50, 100, 250].map(function (v) { return '<button type="button" data-jp-amt="' + v + '">$' + v + '</button>'; }).join('') +
+      (credit ? '' : '<button type="button" data-jp-amt="' + p.balance + '">Todo</button>');
+    document.getElementById('jpAdjAmount').value = '';
+    document.getElementById('jpAdjNote').value = '';
+    document.getElementById('jpAdjErr').style.display = 'none';
+    var go = document.getElementById('jpAdjGo');
+    go.className = 'btn jp-adj-go ' + (credit ? 'ok' : 'bad solid');
+    go.disabled = false;
+    jpAdjPreview();
+    jpOpen('jpAdjOv');
+    setTimeout(function () { document.getElementById('jpAdjAmount').focus(); }, 50);
+  }
+  function jpAdjPreview() {
+    var a = jp.adj; if (!a) return;
+    var v = Math.round(Number(document.getElementById('jpAdjAmount').value) * 100) / 100;
+    var go = document.getElementById('jpAdjGo'), credit = a.type === 'credit';
+    if (!(v > 0)) { document.getElementById('jpAdjAfter').innerHTML = ''; go.textContent = credit ? 'Recargar' : 'Descontar'; return; }
+    var after = credit ? a.balance + v : a.balance - v;
+    document.getElementById('jpAdjAfter').innerHTML = 'Saldo después: <b class="' + (after < 0 ? 'neg' : '') + '">' + jpMoney(after) + '</b>';
+    go.textContent = (credit ? 'Recargar ' : 'Descontar ') + jpMoney(v);
+  }
+  async function jpAdjSubmit() {
+    var a = jp.adj; if (!a || jp.busy) return;
+    var err = document.getElementById('jpAdjErr');
+    var v = Math.round(Number(document.getElementById('jpAdjAmount').value) * 100) / 100;
+    if (!(v > 0)) { err.textContent = 'Escribe un monto mayor que $0.'; err.style.display = 'block'; return; }
+    if (v > 1000000) { err.textContent = 'El monto máximo es $1,000,000.'; err.style.display = 'block'; return; }
+    if (a.type === 'debit' && v > a.balance + 0.001) { err.textContent = 'No puedes descontar más de lo que tiene (' + jpMoney(a.balance) + ').'; err.style.display = 'block'; return; }
+    jp.busy = true; document.getElementById('jpAdjGo').disabled = true;
+    var r = await apiPost('/api/admin/players/' + a.id + '/adjust', { type: a.type, amount: v, note: document.getElementById('jpAdjNote').value.trim() });
+    jp.busy = false; document.getElementById('jpAdjGo').disabled = false;
+    if (!r.ok) {
+      err.textContent = r.data && r.data.error === 'insufficient' ? 'No tiene saldo suficiente. Su saldo es ' + jpMoney(r.data.balance) + '.' : 'No se pudo guardar. Intenta de nuevo.';
+      err.style.display = 'block'; return;
+    }
+    jpClose('jpAdjOv');
+    showToast((a.type === 'credit' ? '✅ Recargaste ' : '✅ Descontaste ') + jpMoney(v) + ' a ' + a.email + '. Saldo: ' + jpMoney(r.data.balance));
+    loadPlayers();
+    if (!document.getElementById('jpProfOv').hidden && jp.prof && jp.prof.id === a.id) openProfile(a.id, true);
+  }
+
+  // ---- Perfil ----
+  async function openProfile(id, keepTab) {
+    if (!keepTab) jp.profTab = 'todo';
+    if (document.getElementById('jpProfOv').hidden) { document.getElementById('jpProfBody').innerHTML = '<div class="pg-empty">Cargando perfil…</div>'; jpOpen('jpProfOv'); }
+    var d = await apiGet('/api/admin/players/' + id);
+    if (!d) { document.getElementById('jpProfBody').innerHTML = '<div class="pg-empty">No se pudo cargar el perfil.</div>'; return; }
+    jp.prof = d; renderProfile();
+  }
+  var JP_BET = { won: ['Ganada', 'ok'], lost: ['Perdida', 'bad'], void: ['Reembolsada', ''], cashout: ['Cobrada', ''], pending: ['Pendiente', 'pend'] };
+  var JP_PAY = { approved: ['Aprobado', 'ok'], rejected: ['Rechazado', 'bad'], pending: ['Pendiente', 'pend'] };
+  function jpPill(map, s) { var x = map[s] || [s || '', '']; return '<em class="jp-pill ' + x[1] + '">' + esc(x[0]) + '</em>'; }
+  function profItems(d) {
+    var items = [];
+    d.bets.forEach(function (b) {
+      var isParlay = /^Combinada/i.test(b.desc);
+      var sub = isParlay ? b.match.split(' · ').map(function (l) { var p = l.split('@@@'); return p.length === 3 ? p[0].replace(/^(Ganador|Hándicap|Total) /, '') + ' → ' + p[1] : l; }).join(' · ') : b.match;
+      items.push({ k: 'apuestas', t: b.createdAt, icon: '🎟️', title: b.desc, sub: sub, amount: -b.stake,
+        right: 'Apostó ' + jpMoney(b.stake) + (b.status === 'won' ? ' · cobró ' + jpMoney(b.payout) : b.status === 'pending' ? ' · paga ' + jpMoney(b.payout) : ''), pill: jpPill(JP_BET, b.status || 'pending') });
+    });
+    d.deposits.forEach(function (x) { items.push({ k: 'depositos', t: x.createdAt, icon: '💵', title: 'Depósito', sub: x.method || '', amount: x.amount, pill: jpPill(JP_PAY, x.status) }); });
+    d.withdrawals.forEach(function (x) { items.push({ k: 'retiros', t: x.createdAt, icon: '🏦', title: 'Retiro', sub: [x.method, x.note].filter(Boolean).join(' · '), amount: -x.amount, pill: jpPill(JP_PAY, x.status) }); });
+    d.adjustments.forEach(function (x) { items.push({ k: 'ajustes', t: x.createdAt, icon: x.amount > 0 ? '➕' : '➖', title: x.amount > 0 ? 'Recarga del admin' : 'Descuento del admin', sub: (x.note || 'Sin motivo') + (x.balanceAfter != null ? ' · quedó con ' + jpMoney(x.balanceAfter) : ''), amount: x.amount, pill: '' }); });
+    items.sort(function (a, b) { return Date.parse(b.t) - Date.parse(a.t); });
+    return items;
+  }
+  function renderProfile() {
+    var d = jp.prof, T = d.totals;
+    var vf = { ok: '✅ Verificado', pending: '⏳ En revisión', none: '— Sin verificar' }[d.verify] || d.verify;
+    var age = d.dob ? Math.floor((nowMs() - Date.parse(d.dob)) / (365.25 * 86400000)) : null;
+    function stat(lbl, v, sub, cls) { return '<div class="jp-stat ' + (cls || '') + '"><small>' + lbl + '</small><b>' + v + '</b>' + (sub ? '<span>' + sub + '</span>' : '') + '</div>'; }
+    var items = profItems(d);
+    var counts = { todo: items.length, apuestas: d.bets.length, depositos: d.deposits.length, retiros: d.withdrawals.length, ajustes: d.adjustments.length };
+    var shown = jp.profTab === 'todo' ? items : items.filter(function (i) { return i.k === jp.profTab; });
+    var diff = Math.round((d.balance - T.expected) * 100) / 100;
+    document.getElementById('jpProfBody').innerHTML =
+      '<div class="jp-prof-top">' +
+        '<div class="jp-avatar">' + esc(d.email.charAt(0).toUpperCase()) + '</div>' +
+        '<div class="jp-prof-id"><b>' + esc(d.email) + '</b><small>Jugador #' + d.id + ' · ' + (d.online ? '<span class="jp-live">🟢 En línea ahora</span>' : esc(jpAgo(d.lastSeen))) + '</small><small>Se registró ' + esc(jpWhen(d.joined)) + '</small></div>' +
+      '</div>' +
+      '<div class="jp-prof-bal"><div><small>Saldo disponible</small><b>' + jpMoney(d.balance) + '</b></div>' +
+        '<div class="jp-prof-acts"><button type="button" class="btn jp-btn ok" data-jp-adj="credit" data-jp-id="' + d.id + '">+ Recargar</button><button type="button" class="btn jp-btn bad" data-jp-adj="debit" data-jp-id="' + d.id + '">− Descontar</button></div></div>' +
+      '<div class="jp-stats">' +
+        stat('Depositó', jpMoney(T.deposited), T.depositsCount + (T.depositsCount === 1 ? ' depósito' : ' depósitos'), 'pos') +
+        stat('Retiró', jpMoney(T.withdrawn), T.withdrawPending ? jpMoney(T.withdrawPending) + ' pendiente' : 'pagado', 'neg') +
+        stat('Apostó', jpMoney(T.staked), T.betsCount + (T.betsCount === 1 ? ' apuesta' : ' apuestas')) +
+        stat('Ganó en premios', jpMoney(T.won), T.wonCount + ' ganadas · ' + T.lostCount + ' perdidas · ' + T.pendingCount + ' pendientes', 'pos') +
+        stat('Recargas del admin', jpMoney(T.credited), '', 'pos') +
+        stat('Descuentos del admin', jpMoney(T.debited), '', 'neg') +
+        (function () { var h = T.staked - (T.pendingStake || 0) - T.won - T.refunded - T.cashout; return stat('Resultado para la casa', jpMoney(h), 'en apuestas ya terminadas', h >= 0 ? 'pos' : 'neg'); })() +
+      '</div>' +
+      '<details class="au' + (T.ok ? ' ok' : ' bad') + '"><summary><span>' + (T.ok ? '✅ Su saldo cuadra' : '⚠️ Su saldo no cuadra') + '</span><span class="au-sub">' + (T.ok ? 'coincide con su historial' : 'tiene ' + jpMoney(Math.abs(diff)) + (diff > 0 ? ' de más' : ' de menos')) + '</span></summary>' +
+        '<div class="au-row"><span>Depositó</span><span>+' + jpMoney(T.deposited) + '</span></div>' +
+        '<div class="au-row"><span>Ganó en apuestas</span><span>+' + jpMoney(T.won) + '</span></div>' +
+        (T.refunded ? '<div class="au-row"><span>Reembolsos</span><span>+' + jpMoney(T.refunded) + '</span></div>' : '') +
+        (T.cashout ? '<div class="au-row"><span>Cash out</span><span>+' + jpMoney(T.cashout) + '</span></div>' : '') +
+        (T.credited ? '<div class="au-row"><span>Recargas del admin</span><span>+' + jpMoney(T.credited) + '</span></div>' : '') +
+        (T.debited ? '<div class="au-row"><span>Descuentos del admin</span><span>−' + jpMoney(T.debited) + '</span></div>' : '') +
+        '<div class="au-row"><span>Apostó</span><span>−' + jpMoney(T.staked) + '</span></div>' +
+        '<div class="au-row"><span>Retiros (pagados y pendientes)</span><span>−' + jpMoney(T.withdrawn + T.withdrawPending) + '</span></div>' +
+        '<div class="au-row tot"><span>Debería tener</span><span>' + jpMoney(T.expected) + '</span></div>' +
+        '<div class="au-row tot"><span>Tiene</span><span>' + jpMoney(d.balance) + '</span></div></details>' +
+      '<div class="jp-info">' +
+        '<div><small>Edad</small><b>' + esc(vf) + (age != null ? ' · ' + age + ' años' : '') + '</b></div>' +
+        '<div><small>Límite de juego</small><b>' + (d.limit && d.limit.amount ? jpMoney(d.limit.amount) + ' ' + ({ day: 'diario', week: 'semanal', month: 'mensual' }[d.limit.period] || '') : 'Sin límite') + '</b></div>' +
+        '<div><small>Retiros van a</small><b>' + esc(d.payoutMethod || 'Sin método de pago guardado') + '</b></div>' +
+      '</div>' +
+      '<div class="jp-htabs">' + [['todo', 'Todo'], ['apuestas', 'Apuestas'], ['depositos', 'Depósitos'], ['retiros', 'Retiros'], ['ajustes', 'Ajustes']].map(function (t) {
+        return '<button type="button" data-jp-ptab="' + t[0] + '" class="' + (jp.profTab === t[0] ? 'on' : '') + '">' + t[1] + ' <i>' + counts[t[0]] + '</i></button>'; }).join('') + '</div>' +
+      (shown.length ? '<div class="jp-hist">' + shown.map(function (i) {
+        return '<div class="jp-h"><span class="jp-h-ic">' + i.icon + '</span><div class="jp-h-t"><b>' + esc(i.title) + '</b>' + (i.sub ? '<small>' + esc(i.sub) + '</small>' : '') + '<small class="jp-h-when">' + esc(jpWhen(i.t)) + '</small></div>' +
+          '<div class="jp-h-r"><b class="' + (i.amount >= 0 ? 'pos' : 'neg') + '">' + (i.amount >= 0 ? '+' : '−') + jpMoney(Math.abs(i.amount)).replace('−', '') + '</b>' + (i.right ? '<small>' + esc(i.right) + '</small>' : '') + i.pill + '</div></div>';
+      }).join('') + '</div>' : '<div class="pg-empty">No hay movimientos aquí todavía.</div>');
+  }
+
+  // ---- Eventos ----
+  document.getElementById('jpSearch').addEventListener('input', function () {
+    clearTimeout(jp._t); var v = this.value.trim();
+    jp._t = setTimeout(function () { jp.q = v; if (v) jp.filter = 'all'; loadPlayers(); }, 300);
+  });
+  document.getElementById('jpAdjAmount').addEventListener('input', jpAdjPreview);
+  document.getElementById('jpAdjAmount').addEventListener('keydown', function (e) { if (e.key === 'Enter') jpAdjSubmit(); });
+  document.getElementById('jpAdjGo').addEventListener('click', jpAdjSubmit);
+  document.addEventListener('click', function (e) {
+    var t = e.target;
+    var f = t.closest('[data-jp-filter]'); if (f) { jp.filter = f.dataset.jpFilter; renderPlayers(); return; }
+    var adj = t.closest('[data-jp-adj]'); if (adj) { openAdjust(adj.dataset.jpAdj, Number(adj.dataset.jpId)); return; }
+    var pr = t.closest('[data-jp-prof]'); if (pr) { openProfile(Number(pr.dataset.jpProf)); return; }
+    var amt = t.closest('[data-jp-amt]'); if (amt) { document.getElementById('jpAdjAmount').value = amt.dataset.jpAmt; jpAdjPreview(); return; }
+    var pt = t.closest('[data-jp-ptab]'); if (pt) { jp.profTab = pt.dataset.jpPtab; renderProfile(); return; }
+    var cl = t.closest('[data-jp-close]'); if (cl) { jpClose(cl.dataset.jpClose); return; }
+    if (t.classList && t.classList.contains('jp-ov')) jpClose(t.id);
+  });
+  document.addEventListener('keydown', function (e) {
+    if (e.key !== 'Escape') return;
+    if (!document.getElementById('jpAdjOv').hidden) jpClose('jpAdjOv'); else if (!document.getElementById('jpProfOv').hidden) jpClose('jpProfOv');
+  });
+  // En línea: se actualiza cada 10 s mientras la pestaña está abierta; el número del botón, cada 30 s siempre.
+  setInterval(function () {
+    if (document.visibilityState !== 'visible' || !state.isAdmin) return;
+    if (jp.tab === 'jugadores') loadPlayers();
+  }, 10000);
+  setInterval(function () {
+    if (document.visibilityState !== 'visible' || !state.isAdmin || jp.tab === 'jugadores') return;
+    apiGet('/api/admin/players').then(function (d) { if (d) { jp.data = d; var b = document.getElementById('onlineBadge'); b.textContent = d.online; b.hidden = !d.online; } });
+  }, 30000);
 
   // ---- Pagos: retiros por aprobar, retiros revisados y depósitos ----
   var pgState = { data: null, rejecting: null, busy: false };
@@ -1233,6 +1563,7 @@
     return '<details class="au' + (a.ok ? ' ok' : ' bad') + '"' + (a.ok ? '' : ' open') + '><summary><span>' + (a.ok ? '✅ Cuadra' : '⚠️ No cuadra') + '</span><span class="au-sub">' +
       (a.ok ? 'Su saldo coincide con su historial' : 'Tiene ' + pgMoney(Math.abs(diff)) + (diff > 0 ? ' de más' : ' de menos')) + '</span></summary>' +
       line('Depositó', a.deposited, '+') + line('Ganó en apuestas', a.won, '+') + (a.refunded ? line('Reembolsos', a.refunded, '+') : '') + (a.cashout ? line('Cash out', a.cashout, '+') : '') +
+      (a.adjusted ? line('Ajustes del admin', Math.abs(a.adjusted), a.adjusted > 0 ? '+' : '−') : '') +
       line('Apostó', a.staked, '−') + line('Retiros (con este)', a.withdrawn, '−') +
       '<div class="au-row tot"><span>Debería tener</span><span>' + pgMoney(a.expected) + '</span></div>' +
       '<div class="au-row tot"><span>Tiene</span><span>' + pgMoney(w.balance) + '</span></div>' +
