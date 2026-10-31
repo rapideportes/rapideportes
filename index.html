@@ -627,6 +627,9 @@
   @media (max-width: 519px) { .gl-team .mc-badge { display: none; } .gl-draw .gl-team .nm { padding-left: 0; } .gl-team { gap: 2px; } .gl-team .fav { width: 22px; font-size: 14px; } .gl-head, .gl-row { gap: 6px; } }
   @media (max-width: 370px) { .gl { --gl-col: 56px; } .gl-team .nm { font-size: 13.5px; } }
   .gl-note { font-size: 11px; color: var(--text-faint); margin: 2px 0 0; }
+
+  .pw-forgot { display: block; margin: 8px 0 0 auto; background: none; border: none; color: var(--accent); font: inherit; font-size: 13.5px; font-weight: 700; padding: 4px 0; cursor: pointer; }
+  .pw-ok { background: #ECFDF3; border: 1px solid #ABEFC6; color: #067647; border-radius: 12px; padding: 12px 14px; font-size: 14px; line-height: 1.5; }
 </style>
 </head>
 <body>
@@ -738,9 +741,37 @@
       <label for="authPass">Contraseña</label>
       <input type="password" id="authPass" placeholder="Mínimo 6 caracteres" autocomplete="current-password">
       <div class="field-error" id="authPassErr">La contraseña debe tener al menos 6 caracteres.</div>
+      <button type="button" class="pw-forgot" id="authForgot">¿Olvidaste tu contraseña?</button>
     </div>
     <button class="btn primary block" id="authSubmit" type="button">Entrar</button>
     <div class="modal-switch"><span id="authSwitchText">¿No tienes cuenta?</span> <button id="authSwitchBtn" type="button">Regístrate</button></div>
+  </div>
+</div>
+
+<!-- Recuperar contraseña -->
+<div class="overlay" id="pwOverlay">
+  <div class="sheet">
+    <div class="sheet-head"><h2 id="pwTitle" style="flex:1;">Recupera tu contraseña</h2><button class="x" id="pwClose" type="button" aria-label="Cerrar">&times;</button></div>
+    <div id="pwForgot">
+      <p class="sub">Escribe el correo de tu cuenta y te mandamos un enlace para crear una contraseña nueva.</p>
+      <div class="field"><label for="pwEmail">Correo electrónico</label><input type="email" id="pwEmail" placeholder="tunombre@correo.com" autocomplete="email"></div>
+      <div class="field-error" id="pwEmailErr">Escribe un correo válido.</div>
+      <button class="btn primary block" id="pwSend" type="button">Enviar enlace</button>
+    </div>
+    <div id="pwSent" hidden>
+      <div class="pw-ok">📧 Si ese correo tiene una cuenta, te llegó un enlace para crear una contraseña nueva. Revisa también la carpeta de <b>spam</b>. El enlace vence en 1 hora.</div>
+      <button class="btn block" id="pwBackLogin" type="button" style="margin-top:14px;">Volver a entrar</button>
+    </div>
+    <div id="pwNoMail" hidden>
+      <div class="pw-ok">Para recuperar tu contraseña, escríbenos por los canales oficiales de atención de RapiDeportes con el correo de tu cuenta y te ayudamos.</div>
+    </div>
+    <div id="pwReset" hidden>
+      <p class="sub">Escribe tu contraseña nueva. Después vas a entrar con ella.</p>
+      <div class="field"><label for="pwNew">Contraseña nueva</label><input type="password" id="pwNew" placeholder="Mínimo 6 caracteres" autocomplete="new-password"></div>
+      <div class="field"><label for="pwNew2">Repítela</label><input type="password" id="pwNew2" placeholder="Otra vez la misma" autocomplete="new-password"></div>
+      <div class="field-error" id="pwResetErr"></div>
+      <button class="btn primary block" id="pwSave" type="button">Guardar contraseña</button>
+    </div>
   </div>
 </div>
 
@@ -1654,6 +1685,7 @@
     $('authEmailErr').style.display = 'none';
     $('authPassErr').style.display = 'none';
     $('authPass').setAttribute('autocomplete', mode === 'login' ? 'current-password' : 'new-password');
+    $('authForgot').style.display = mode === 'login' ? '' : 'none';
     openOv('authOverlay');
   }
   function renderAccount() {
@@ -2153,6 +2185,52 @@
     ov.addEventListener('click', function (e) { if (e.target === ov) closeOv(ov.id); });
   });
   $('authClose').addEventListener('click', function () { closeOv('authOverlay'); });
+
+  /* ---------- Recuperar contraseña ---------- */
+  var pwToken = null;
+  function pwShow(which) {
+    ['pwForgot', 'pwSent', 'pwNoMail', 'pwReset'].forEach(function (id) { $(id).hidden = id !== which; });
+    $('pwTitle').textContent = which === 'pwReset' ? 'Crea tu contraseña nueva' : 'Recupera tu contraseña';
+  }
+  $('authForgot').addEventListener('click', async function () {
+    closeOv('authOverlay');
+    $('pwEmail').value = $('authEmail').value.trim(); $('pwEmailErr').style.display = 'none';
+    var st = await apiGet('/api/password/status');
+    pwShow(st && st.emailEnabled ? 'pwForgot' : 'pwNoMail');
+    openOv('pwOverlay');
+  });
+  $('pwClose').addEventListener('click', function () { closeOv('pwOverlay'); });
+  $('pwBackLogin').addEventListener('click', function () { closeOv('pwOverlay'); openAuth('login'); });
+  $('pwSend').addEventListener('click', async function () {
+    var email = $('pwEmail').value.trim();
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { $('pwEmailErr').style.display = 'block'; return; }
+    this.disabled = true;
+    var r = await apiPost('/api/password/forgot', { email: email });
+    this.disabled = false;
+    if (r.data && r.data.emailEnabled === false) { pwShow('pwNoMail'); return; }
+    pwShow('pwSent');
+  });
+  $('pwSave').addEventListener('click', async function () {
+    var a = $('pwNew').value, b = $('pwNew2').value, err = $('pwResetErr');
+    err.style.display = 'block';
+    if (a.length < 6) { err.textContent = 'La contraseña debe tener al menos 6 caracteres.'; return; }
+    if (a !== b) { err.textContent = 'Las dos contraseñas no son iguales.'; return; }
+    err.style.display = 'none'; this.disabled = true;
+    var r = await apiPost('/api/password/reset', { token: pwToken, password: a });
+    this.disabled = false;
+    if (!r.ok) { err.style.display = 'block'; err.textContent = 'Este enlace ya se usó o venció. Pide uno nuevo con "¿Olvidaste tu contraseña?".'; return; }
+    closeOv('pwOverlay'); pwToken = null;
+    showToast('✅ Listo. Entra con tu contraseña nueva.');
+    openAuth('login');
+  });
+  (function checkResetLink() {
+    var m = /[?&]reset=([a-f0-9]{64})/.exec(location.search);
+    if (!m) return;
+    pwToken = m[1];
+    try { history.replaceState(null, '', location.pathname); } catch (e) {}
+    $('pwNew').value = ''; $('pwNew2').value = ''; $('pwResetErr').style.display = 'none';
+    pwShow('pwReset'); openOv('pwOverlay');
+  })();
   $('acctClose').addEventListener('click', function () { closeOv('acctOverlay'); });
   $('infoClose').addEventListener('click', function () { closeOv('infoOverlay'); });
   $('authSwitchBtn').addEventListener('click', function () { openAuth(authMode === 'login' ? 'register' : 'login'); });
@@ -2306,7 +2384,10 @@
     ['Escribe un monto válido.', 'Enter a valid amount.'],
     ['Escríbenos por los canales oficiales de atención de RapiDeportes. Respondemos lo antes posible.', 'Write to us through RapiDeportes official support channels. We reply as soon as possible.'],
     ['Ese correo ya está registrado.', 'That email is already registered.'],
-    ['Se quitó del boleto:', 'Removed from your slip:'], ['Ese partido ya no está disponible.', 'That game is no longer available.'],
+    ['Se quitó del boleto:', 'Removed from your slip:'], ['¿Olvidaste tu contraseña?', 'Forgot your password?'], ['Recupera tu contraseña', 'Recover your password'], ['Crea tu contraseña nueva', 'Create your new password'],
+    ['Escribe el correo de tu cuenta y te mandamos un enlace para crear una contraseña nueva.', "Enter your account email and we'll send you a link to create a new password."], ['Enviar enlace', 'Send link'], ['Volver a entrar', 'Back to log in'],
+    ['Escribe tu contraseña nueva. Después vas a entrar con ella.', 'Enter your new password. You will log in with it.'], ['Contraseña nueva', 'New password'], ['Repítela', 'Repeat it'], ['Otra vez la misma', 'Same again'], ['Guardar contraseña', 'Save password'],
+    ['Las dos contraseñas no son iguales.', "The passwords don't match."], ['Listo. Entra con tu contraseña nueva.', 'Done. Log in with your new password.'], ['Ese partido ya no está disponible.', 'That game is no longer available.'],
     ['Ese monto pasa tu límite. Puedes depositar hasta', 'That amount exceeds your limit. You can deposit up to'],
     ['Haz un depósito primero para poder retirar.', 'Make a deposit first to be able to withdraw.'],
     ['Juega solo con dinero que puedas permitirte perder, define un límite antes de empezar y no intentes recuperar pérdidas.', 'Only play with money you can afford to lose, set a limit before you start and never chase losses.'],
