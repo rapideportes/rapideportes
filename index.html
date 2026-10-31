@@ -2094,6 +2094,16 @@
     renderView();
   }, 15000);
 
+  // Avisa al servidor que el jugador sigue en la página (para "En línea" en el panel)
+  // y de paso trae el saldo al día, por si el admin le recargó o descontó.
+  async function heartbeat() {
+    if (!state.user || document.visibilityState !== 'visible') return;
+    var d = await apiGet('/api/ping');
+    if (d && typeof d.balance === 'number' && d.balance !== state.balance) { state.balance = d.balance; updateHeader(); }
+  }
+  setInterval(heartbeat, 30000);
+  document.addEventListener('visibilitychange', heartbeat);
+
   /* ---------- Inicio ---------- */
   (async function bootstrap() {
     state.matches = await loadMatches();
