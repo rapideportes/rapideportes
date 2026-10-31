@@ -678,6 +678,9 @@
   .rc-tot b { color: var(--accent); font-size: 19px; }
   .rc-code { margin: 14px 0 10px; border: 1.5px dashed #98A2B3; border-radius: 6px; text-align: center; padding: 9px; font-size: 18px; font-weight: 800; letter-spacing: .18em; }
   .rc-foot { text-align: center; font-size: 11.5px; color: #667085; }
+  .rc-st { text-align: center; font-weight: 800; font-size: 12.5px; margin-top: 10px; color: #475467; }
+  .rc-st.won { color: #067647; } .rc-st.lost { color: #B42318; }
+  .tk-btn { width: 100%; min-height: 40px; margin-top: 8px; border-radius: 999px; border: 1px solid var(--border-strong); background: #fff; color: var(--text); font: inherit; font-weight: 700; font-size: 13.5px; cursor: pointer; }
   .rc-acts { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; width: 100%; margin-top: 6px; opacity: 0; transition: opacity .3s; }
   .rc-acts.show { opacity: 1; }
   .rc-acts .btn { margin: 0; }
@@ -1535,6 +1538,7 @@
           html += '<button type="button" class="co-btn" data-cashout="' + esc(h.id) + '">💵 Cobrar ahora · $' + h.cashout.toFixed(2) + '</button>';
         }
       }
+      if (h.id) html += '<button type="button" class="tk-btn" data-ticket="' + esc(h.id) + '">🧾 Ver ticket y compartir</button>';
       html += '</div>';
     });
     return html;
@@ -1995,7 +1999,8 @@
   /* ---------- Ticket impreso ---------- */
   var lastReceipt = null;
   function money2(n) { return '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-  function showReceipt(bets, ids) {
+  function showReceipt(bets, ids, opt) {
+    opt = opt || {};
     var parlay = /^Combinada/i.test(bets[0].desc || '');
     var lines = [], stake = 0, pay = 0;
     bets.forEach(function (b) {
@@ -2004,15 +2009,18 @@
     });
     var title = parlay ? 'COMBINADA DE ' + lines.length : bets.length > 1 ? bets.length + ' SENCILLAS' : 'APUESTA SENCILLA';
     var codes = (ids || []).map(function (id) { return 'T-' + String(id).padStart(6, '0'); });
-    var when = new Date(nowMs()).toLocaleString('es-PR', { timeZone: PR_TZ, day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
-    lastReceipt = { title: title, lines: lines, stake: stake, pay: pay, codes: codes, mult: parlay ? pay / stake : 0 };
+    var when = new Date(opt.at ? Date.parse(opt.at) : nowMs()).toLocaleString('es-PR', { timeZone: PR_TZ, day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+    var st = opt.status && opt.status !== 'pending' ? betStatusMeta({ status: opt.status }) : null;
+    var stLabel = st ? (st.cls === 'won' ? '✓ GANADA · COBRÓ ' + money2(pay) : st.cls === 'lost' ? 'PERDIDA' : st.cls === 'cash' ? 'COBRADA · ' + money2(pay) : 'REEMBOLSADA') : '';
+    lastReceipt = { title: title, when: when, lines: lines, stake: stake, pay: pay, codes: codes, mult: parlay ? pay / stake : 0, stLabel: stLabel, stCls: st ? st.cls : '' };
     $('rcPaper').innerHTML =
       '<div class="rc-brand">Rapi<span>deportes</span></div>' +
       '<div class="rc-h"><b>' + esc(title) + '</b><small>' + esc(when) + '</small></div><div class="rc-sep"></div>' +
       lines.map(function (l) {
         return '<div class="rc-line"><div class="l">' + esc(l.pick) + (l.game ? '<small>' + esc(l.game) + '</small>' : '') + '</div><b>' + esc(l.odds) + (l.stake ? ' · ' + money2(l.stake) : '') + '</b></div>';
       }).join('') +
-      '<div class="rc-sep"></div><div class="rc-tot"><span>SI GANAS</span><b>' + money2(pay) + '</b></div>' +
+      '<div class="rc-sep"></div><div class="rc-tot"><span>' + (st && st.cls === 'cash' ? 'COBRÓ' : 'SI GANAS') + '</span><b>' + money2(pay) + '</b></div>' +
+      (stLabel ? '<div class="rc-st ' + st.cls + '">' + esc(stLabel) + '</div>' : '') +
       (codes.length ? '<div class="rc-code">' + esc(codes.join('  ')) + '</div>' : '<div class="rc-sep"></div>') +
       '<div class="rc-foot">Apostaste ' + money2(stake) + (parlay ? ' · cuota total ' + (pay / stake).toFixed(2) + 'x' : '') + '</div>';
     var paper = $('rcPaper'), led = $('rcLed'), acts = document.querySelector('.rc-acts');
@@ -2023,7 +2031,7 @@
     paper.classList.add('go');
     setTimeout(function () {
       led.classList.add('ok'); acts.classList.add('show');
-      $('rcStatus').innerHTML = '<span class="ok-ic">✓</span> ¡Listo! Apuesta confirmada';
+      $('rcStatus').innerHTML = '<span class="ok-ic">✓</span> ' + (opt.at ? 'Tu ticket' : '¡Listo! Apuesta confirmada');
     }, 1700);
   }
   function receiptText() {
@@ -2033,10 +2041,91 @@
       '\n\nApuesta: ' + money2(r.stake) + (r.mult ? ' · cuota ' + r.mult.toFixed(2) + 'x' : '') + '\nSi gano: ' + money2(r.pay) +
       (r.codes.length ? '\nTicket: ' + r.codes.join(', ') : '') + '\n\nJuega en www.rapideportes.com';
   }
+  // Dibuja el ticket como imagen (PNG) para compartirlo igualito.
+  async function ticketImage() {
+    var r = lastReceipt; if (!r) return null;
+    try { await Promise.all([document.fonts.load('800 30px "JetBrains Mono"'), document.fonts.load('500 24px "JetBrains Mono"'), document.fonts.load('800 40px "Big Shoulders Display"')]); } catch (e) {}
+    var S = 2, W = 360, PAD = 22, PW = W - 2 * 30, X0 = 30, MONO = '"JetBrains Mono", ui-monospace, Menlo, monospace';
+    var cv = document.createElement('canvas'), ctx = cv.getContext('2d');
+    function wrap(text, font, maxW) {
+      ctx.font = font; var words = String(text).split(' '), out = [], cur = '';
+      words.forEach(function (w) { var t = cur ? cur + ' ' + w : w; if (ctx.measureText(t).width > maxW && cur) { out.push(cur); cur = w; } else cur = t; });
+      if (cur) out.push(cur); return out;
+    }
+    var F = { brand: '800 26px "Big Shoulders Display", sans-serif', title: '800 16px ' + MONO, small: '500 11px ' + MONO, pick: '500 13px ' + MONO, odd: '800 13px ' + MONO, gsm: '500 10px ' + MONO, tot: '800 16px ' + MONO, totv: '800 19px ' + MONO, code: '800 17px ' + MONO, st: '800 12px ' + MONO };
+    var inner = PW - 2 * PAD;
+    // medir altura
+    var rows = r.lines.map(function (l) {
+      ctx.font = F.odd; var ow = ctx.measureText(l.odds || '').width + 10;
+      return { pick: wrap(l.pick, F.pick, inner - ow), game: l.game ? wrap(l.game, F.gsm, inner - ow) : [], odds: l.odds };
+    });
+    var h = 40 + 32 + 22 + 18 + 22;
+    rows.forEach(function (rw) { h += rw.pick.length * 17 + rw.game.length * 13 + 10; });
+    h += 22 + 30 + (r.stLabel ? 30 : 0) + (r.codes.length ? 60 : 10) + 22 + 22 + 14;
+    var H = h + 60;
+    cv.width = W * S; cv.height = H * S; ctx.scale(S, S);
+    // fondo
+    var g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#16213F'); g.addColorStop(1, '#0B1630');
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    // papel con borde de sierra abajo
+    var top = 26, bot = top + h, tooth = 10;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 6;
+    ctx.beginPath(); ctx.moveTo(X0, top); ctx.lineTo(X0 + PW, top); ctx.lineTo(X0 + PW, bot);
+    for (var x = X0 + PW; x > X0; x -= tooth) { ctx.lineTo(x - tooth / 2, bot - 7); ctx.lineTo(Math.max(X0, x - tooth), bot); }
+    ctx.closePath(); ctx.fillStyle = '#fff'; ctx.fill(); ctx.restore();
+    var y = top + 40, L = X0 + PAD, R = X0 + PW - PAD, C = X0 + PW / 2;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+    ctx.font = F.brand; var w1 = ctx.measureText('Rapi').width, w2 = ctx.measureText('deportes').width;
+    ctx.textAlign = 'left'; ctx.fillStyle = '#101828'; ctx.fillText('Rapi', C - (w1 + w2) / 2, y); ctx.fillStyle = '#F01446'; ctx.fillText('deportes', C - (w1 + w2) / 2 + w1, y);
+    ctx.textAlign = 'center'; y += 30; ctx.fillStyle = '#101828'; ctx.font = F.title;
+    if (ctx.letterSpacing !== undefined) ctx.letterSpacing = '3px';
+    ctx.fillText(r.title, C, y); if (ctx.letterSpacing !== undefined) ctx.letterSpacing = '0px';
+    y += 20; ctx.font = F.small; ctx.fillStyle = '#667085'; ctx.fillText(r.when, C, y);
+    function dash(yy) { ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = '#D0D5DD'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(R, yy); ctx.stroke(); ctx.restore(); }
+    y += 16; dash(y); y += 22;
+    rows.forEach(function (rw) {
+      ctx.textAlign = 'right'; ctx.font = F.odd; ctx.fillStyle = '#101828'; ctx.fillText(rw.odds || '', R, y);
+      ctx.textAlign = 'left'; ctx.font = F.pick; rw.pick.forEach(function (t, i) { ctx.fillText(t, L, y + i * 17); });
+      var yy = y + (rw.pick.length - 1) * 17 + 14; ctx.font = F.gsm; ctx.fillStyle = '#98A2B3';
+      rw.game.forEach(function (t, i) { ctx.fillText(t, L, yy + i * 13); });
+      y += rw.pick.length * 17 + rw.game.length * 13 + 10;
+    });
+    y += 0; dash(y); y += 30;
+    ctx.textAlign = 'left'; ctx.font = F.tot; ctx.fillStyle = '#101828'; ctx.fillText(/^COBRADA/.test(r.stLabel) ? 'COBRÓ' : 'SI GANAS', L, y);
+    ctx.textAlign = 'right'; ctx.font = F.totv; ctx.fillStyle = '#F01446'; ctx.fillText(money2(r.pay), R, y);
+    if (r.stLabel) {
+      y += 28; ctx.textAlign = 'center'; ctx.font = F.st;
+      ctx.fillStyle = r.stCls === 'won' ? '#067647' : r.stCls === 'lost' ? '#B42318' : '#475467'; ctx.fillText(r.stLabel, C, y);
+    }
+    if (r.codes.length) {
+      y += 16; ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = '#98A2B3'; ctx.lineWidth = 1.5;
+      ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(L, y, R - L, 40, 6); else ctx.rect(L, y, R - L, 40); ctx.stroke(); ctx.restore();
+      ctx.textAlign = 'center'; ctx.font = F.code; ctx.fillStyle = '#101828';
+      if (ctx.letterSpacing !== undefined) ctx.letterSpacing = '3px';
+      ctx.fillText(r.codes.join('  '), C, y + 26); if (ctx.letterSpacing !== undefined) ctx.letterSpacing = '0px';
+      y += 44;
+    } else y += 10;
+    y += 20; ctx.textAlign = 'center'; ctx.font = F.small; ctx.fillStyle = '#667085';
+    ctx.fillText('Apostaste ' + money2(r.stake) + (r.mult ? ' · cuota total ' + r.mult.toFixed(2) + 'x' : ''), C, y);
+    y += 20; ctx.font = '800 11px ' + MONO; ctx.fillStyle = '#F01446'; ctx.fillText('www.rapideportes.com', C, y);
+    return await new Promise(function (res) { cv.toBlob(function (b) { res(b); }, 'image/png'); });
+  }
   $('rcClose').addEventListener('click', function () { closeOv('rcptOverlay'); });
   $('rcShare').addEventListener('click', async function () {
-    var txt = receiptText();
-    if (navigator.share) { try { await navigator.share({ text: txt }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    var btn = this, txt = receiptText(), name = 'ticket-' + ((lastReceipt && lastReceipt.codes[0]) || 'rapideportes') + '.png';
+    btn.disabled = true;
+    var blob = null; try { blob = await ticketImage(); } catch (e) {}
+    btn.disabled = false;
+    var file = blob ? new File([blob], name, { type: 'image/png' }) : null;
+    if (file && navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], text: txt }); return; } catch (e) { if (e && e.name === 'AbortError') return; }
+    }
+    if (blob) {
+      var a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+      showToast('Se guardó la foto del ticket. Mándala por WhatsApp o donde quieras.');
+      return;
+    }
     window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
   });
 
@@ -2050,6 +2139,12 @@
       if (ix >= 0) state.favs.splice(ix, 1); else state.favs.push(nm);
       saveFavs(); showToast(ix >= 0 ? nm + ' ya no es favorito.' : '⭐ ' + nm + ' es tu favorito.');
       var y = window.scrollY; renderView(); window.scrollTo(0, y); return;
+    }
+    var tkb = t.closest('[data-ticket]');
+    if (tkb) {
+      var hb = state.history.filter(function (x) { return String(x.id) === tkb.dataset.ticket; })[0];
+      if (hb) showReceipt([hb], [hb.id], { at: hb.createdAt || null, status: hb.status || 'pending' });
+      return;
     }
     var co = t.closest('[data-cashout]'); if (co) { state.cashoutConfirm = Number(co.dataset.cashout) || co.dataset.cashout; renderView(); return; }
     if (t.closest('[data-cashout-no]')) { state.cashoutConfirm = null; renderView(); return; }
@@ -2640,7 +2735,7 @@
     ['Apuesta', 'Bet'], ['paga', 'pays'], ['Final ·', 'Final ·'], ['Promociones', 'Promotions'], ['Resultados', 'Results'],
     ['En vivo', 'Live'], ['Ganador', 'Winner'], ['Hándicap', 'Handicap'], ['carreras', 'runs'], ['puntos', 'points'], ['goles', 'goals'],
     ['Imprimiendo tu ticket…', 'Printing your ticket…'], ['¡Listo! Apuesta confirmada', 'Done! Bet confirmed'], ['📲 Compartir jugada', '📲 Share bet'],
-    ['SI GANAS', 'IF YOU WIN'], ['APUESTA SENCILLA', 'SINGLE BET'], ['Apostaste', 'You bet'], ['cuota total', 'total odds'],
+    ['SI GANAS', 'IF YOU WIN'], ['🧾 Ver ticket y compartir', '🧾 View ticket & share'], ['Tu ticket', 'Your ticket'], ['Se guardó la foto del ticket. Mándala por WhatsApp o donde quieras.', 'The ticket image was saved. Send it on WhatsApp or anywhere.'], ['APUESTA SENCILLA', 'SINGLE BET'], ['Apostaste', 'You bet'], ['cuota total', 'total odds'],
     ['Más ', 'Over '], ['Menos ', 'Under '], ['Cerrar', 'Close'], ['Hoy ', 'Today '], ['Mañana ', 'Tomorrow ']
   ];
   PHRASES.sort(function (a, b) { return b[0].length - a[0].length; });
