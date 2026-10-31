@@ -816,6 +816,15 @@ function gradeWinner(pick, away, home, awayScore, homeScore) {
 
 // pick es el número de línea tal como se guardó en el texto (ej. "-1.5" o "+1.5").
 function gradeHandicap(pick, m, awayScore, homeScore) {
+  // Formato nuevo: "Equipo +1.5" (el equipo y la línea van en la apuesta).
+  var tp = /^(.*\S)\s+([+-]?\d+(?:\.\d+)?)$/.exec(String(pick || '').trim());
+  if (tp && (tp[1] === m.away || tp[1] === m.home)) {
+    var ln = parseFloat(tp[2]);
+    var d = tp[1] === m.away ? (awayScore + ln) - homeScore : (homeScore + ln) - awayScore;
+    if (d === 0) return 'push';
+    return d > 0 ? 'won' : 'lost';
+  }
+  // Formato viejo: solo la línea ("-4.5"); el lado sale de la línea del partido.
   if (!m.handicap) return null;
   var pickNum = parseFloat(pick);
   var awayLine = Number(m.handicap.awayLine), homeLine = Number(m.handicap.homeLine);
@@ -872,7 +881,7 @@ function gradeSingleBet(descText, matchText, finishedByKey, statsByEventId) {
     return gradePlayerProp(m, descBody, stats);
   }
   if (/^Hándicap /.test(descBody)) {
-    return gradeSelection('Hándicap', away, home, descBody.replace(/^Hándicap /, '').split(' ')[0], finishedByKey);
+    return gradeSelection('Hándicap', away, home, descBody.replace(/^Hándicap /, ''), finishedByKey);
   }
   if (/^Más /.test(descBody) || /^Menos /.test(descBody)) {
     return gradeSelection('Total', away, home, descBody, finishedByKey);
