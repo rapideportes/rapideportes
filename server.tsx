@@ -71,6 +71,17 @@ await sql`ALTER TABLE deposits ADD COLUMN IF NOT EXISTS method_label TEXT`;
 await sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS method_ref TEXT`;
 await sql`ALTER TABLE withdrawals ADD COLUMN IF NOT EXISTS method_label TEXT`;
 
+// Recargas y descuentos hechos a mano por el admin (positivo = recarga, negativo = descuento).
+await sql`CREATE TABLE IF NOT EXISTS balance_adjustments (
+  id SERIAL PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  amount NUMERIC NOT NULL,
+  note TEXT,
+  balance_after NUMERIC,
+  created_at TIMESTAMPTZ DEFAULT now()
+)`;
+await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ`;
+
 async function payoutMethod(userId) {
   const rows = await sql`SELECT method_ref, method_label FROM deposits
     WHERE user_id = ${userId} AND status = 'approved' AND method_ref IS NOT NULL
@@ -80,6 +91,22 @@ async function payoutMethod(userId) {
 
 const adminTokens = new Set();
 
+// ---------- Quién está en la plataforma ahora mismo ----------
+// Cada jugador con sesión abierta avisa cada 30 s (/api/ping). Se cuenta "en línea"
+// si avisó en los últimos 75 s. La última conexión también se guarda en la base.
+const ONLINE_MS = 75 * 1000;
+const lastSeenMem = new Map();
+const lastSeenSaved = new Map();
+function touchUser(id) {
+  const now = Date.now();
+  lastSeenMem.set(id, now);
+  if (now - (lastSeenSaved.get(id) || 0) > 60 * 1000) {
+    lastSeenSaved.set(id, now);
+    sql`UPDATE users SET last_seen = now() WHERE id = ${id}`.catch(function () {});
+  }
+}
+function isOnline(id) { return Date.now() - (lastSeenMem.get(id) || 0) < ONLINE_MS; }
+
 async function getUserFromCookie(c) {
   const token = getCookie(c, 'session');
   if (!token) return null;
@@ -88,6 +115,7 @@ async function getUserFromCookie(c) {
     FROM sessions s JOIN users u ON u.id = s.user_id
     WHERE s.token = ${token}
   `;
+  if (rows[0]) touchUser(rows[0].id);
   return rows[0] || null;
 }
 
@@ -1413,7 +1441,8 @@ app.get('/api/admin/payments', async (c) => {
       (SELECT COALESCE(SUM(stake), 0) FROM bets b WHERE b.user_id = u.id) AS staked_total,
       (SELECT COALESCE(SUM(stake), 0) FROM bets b WHERE b.user_id = u.id AND b.status = 'void') AS refunded_total,
       (SELECT COALESCE(SUM(payout), 0) FROM bets b WHERE b.user_id = u.id AND b.status = 'cashout') AS cashout_total,
-      (SELECT COALESCE(SUM(amount), 0) FROM withdrawals x WHERE x.user_id = u.id AND x.status <> 'rejected') AS withdrawn_total
+      (SELECT COALESCE(SUM(amount), 0) FROM withdrawals x WHERE x.user_id = u.id AND x.status <> 'rejected') AS withdrawn_total,
+      (SELECT COALESCE(SUM(amount), 0) FROM balance_adjustments a WHERE a.user_id = u.id) AS adjusted_total
     FROM withdrawals w JOIN users u ON u.id = w.user_id
     WHERE w.status = 'pending' ORDER BY w.created_at ASC LIMIT 100`;
   const recentW = await sql`SELECT w.id, w.amount, w.status, w.note, w.created_at, w.reviewed_at, w.method_label, u.email
@@ -1430,11 +1459,11 @@ app.get('/api/admin/payments', async (c) => {
       // Cuadre: lo que debería tener según su historial vs. su saldo real.
       // Depósitos + premios + reembolsos + cash out − todo lo apostado − retiros (pedidos o pagados).
       var expected = Number(r.deposited_total) + Number(r.won_total) + Number(r.refunded_total) + Number(r.cashout_total)
-        - Number(r.staked_total) - Number(r.withdrawn_total);
+        - Number(r.staked_total) - Number(r.withdrawn_total) + Number(r.adjusted_total);
       expected = Math.round(expected * 100) / 100;
       return {
         audit: {
-          deposited: Number(r.deposited_total), won: Number(r.won_total), refunded: Number(r.refunded_total), cashout: Number(r.cashout_total),
+          deposited: Number(r.deposited_total), won: Number(r.won_total), refunded: Number(r.refunded_total), cashout: Number(r.cashout_total), adjusted: Number(r.adjusted_total),
           staked: Number(r.staked_total), withdrawn: Number(r.withdrawn_total), expected: expected,
           ok: Math.abs(expected - Number(r.balance)) < 0.01
         }, id: r.id, amount: Number(r.amount), createdAt: r.created_at, methodLabel: r.method_label || '', email: r.email, balance: Number(r.balance), joined: r.joined,
@@ -1443,6 +1472,103 @@ app.get('/api/admin/payments', async (c) => {
     withdrawals: recentW.map(function (r) { return { id: r.id, amount: Number(r.amount), status: r.status, note: r.note || '', createdAt: r.created_at, reviewedAt: r.reviewed_at, methodLabel: r.method_label || '', email: r.email }; }),
     deposits: recentD.map(function (r) { return { id: r.id, amount: Number(r.amount), status: r.status, createdAt: r.created_at, methodLabel: r.method_label || '', email: r.email }; })
   });
+});
+
+// El jugador avisa que sigue en la página; de paso recibe su saldo al día.
+app.get('/api/ping', async (c) => {
+  const user = await getUserFromCookie(c);
+  if (!user) return c.json({ error: 'unauthorized' }, 401);
+  return c.json({ balance: Number(user.balance) });
+});
+
+// ---------- Panel: Jugadores ----------
+app.get('/api/admin/players', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'unauthorized' }, 401);
+  const q = String(c.req.query('q') || '').trim().slice(0, 100);
+  const like = '%' + q.replace(/[\\%_]/g, '\\$&') + '%';
+  const rows = q
+    ? await sql`SELECT id, email, balance, created_at, last_seen FROM users WHERE email ILIKE ${like} OR CAST(id AS TEXT) = ${q} ORDER BY last_seen DESC NULLS LAST, id DESC LIMIT 300`
+    : await sql`SELECT id, email, balance, created_at, last_seen FROM users ORDER BY last_seen DESC NULLS LAST, id DESC LIMIT 300`;
+  const total = await sql`SELECT COUNT(*) AS n FROM users`;
+  var online = 0;
+  lastSeenMem.forEach(function (t) { if (Date.now() - t < ONLINE_MS) online++; });
+  const list = rows.map(function (r) {
+    const mem = lastSeenMem.get(r.id);
+    return { id: r.id, email: r.email, balance: Number(r.balance), joined: r.created_at,
+      lastSeen: mem ? new Date(mem).toISOString() : r.last_seen, online: isOnline(r.id) };
+  });
+  list.sort(function (a, b) { return (b.online ? 1 : 0) - (a.online ? 1 : 0); });
+  return c.json({ online: online, total: Number(total[0].n), players: list });
+});
+
+app.get('/api/admin/players/:id', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'unauthorized' }, 401);
+  const id = Number(c.req.param('id'));
+  if (!Number.isInteger(id)) return c.json({ error: 'not_found' }, 404);
+  const u = await sql`SELECT id, email, balance, created_at, last_seen, verify_status, dob, limit_period, limit_amount FROM users WHERE id = ${id}`;
+  if (!u[0]) return c.json({ error: 'not_found' }, 404);
+  const t = await sql`SELECT
+      (SELECT COALESCE(SUM(amount), 0) FROM deposits WHERE user_id = ${id} AND status = 'approved') AS deposited,
+      (SELECT COUNT(*) FROM deposits WHERE user_id = ${id} AND status = 'approved') AS deposits_n,
+      (SELECT COALESCE(SUM(amount), 0) FROM withdrawals WHERE user_id = ${id} AND status = 'approved') AS withdrawn,
+      (SELECT COALESCE(SUM(amount), 0) FROM withdrawals WHERE user_id = ${id} AND status = 'pending') AS withdraw_pending,
+      (SELECT COALESCE(SUM(amount), 0) FROM withdrawals WHERE user_id = ${id} AND status <> 'rejected') AS withdrawn_all,
+      (SELECT COALESCE(SUM(stake), 0) FROM bets WHERE user_id = ${id}) AS staked,
+      (SELECT COUNT(*) FROM bets WHERE user_id = ${id}) AS bets_n,
+      (SELECT COUNT(*) FROM bets WHERE user_id = ${id} AND status = 'won') AS won_n,
+      (SELECT COUNT(*) FROM bets WHERE user_id = ${id} AND status = 'lost') AS lost_n,
+      (SELECT COUNT(*) FROM bets WHERE user_id = ${id} AND status = 'pending') AS pending_n,
+      (SELECT COALESCE(SUM(stake), 0) FROM bets WHERE user_id = ${id} AND status = 'pending') AS pending_stake,
+      (SELECT COALESCE(SUM(payout), 0) FROM bets WHERE user_id = ${id} AND status = 'won') AS won,
+      (SELECT COALESCE(SUM(stake), 0) FROM bets WHERE user_id = ${id} AND status = 'void') AS refunded,
+      (SELECT COALESCE(SUM(payout), 0) FROM bets WHERE user_id = ${id} AND status = 'cashout') AS cashout,
+      (SELECT COALESCE(SUM(amount), 0) FROM balance_adjustments WHERE user_id = ${id} AND amount > 0) AS credited,
+      (SELECT COALESCE(SUM(-amount), 0) FROM balance_adjustments WHERE user_id = ${id} AND amount < 0) AS debited`;
+  const bets = await sql`SELECT id, desc_text, match_text, stake, payout, status, created_at FROM bets WHERE user_id = ${id} ORDER BY created_at DESC LIMIT 100`;
+  const deps = await sql`SELECT id, amount, status, method_label, created_at FROM deposits WHERE user_id = ${id} ORDER BY created_at DESC LIMIT 100`;
+  const wds = await sql`SELECT id, amount, status, note, method_label, created_at, reviewed_at FROM withdrawals WHERE user_id = ${id} ORDER BY created_at DESC LIMIT 100`;
+  const adj = await sql`SELECT id, amount, note, balance_after, created_at FROM balance_adjustments WHERE user_id = ${id} ORDER BY created_at DESC LIMIT 100`;
+  const T = t[0], N = function (x) { return Number(x) || 0; };
+  const expected = Math.round((N(T.deposited) + N(T.won) + N(T.refunded) + N(T.cashout) - N(T.staked) - N(T.withdrawn_all) + N(T.credited) - N(T.debited)) * 100) / 100;
+  const user = u[0], mem = lastSeenMem.get(id);
+  const pm = await payoutMethod(id);
+  return c.json({
+    id: user.id, email: user.email, balance: N(user.balance), joined: user.created_at,
+    lastSeen: mem ? new Date(mem).toISOString() : user.last_seen, online: isOnline(id),
+    verify: user.verify_status || 'none', dob: user.dob, limit: { period: user.limit_period, amount: N(user.limit_amount) },
+    payoutMethod: pm ? pm.label : null,
+    totals: { deposited: N(T.deposited), depositsCount: N(T.deposits_n), withdrawn: N(T.withdrawn), withdrawPending: N(T.withdraw_pending),
+      staked: N(T.staked), betsCount: N(T.bets_n), wonCount: N(T.won_n), lostCount: N(T.lost_n), pendingCount: N(T.pending_n), pendingStake: N(T.pending_stake),
+      won: N(T.won), refunded: N(T.refunded), cashout: N(T.cashout), credited: N(T.credited), debited: N(T.debited),
+      expected: expected, ok: Math.abs(expected - N(user.balance)) < 0.01 },
+    bets: bets.map(function (b) { return { id: b.id, desc: b.desc_text, match: b.match_text, stake: N(b.stake), payout: N(b.payout), status: b.status, createdAt: b.created_at }; }),
+    deposits: deps.map(function (d) { return { id: d.id, amount: N(d.amount), status: d.status, method: d.method_label || '', createdAt: d.created_at }; }),
+    withdrawals: wds.map(function (w) { return { id: w.id, amount: N(w.amount), status: w.status, note: w.note || '', method: w.method_label || '', createdAt: w.created_at, reviewedAt: w.reviewed_at }; }),
+    adjustments: adj.map(function (a) { return { id: a.id, amount: N(a.amount), note: a.note || '', balanceAfter: a.balance_after == null ? null : N(a.balance_after), createdAt: a.created_at }; })
+  });
+});
+
+// Recargar (type: 'credit') o descontar (type: 'debit') saldo a mano.
+app.post('/api/admin/players/:id/adjust', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'unauthorized' }, 401);
+  let body;
+  try { body = await c.req.json(); } catch (e) { return c.json({ error: 'bad_request' }, 400); }
+  const id = Number(c.req.param('id'));
+  const amount = Math.round(Number(body.amount) * 100) / 100;
+  const type = body.type === 'debit' ? 'debit' : body.type === 'credit' ? 'credit' : null;
+  const note = body.note ? String(body.note).trim().slice(0, 200) : null;
+  if (!Number.isInteger(id) || !type || !(amount > 0) || amount > 1000000) return c.json({ error: 'bad_request' }, 400);
+  const rows = type === 'credit'
+    ? await sql`UPDATE users SET balance = balance + ${amount} WHERE id = ${id} RETURNING balance`
+    : await sql`UPDATE users SET balance = balance - ${amount} WHERE id = ${id} AND balance >= ${amount} RETURNING balance`;
+  if (!rows[0]) {
+    const exists = await sql`SELECT balance FROM users WHERE id = ${id}`;
+    if (!exists[0]) return c.json({ error: 'not_found' }, 404);
+    return c.json({ error: 'insufficient', balance: Number(exists[0].balance) }, 400);
+  }
+  const after = Number(rows[0].balance);
+  await sql`INSERT INTO balance_adjustments (user_id, amount, note, balance_after) VALUES (${id}, ${type === 'credit' ? amount : -amount}, ${note}, ${after})`;
+  return c.json({ ok: true, balance: after });
 });
 
 app.post('/api/admin/withdrawals/:id', async (c) => {
