@@ -7,7 +7,7 @@
 <title>RapiDeportes — apuestas deportivas</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;700;800&family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
     /* Paleta clara — tema RapiDeportes */
@@ -647,6 +647,41 @@
   .hh-od { flex: 0 0 auto; font-weight: 800; font-size: 13px; color: var(--accent); }
   .hh-foot { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--border); margin-top: 4px; padding-top: 7px; font-size: 12px; color: var(--text-dim); }
   .hh-foot b.won, .hh-foot b.cash { color: var(--win); } .hh-foot b.lost { color: var(--live); }
+  /* ---------- Ticket impreso al confirmar ---------- */
+  .rc-ov { align-items: center; padding: 16px; }
+  .rc-wrap { width: 100%; max-width: 380px; display: flex; flex-direction: column; align-items: center; }
+  .rc-printer { position: relative; z-index: 2; width: 100%; background: linear-gradient(180deg, #16213F, #0B1630); border-radius: 22px 22px 14px 14px; padding: 14px 14px 18px; box-shadow: 0 12px 30px rgba(11,22,48,.45); }
+  .rc-led { position: absolute; top: 12px; right: 16px; width: 9px; height: 9px; border-radius: 50%; background: #FDB022; box-shadow: 0 0 8px #FDB022; }
+  .rc-led.ok { background: #12B76A; box-shadow: 0 0 8px #12B76A; }
+  .rc-status { display: flex; align-items: center; gap: 10px; background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; padding: 12px 14px; color: #E4E7EC; font-size: 14px; font-weight: 600; margin-top: 10px; }
+  .rc-status .ok-ic { width: 22px; height: 22px; border-radius: 50%; background: #12B76A; color: #fff; display: grid; place-items: center; font-size: 13px; }
+  .rc-spin { width: 18px; height: 18px; border-radius: 50%; border: 2.5px solid rgba(255,255,255,.2); border-top-color: var(--accent); animation: rcspin .8s linear infinite; }
+  @keyframes rcspin { to { transform: rotate(360deg); } }
+  .rc-slot { height: 8px; margin: 14px 4px 0; border-radius: 99px; background: #050A18; box-shadow: inset 0 2px 3px rgba(0,0,0,.6); }
+  .rc-clip { width: 88%; overflow: hidden; margin-top: -10px; position: relative; z-index: 1; padding-bottom: 14px; }
+  .rc-paper { background: #fff; color: #101828; font-family: 'JetBrains Mono', ui-monospace, Menlo, monospace; padding: 22px 18px 26px; transform: translateY(-105%); box-shadow: 0 10px 24px rgba(16,24,40,.25);
+    -webkit-mask: linear-gradient(#000 0 0) top / 100% calc(100% - 8px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 12px 8px repeat-x;
+            mask: linear-gradient(#000 0 0) top / 100% calc(100% - 8px) no-repeat, conic-gradient(from -45deg at bottom, #0000, #000 1deg 89deg, #0000 90deg) bottom / 12px 8px repeat-x; }
+  .rc-paper.go { animation: rcprint 1.6s steps(14, end) forwards; }
+  @keyframes rcprint { to { transform: translateY(0); } }
+  .rc-h { text-align: center; }
+  .rc-h b { display: block; font-size: 17px; font-weight: 800; letter-spacing: .14em; }
+  .rc-h small { display: block; font-size: 12px; color: #667085; margin-top: 4px; }
+  .rc-brand { text-align: center; font-family: var(--font-display); font-size: 20px; font-weight: 800; letter-spacing: .02em; margin-bottom: 8px; }
+  .rc-brand span { color: var(--accent); }
+  .rc-sep { border-top: 1.5px dashed #D0D5DD; margin: 14px 0; }
+  .rc-line { display: flex; justify-content: space-between; gap: 10px; font-size: 13px; padding: 4px 0; }
+  .rc-line .l { min-width: 0; }
+  .rc-line .l small { display: block; color: #98A2B3; font-size: 10.5px; margin-top: 1px; }
+  .rc-line b { white-space: nowrap; font-weight: 800; }
+  .rc-tot { display: flex; justify-content: space-between; align-items: baseline; font-size: 17px; font-weight: 800; }
+  .rc-tot b { color: var(--accent); font-size: 19px; }
+  .rc-code { margin: 14px 0 10px; border: 1.5px dashed #98A2B3; border-radius: 6px; text-align: center; padding: 9px; font-size: 18px; font-weight: 800; letter-spacing: .18em; }
+  .rc-foot { text-align: center; font-size: 11.5px; color: #667085; }
+  .rc-acts { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; width: 100%; margin-top: 6px; opacity: 0; transition: opacity .3s; }
+  .rc-acts.show { opacity: 1; }
+  .rc-acts .btn { margin: 0; }
+  @media (prefers-reduced-motion: reduce) { .rc-paper.go { animation: none; transform: none; } }
 </style>
 </head>
 <body>
@@ -829,6 +864,21 @@
   <div class="sheet">
     <div class="sheet-head"><h2 id="infoTitle" style="flex:1;"></h2><button class="x" id="infoClose" type="button" aria-label="Cerrar">&times;</button></div>
     <div class="info-body" id="infoBody"></div>
+  </div>
+</div>
+
+<div class="overlay rc-ov" id="rcptOverlay">
+  <div class="rc-wrap">
+    <div class="rc-printer">
+      <div class="rc-led" id="rcLed"></div>
+      <div class="rc-status" id="rcStatus"><span class="rc-spin"></span> Imprimiendo tu ticket…</div>
+      <div class="rc-slot"></div>
+    </div>
+    <div class="rc-clip"><div class="rc-paper" id="rcPaper"></div></div>
+    <div class="rc-acts">
+      <button type="button" class="btn" id="rcClose">Cerrar</button>
+      <button type="button" class="btn primary" id="rcShare">📲 Compartir jugada</button>
+    </div>
   </div>
 </div>
 
@@ -1934,12 +1984,61 @@
       return;
     }
     var wasParlay = state.slipMode === 'parlay';
+    var sentBets = betsToSend, newIds = res.data.ids || [];
     state.balance = res.data.balance;
     state.history = (await apiGet('/api/bets')) || state.history;
     state.slip = {}; state.slipModeManual = false; setSlipMode('singles'); state.parlayStake = 10;
     syncSelected(); renderSlip(); closeOv('slipOverlay'); afterUserChange();
-    showToast((wasParlay ? 'Combinada confirmada por ' : 'Apuesta confirmada por ') + fmtMoney(totalStake) + '. Míralas en Mis apuestas.');
+    showReceipt(sentBets, newIds);
   }
+
+  /* ---------- Ticket impreso ---------- */
+  var lastReceipt = null;
+  function money2(n) { return '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  function showReceipt(bets, ids) {
+    var parlay = /^Combinada/i.test(bets[0].desc || '');
+    var lines = [], stake = 0, pay = 0;
+    bets.forEach(function (b) {
+      stake += Number(b.stake); pay += Number(b.payout);
+      readBetLegs(b).forEach(function (l) { lines.push({ pick: l.pick, game: l.game, odds: l.odds, stake: parlay || bets.length === 1 ? null : b.stake }); });
+    });
+    var title = parlay ? 'COMBINADA DE ' + lines.length : bets.length > 1 ? bets.length + ' SENCILLAS' : 'APUESTA SENCILLA';
+    var codes = (ids || []).map(function (id) { return 'T-' + String(id).padStart(6, '0'); });
+    var when = new Date(nowMs()).toLocaleString('es-PR', { timeZone: PR_TZ, day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+    lastReceipt = { title: title, lines: lines, stake: stake, pay: pay, codes: codes, mult: parlay ? pay / stake : 0 };
+    $('rcPaper').innerHTML =
+      '<div class="rc-brand">Rapi<span>deportes</span></div>' +
+      '<div class="rc-h"><b>' + esc(title) + '</b><small>' + esc(when) + '</small></div><div class="rc-sep"></div>' +
+      lines.map(function (l) {
+        return '<div class="rc-line"><div class="l">' + esc(l.pick) + (l.game ? '<small>' + esc(l.game) + '</small>' : '') + '</div><b>' + esc(l.odds) + (l.stake ? ' · ' + money2(l.stake) : '') + '</b></div>';
+      }).join('') +
+      '<div class="rc-sep"></div><div class="rc-tot"><span>SI GANAS</span><b>' + money2(pay) + '</b></div>' +
+      (codes.length ? '<div class="rc-code">' + esc(codes.join('  ')) + '</div>' : '<div class="rc-sep"></div>') +
+      '<div class="rc-foot">Apostaste ' + money2(stake) + (parlay ? ' · cuota total ' + (pay / stake).toFixed(2) + 'x' : '') + '</div>';
+    var paper = $('rcPaper'), led = $('rcLed'), acts = document.querySelector('.rc-acts');
+    paper.classList.remove('go'); void paper.offsetWidth;
+    led.classList.remove('ok'); acts.classList.remove('show');
+    $('rcStatus').innerHTML = '<span class="rc-spin"></span> Imprimiendo tu ticket…';
+    openOv('rcptOverlay');
+    paper.classList.add('go');
+    setTimeout(function () {
+      led.classList.add('ok'); acts.classList.add('show');
+      $('rcStatus').innerHTML = '<span class="ok-ic">✓</span> ¡Listo! Apuesta confirmada';
+    }, 1700);
+  }
+  function receiptText() {
+    var r = lastReceipt; if (!r) return '';
+    return '🎟️ Mi jugada en RapiDeportes\n' + r.title.charAt(0) + r.title.slice(1).toLowerCase() + '\n\n' +
+      r.lines.map(function (l) { return '• ' + l.pick + (l.game ? ' (' + l.game + ')' : '') + ' — ' + l.odds; }).join('\n') +
+      '\n\nApuesta: ' + money2(r.stake) + (r.mult ? ' · cuota ' + r.mult.toFixed(2) + 'x' : '') + '\nSi gano: ' + money2(r.pay) +
+      (r.codes.length ? '\nTicket: ' + r.codes.join(', ') : '') + '\n\nJuega en www.rapideportes.com';
+  }
+  $('rcClose').addEventListener('click', function () { closeOv('rcptOverlay'); });
+  $('rcShare').addEventListener('click', async function () {
+    var txt = receiptText();
+    if (navigator.share) { try { await navigator.share({ text: txt }); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+    window.open('https://wa.me/?text=' + encodeURIComponent(txt), '_blank');
+  });
 
   /* ---------- Eventos ---------- */
   $('app').addEventListener('click', function (e) {
@@ -2540,6 +2639,8 @@
     ['Tu límite', 'Your limit'], ['selecciones', 'selections'], ['abiertas', 'open'], ['partidos', 'games'], ['partido', 'game'],
     ['Apuesta', 'Bet'], ['paga', 'pays'], ['Final ·', 'Final ·'], ['Promociones', 'Promotions'], ['Resultados', 'Results'],
     ['En vivo', 'Live'], ['Ganador', 'Winner'], ['Hándicap', 'Handicap'], ['carreras', 'runs'], ['puntos', 'points'], ['goles', 'goals'],
+    ['Imprimiendo tu ticket…', 'Printing your ticket…'], ['¡Listo! Apuesta confirmada', 'Done! Bet confirmed'], ['📲 Compartir jugada', '📲 Share bet'],
+    ['SI GANAS', 'IF YOU WIN'], ['APUESTA SENCILLA', 'SINGLE BET'], ['Apostaste', 'You bet'], ['cuota total', 'total odds'],
     ['Más ', 'Over '], ['Menos ', 'Under '], ['Cerrar', 'Close'], ['Hoy ', 'Today '], ['Mañana ', 'Tomorrow ']
   ];
   PHRASES.sort(function (a, b) { return b[0].length - a[0].length; });
