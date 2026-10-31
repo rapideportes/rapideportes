@@ -810,7 +810,7 @@ function gradeSingleBet(descText, matchText, finishedByKey, statsByEventId) {
     if (!m || !m.finished || !m.espnEventId) return null;
     var stats = statsByEventId[m.espnEventId];
     if (!stats) return null;
-    return gradePitcherProp(descBody, stats);
+    return gradePlayerProp(m, descBody, stats);
   }
   if (/^Hándicap /.test(descBody)) {
     return gradeSelection('Hándicap', away, home, descBody.replace(/^Hándicap /, '').split(' ')[0], finishedByKey);
@@ -845,7 +845,7 @@ function gradeParlayBet(matchText, finishedByKey, statsByEventId) {
       if (!m || !m.finished || !m.espnEventId) return null;
       var stats = statsByEventId[m.espnEventId];
       if (!stats) return null;
-      result = gradePitcherProp(pick, stats);
+      result = gradePlayerProp(m, pick, stats);
     } else {
       result = gradeSelection(mainType, away, home, pick, finishedByKey);
     }
@@ -901,6 +901,50 @@ function gradePitcherProp(pick, statsBySurname) {
   return side === 'over' ? (k > line ? 'won' : 'lost') : (k < line ? 'won' : 'lost');
 }
 
+// ---------- Apuestas de jugadores de la NBA ----------
+// El texto de la apuesta es "J. Harden (Puntos) — Más 24.5". Se califica con
+// el box score final del partido. Si el jugador no jugó, la apuesta se
+// devuelve (push). Si no se encuentra al jugador, se deja pendiente.
+var NBA_PROP_COL = { puntos: 'PTS', rebotes: 'REB', asistencias: 'AST', triples: '3PT', robos: 'STL', tapones: 'BLK' };
+function nbaNameTokens(s) {
+  return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z\s'-]/g, ' ').split(/\s+/)
+    .filter(function (t) { return t && ['jr', 'sr', 'ii', 'iii', 'iv'].indexOf(t) < 0; });
+}
+function gradeNbaProp(pick, box) {
+  if (!box || box.state !== 'post' || !box.teams) return null;
+  var mm = /^(.*) — (Más|Menos) ([\d.]+)$/.exec(String(pick || ''));
+  if (!mm) return null;
+  var label = mm[1], side = mm[2] === 'Más' ? 'over' : 'under', line = parseFloat(mm[3]);
+  var pm = /\(([^()]*)\)\s*$/.exec(label);
+  if (!pm) return null;
+  var col = NBA_PROP_COL[normTeam(pm[1])];
+  if (!col) return null;
+  var want = nbaNameTokens(label.replace(/\s*\([^)]*\)/g, ''));
+  if (!want.length) return null;
+  var surname = want[want.length - 1], initial = want.length > 1 ? want[0].charAt(0) : '';
+  var found = [];
+  box.teams.forEach(function (t) {
+    (t.players || []).forEach(function (p) {
+      var tk = nbaNameTokens(p.name);
+      if (tk.length && tk[tk.length - 1] === surname) found.push({ p: p, t: t, first: tk.length > 1 ? tk[0].charAt(0) : '' });
+    });
+  });
+  if (found.length > 1 && initial) found = found.filter(function (f) { return f.first === initial; });
+  if (found.length !== 1) return null;
+  var f = found[0];
+  if (f.p.dnp) return 'push';
+  var idx = (f.t.labels || []).indexOf(col);
+  if (idx < 0) return null;
+  var raw = String(f.p.stats[idx] || '');
+  var val = col === '3PT' ? parseInt(raw.split('-')[0], 10) : parseFloat(raw);
+  if (isNaN(val)) return null;
+  if (val === line) return 'push';
+  return side === 'over' ? (val > line ? 'won' : 'lost') : (val < line ? 'won' : 'lost');
+}
+function gradePlayerProp(m, pick, stats) {
+  return m.sport === 'baloncesto' ? gradeNbaProp(pick, stats) : gradePitcherProp(pick, stats);
+}
 
 async function settleBets() {
   try {
@@ -927,6 +971,8 @@ async function settleBets() {
         var fm = finishedByKey[key];
         if (fm.sport === 'beisbol' && fm.espnEventId) {
           statsByEventId[fm.espnEventId] = await fetchPitcherStrikeouts(fm.espnEventId);
+        } else if (fm.sport === 'baloncesto' && fm.espnEventId) {
+          try { statsByEventId[fm.espnEventId] = await fetchNbaBoxscore(fm.espnEventId); } catch (e) {}
         }
       }
     }
@@ -1546,6 +1592,137 @@ app.get('/api/admin/finance-summary', async (c) => {
     perdida_hoy: perdida,
     neto_hoy: ganancia - perdida
   });
+});
+
+// ---------- Plantilla (jugadores) de un equipo de la NBA, para el panel ----------
+var nbaTeamsCache = { t: 0, list: [] };
+var nbaRosterCache = {};
+var UA_HEADERS = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36' };
+async function nbaTeamsList() {
+  if (nbaTeamsCache.list.length && Date.now() - nbaTeamsCache.t < 24 * 3600 * 1000) return nbaTeamsCache.list;
+  var res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams', { headers: UA_HEADERS });
+  if (!res.ok) return nbaTeamsCache.list;
+  var data = await res.json();
+  var teams = (((data.sports || [])[0] || {}).leagues || [])[0];
+  var list = ((teams && teams.teams) || []).map(function (x) { var t = x.team || x; return { id: String(t.id), name: String(t.displayName || ''), abbr: String(t.abbreviation || '') }; });
+  if (list.length) nbaTeamsCache = { t: Date.now(), list: list };
+  return nbaTeamsCache.list;
+}
+async function nbaRoster(teamName) {
+  var teams = await nbaTeamsList();
+  var t = teams.find(function (x) { return teamNamesMatch(x.name, teamName); });
+  if (!t) return null;
+  var hit = nbaRosterCache[t.id];
+  if (hit && Date.now() - hit.t < 6 * 3600 * 1000) return hit.data;
+  var res = await fetch('https://site.api.espn.com/apis/site/v2/sports/basketball/nba/teams/' + t.id + '/roster', { headers: UA_HEADERS });
+  if (!res.ok) return hit ? hit.data : null;
+  var data = await res.json();
+  var raw = [];
+  (data.athletes || []).forEach(function (a) { if (a && Array.isArray(a.items)) raw = raw.concat(a.items); else if (a) raw.push(a); });
+  var players = raw.map(function (a) {
+    return { id: String(a.id || ''), name: String(a.displayName || a.fullName || ''), short: String(a.shortName || ''), pos: String((a.position && (a.position.abbreviation || a.position.name)) || ''), jersey: String(a.jersey || '') };
+  }).filter(function (p) { return p.name; }).sort(function (x, y) { return x.name.localeCompare(y.name); });
+  var out = { team: t.name, abbr: t.abbr, players: players };
+  nbaRosterCache[t.id] = { t: Date.now(), data: out };
+  return out;
+}
+// ---------- Línea sugerida: promedio de la temporada del jugador ----------
+// Busca al jugador en las plantillas de los dos equipos y lee su promedio por
+// partido de la temporada. Si no se puede leer, devuelve null y el admin
+// pone la línea a mano.
+var NBA_AVG_KEYS = {
+  Puntos: { names: ['avgPoints', 'points'], labels: ['PTS'] },
+  Rebotes: { names: ['avgRebounds', 'rebounds'], labels: ['REB'] },
+  Asistencias: { names: ['avgAssists', 'assists'], labels: ['AST'] },
+  Triples: { names: ['avgThreePointFieldGoalsMade', 'threePointFieldGoalsMade', 'avgThreePointFieldGoalsMade-avgThreePointFieldGoalsAttempted'], labels: ['3PM', '3PT'] },
+  Robos: { names: ['avgSteals', 'steals'], labels: ['STL'] },
+  Tapones: { names: ['avgBlocks', 'blocks'], labels: ['BLK'] }
+};
+var playerAvgCache = {};
+function findStatTables(obj, out, depth) {
+  if (!obj || typeof obj !== 'object' || depth > 8) return out;
+  if (Array.isArray(obj)) { obj.forEach(function (x) { findStatTables(x, out, depth + 1); }); return out; }
+  var keys = Array.isArray(obj.names) ? obj.names : null, labels = Array.isArray(obj.labels) ? obj.labels : null;
+  if ((keys || labels) && Array.isArray(obj.splits)) {
+    obj.splits.forEach(function (sp) { if (sp && Array.isArray(sp.stats)) out.push({ names: keys || [], labels: labels || [], split: String(sp.displayName || ''), stats: sp.stats }); });
+  }
+  Object.keys(obj).forEach(function (k) { if (k !== 'splits') findStatTables(obj[k], out, depth + 1); });
+  return out;
+}
+function pickAverage(tables, stat) {
+  var want = NBA_AVG_KEYS[stat]; if (!want) return null;
+  // Preferimos la temporada regular; si no, la primera tabla que tenga el dato.
+  tables.sort(function (a, b) { return (/regular season/i.test(b.split) ? 1 : 0) - (/regular season/i.test(a.split) ? 1 : 0); });
+  for (var i = 0; i < tables.length; i++) {
+    var t = tables[i], idx = -1;
+    for (var j = 0; j < want.names.length && idx < 0; j++) idx = t.names.indexOf(want.names[j]);
+    for (var k = 0; k < want.labels.length && idx < 0; k++) idx = t.labels.indexOf(want.labels[k]);
+    if (idx < 0) continue;
+    var raw = String(t.stats[idx] === undefined ? '' : t.stats[idx]).split('-')[0];
+    var v = parseFloat(raw);
+    if (isNaN(v)) continue;
+    var gpIdx = t.labels.indexOf('GP'); if (gpIdx < 0) gpIdx = t.names.indexOf('gamesPlayed');
+    var gp = gpIdx >= 0 ? parseInt(t.stats[gpIdx], 10) : null;
+    return { avg: v, games: isNaN(gp) ? null : gp };
+  }
+  return null;
+}
+async function nbaPlayerAverage(athleteId, stat) {
+  var key = athleteId + '|' + stat;
+  var hit = playerAvgCache[key];
+  if (hit && Date.now() - hit.t < 6 * 3600 * 1000) return hit.data;
+  var urls = [
+    'https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/' + athleteId + '/overview',
+    'https://site.web.api.espn.com/apis/common/v3/sports/basketball/nba/athletes/' + athleteId + '/stats'
+  ];
+  for (var i = 0; i < urls.length; i++) {
+    try {
+      var res = await fetch(urls[i], { headers: UA_HEADERS });
+      if (!res.ok) continue;
+      var found = pickAverage(findStatTables(await res.json(), [], 0), stat);
+      if (found) { playerAvgCache[key] = { t: Date.now(), data: found }; return found; }
+    } catch (e) {}
+  }
+  return null;
+}
+app.get('/api/admin/player-line', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
+  try {
+    var stat = c.req.query('stat') || '';
+    if (!NBA_AVG_KEYS[stat]) return c.json({ error: 'bad_stat' }, 400);
+    var want = nbaNameTokens(c.req.query('player') || '');
+    if (!want.length) return c.json({ error: 'not_found' }, 404);
+    var surname = want[want.length - 1], initial = want.length > 1 ? want[0].charAt(0) : '';
+    var cands = [];
+    for (const team of [c.req.query('away') || '', c.req.query('home') || '']) {
+      if (!team) continue;
+      var r = await nbaRoster(team);
+      (r ? r.players : []).forEach(function (p) {
+        var tk = nbaNameTokens(p.name);
+        if (tk.length && tk[tk.length - 1] === surname) cands.push({ p: p, first: tk[0].charAt(0) });
+      });
+    }
+    if (cands.length > 1 && initial) cands = cands.filter(function (x) { return x.first === initial; });
+    if (cands.length !== 1 || !cands[0].p.id) return c.json({ error: 'not_found' }, 404);
+    var a = await nbaPlayerAverage(cands[0].p.id, stat);
+    if (!a) return c.json({ error: 'no_stats' }, 404);
+    // Línea terminada en .5 lo más cerca del promedio (24.3 -> 24.5, 24.8 -> 24.5, 25.1 -> 25.5).
+    var line = Math.max(0.5, Math.round(a.avg - 0.5) + 0.5);
+    return c.json({ player: cands[0].p.name, stat: stat, avg: a.avg, games: a.games, line: line });
+  } catch (e) {
+    return c.json({ error: 'not_found' }, 404);
+  }
+});
+
+app.get('/api/admin/roster', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
+  try {
+    var r = await nbaRoster(c.req.query('team') || '');
+    if (!r) return c.json({ error: 'not_found' }, 404);
+    return c.json(r);
+  } catch (e) {
+    return c.json({ error: 'not_found' }, 404);
+  }
 });
 
 app.get('/api/admin/probable-pitchers', async (c) => {
