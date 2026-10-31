@@ -1016,12 +1016,15 @@
         oddBtn(m.id + '-ht-home', htLabel + ' — ' + m.home, m.halftime.home, m, m.home) + '</div>';
     }
     if (m.props && m.props.length) {
-      html += '<div class="mx-title">Lanzadores</div>';
+      var isMlb = m.sport === 'beisbol' || m.sport === 'lidom';
+      html += '<div class="mx-title">' + (isMlb ? 'Lanzadores' : 'Jugadores') + '</div>';
       m.props.forEach(function (p, pi) {
+        // En la NBA la estadística va dentro del texto de la apuesta para poder calificarla.
+        var who = m.sport === 'baloncesto' ? p.player + ' (' + p.stat + ')' : p.player;
         html += '<div style="margin-bottom:12px"><div class="mx-player">' + esc(p.player) + '</div><div class="mx-stat">' + esc(p.stat) + ' — línea ' + esc(p.line) + '</div>' +
           '<div class="mk-btns" style="grid-template-columns:1fr 1fr">' +
-          oddBtn(m.id + '-prop-' + pi + '-over', p.player + ' — Más ' + p.line, p.over, m, 'Más ' + p.line) +
-          oddBtn(m.id + '-prop-' + pi + '-under', p.player + ' — Menos ' + p.line, p.under, m, 'Menos ' + p.line) + '</div></div>';
+          oddBtn(m.id + '-prop-' + pi + '-over', who + ' — Más ' + p.line, p.over, m, 'Más ' + p.line) +
+          oddBtn(m.id + '-prop-' + pi + '-under', who + ' — Menos ' + p.line, p.under, m, 'Menos ' + p.line) + '</div></div>';
       });
     }
     if (!html) html = '<div class="mx-none">No hay más mercados disponibles para este partido por ahora.</div>';
@@ -2144,7 +2147,7 @@
     'Ejemplos:': 'Examples:', 'Menú': 'Menu', 'Más': 'More', 'Outs:': 'Outs:', 'diario': 'daily', 'semanal': 'weekly', 'mensual': 'monthly',
     'esta semana': 'this week', 'este mes': 'this month', '¡Bien!': 'Great!', 'Pago seguro procesado por Stride': 'Secure payment processed by Stride',
     'La misma con la que depositaste': 'The same one you deposited with', 'Monto total': 'Total amount', 'Tu límite': 'Your limit',
-    'Puntos': 'Points', 'Rebotes': 'Rebounds', 'Asistencias': 'Assists', 'Ver estadísticas completas': 'Full stats', 'Jugador': 'Player', 'Estadísticas': 'Stats', 'Equipos': 'Teams', 'Titulares': 'Starters', 'Banca': 'Bench', 'Totales': 'Totals', 'No jugó': 'DNP', 'Se actualiza solo cada 20 segundos.': 'Updates every 20 seconds.', 'Cargando estadísticas…': 'Loading stats…', 'Las estadísticas de este partido todavía no están disponibles. Vuelve a intentarlo en unos minutos.': 'Stats for this game are not available yet. Try again in a few minutes.', 'Tiros de campo': 'Field goals', 'Tiros de campo %': 'Field goal %', 'Triples': '3-pointers', 'Triples %': '3-point %', 'Tiros libres': 'Free throws', 'Tiros libres %': 'Free throw %', 'Rebotes ofensivos': 'Offensive rebounds', 'Rebotes defensivos': 'Defensive rebounds', 'Robos': 'Steals', 'Tapones': 'Blocks', 'Pérdidas': 'Turnovers', 'Faltas': 'Fouls', 'Puntos de contraataque': 'Fast break points', 'Puntos en la pintura': 'Points in the paint', 'Puntos por pérdidas': 'Points off turnovers', 'Mayor ventaja': 'Largest lead'
+    'Puntos': 'Points', 'Rebotes': 'Rebounds', 'Asistencias': 'Assists', 'Ver estadísticas completas': 'Full stats', 'Jugador': 'Player', 'Jugadores': 'Players', 'Lanzadores': 'Pitchers', 'Estadísticas': 'Stats', 'Equipos': 'Teams', 'Titulares': 'Starters', 'Banca': 'Bench', 'Totales': 'Totals', 'No jugó': 'DNP', 'Se actualiza solo cada 20 segundos.': 'Updates every 20 seconds.', 'Cargando estadísticas…': 'Loading stats…', 'Las estadísticas de este partido todavía no están disponibles. Vuelve a intentarlo en unos minutos.': 'Stats for this game are not available yet. Try again in a few minutes.', 'Tiros de campo': 'Field goals', 'Tiros de campo %': 'Field goal %', 'Triples': '3-pointers', 'Triples %': '3-point %', 'Tiros libres': 'Free throws', 'Tiros libres %': 'Free throw %', 'Rebotes ofensivos': 'Offensive rebounds', 'Rebotes defensivos': 'Defensive rebounds', 'Robos': 'Steals', 'Tapones': 'Blocks', 'Pérdidas': 'Turnovers', 'Faltas': 'Fouls', 'Puntos de contraataque': 'Fast break points', 'Puntos en la pintura': 'Points in the paint', 'Puntos por pérdidas': 'Points off turnovers', 'Mayor ventaja': 'Largest lead'
   };
   /* Frases (también dentro de textos más largos). */
   var PHRASES = [
@@ -2234,7 +2237,7 @@
     ['Ya puedes retirar tus ganancias.', 'You can now withdraw your winnings.'],
     ['¿Necesitas ayuda con tu cuenta, un depósito o una apuesta? Nuestro equipo te atiende todos los días.', 'Need help with your account, a deposit or a bet? Our team is here every day.'],
     ['Lanzamientos de este turno al bate', 'Pitches in this at-bat'],
-    ['Líderes del partido', 'Game leaders'], ['Las estadísticas de los jugadores aparecen en unos minutos.', 'Player stats will appear in a few minutes.'],
+    ['Líderes del partido', 'Game leaders'], [' — línea ', ' — line '], ['(Puntos)', '(Points)'], ['(Rebotes)', '(Rebounds)'], ['(Asistencias)', '(Assists)'], ['(Triples)', '(3-pointers)'], ['(Robos)', '(Steals)'], ['(Tapones)', '(Blocks)'], ['Las estadísticas de los jugadores aparecen en unos minutos.', 'Player stats will appear in a few minutes.'],
     ['Apuesta confirmada por', 'Bet placed for'], ['Combinada confirmada por', 'Parlay placed for'],
     ['Míralas en Mis apuestas.', 'See them in My bets.'], ['Te avisamos cuando se apruebe.', "We'll let you know when it's approved."],
     ['Ya está en tu saldo.', "It's in your balance."], ['ya está en tu saldo', "it's in your balance"],
