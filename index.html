@@ -596,6 +596,10 @@
   .st-tot td { font-weight: 800; background: #FFF5F7; }
   .st-tot .st-name { background: #FFF5F7; }
   .st-dnp td { color: var(--text-faint); font-size: 12px; text-align: left; }
+  .st-sub-h { font-weight: 800; font-size: 14px; margin: 14px 0 8px; }
+  .st-table td.st-name small { color: var(--text-faint); font-weight: 600; font-size: 10.5px; }
+  .st-table tr.st-sub td { color: var(--text-dim); }
+  .st-legend { font-size: 11px; color: var(--text-faint); line-height: 1.5; margin: 10px 0 0; }
   .st-note { font-size: 11.5px; color: var(--text-faint); text-align: center; margin: 12px 0 0; }
   button.bal { background: none; border: none; padding: 0 2px; color: inherit; cursor: pointer; font: inherit; }
   button.bal b i { font-style: normal; font-size: 11px; opacity: .7; margin-left: 2px; }
@@ -1232,7 +1236,7 @@
     var openForBets = !m.finished && !isBettingClosed(m);
     if (!openForBets) html += '<div class="mc-teams">' + teamRow(m.away, (m.live || m.finished) && m.score ? m.score.away : undefined) + teamRow(m.home, (m.live || m.finished) && m.score ? m.score.home : undefined) + '</div>';
     html += liveDetailHTML(m);
-    if (m.live && (m.sport === 'beisbol' || m.sport === 'lidom') && m.score && m.score.detail) {
+    if (false) { // zona de strike quitada a pedido
       var zoneOpen = !!state.expandedZone[m.id];
       html += '<button type="button" class="mc-more" data-zone-more="' + esc(m.id) + '" style="margin-top:8px;">' + (zoneOpen ? '🎯 Ocultar zona de strike ▴' : '🎯 Ver zona de strike ▾') + '</button>';
       html += '<div class="mc-extra' + (zoneOpen ? ' open' : '') + '" id="sz-' + esc(m.id) + '">' + strikeZoneHTML(m.score.detail.pitches) + '</div>';
@@ -1240,13 +1244,14 @@
 
     if (m.finished) {
       html += '<div class="mx-none" style="padding-top:2px;">Partido finalizado — ya no se pueden hacer apuestas.</div>';
-      if (m.sport === 'baloncesto') html += '<button type="button" class="ldr-more" data-stats-open="' + esc(m.id) + '">📋 Ver estadísticas completas</button>';
+      if (hasFullStats(m)) html += '<button type="button" class="ldr-more" data-stats-open="' + esc(m.id) + '">📋 Ver estadísticas completas</button>';
       html += '</article>';
       return html;
     }
     if (isBettingClosed(m)) {
       html += '<div class="mx-none" style="padding-top:2px; color:var(--live); font-weight:800; letter-spacing:.3px;">' + (m.live ? 'APUESTAS CERRADAS — PARTIDO EN JUEGO' : 'APUESTAS CERRADAS — EL PARTIDO ESTÁ COMENZANDO') + '</div>' +
-        (m.live ? '' : '<div class="mx-none" style="padding-top:0;">El marcador aparece aquí en cuanto empiece.</div>');
+        (m.live ? '' : '<div class="mx-none" style="padding-top:0;">El marcador aparece aquí en cuanto empiece.</div>') +
+        (m.live && m.sport !== 'baloncesto' && hasFullStats(m) ? '<button type="button" class="ldr-more" data-stats-open="' + esc(m.id) + '">📋 Ver estadísticas de los jugadores</button>' : '');
       html += '</article>';
       return html;
     }
@@ -1346,7 +1351,7 @@
       function row(name, sc, win) { var b = teamBadge(name); return '<div class="res-team' + (win ? ' w' : '') + '"><span class="mc-badge" style="' + badgeStyle(b) + '">' + esc(b.abbr) + '</span><span class="nm">' + esc(name) + '</span><span class="sc">' + (isNaN(sc) ? '—' : sc) + '</span></div>'; }
       html += '<div class="res-card"><div class="res-head"><b>' + esc((SPORT_ICON[m.sport] || '') + ' ' + (SPORT_LABELS[m.sport] || m.sportLabel || '')) + '</b><span>Final · ' + esc(m.time || '') + '</span></div>' +
         row(m.away, sa, sa > sh) + row(m.home, sh, sh > sa) +
-        (m.sport === 'baloncesto' ? '<button type="button" class="ldr-more" data-stats-open="' + esc(m.id) + '">📋 Ver estadísticas completas</button>' : '') + '</div>';
+        (hasFullStats(m) ? '<button type="button" class="ldr-more" data-stats-open="' + esc(m.id) + '">📋 Ver estadísticas completas</button>' : '') + '</div>';
     });
     return html;
   }
@@ -2015,6 +2020,47 @@
   var ST_ORDER = [['PTS', 'PTS'], ['REB', 'REB'], ['AST', 'AST'], ['MIN', 'MIN'], ['FG', 'TC'], ['3PT', '3P'], ['FT', 'TL'], ['STL', 'ROB'], ['BLK', 'TAP'], ['TO', 'PÉR'], ['PF', 'FAL'], ['OREB', 'ROF'], ['DREB', 'RDF'], ['+/-', '+/-']];
   var ST_TEAM = [['fieldGoalsMade-fieldGoalsAttempted', 'Tiros de campo'], ['fieldGoalPct', 'Tiros de campo %'], ['threePointFieldGoalsMade-threePointFieldGoalsAttempted', 'Triples'], ['threePointFieldGoalPct', 'Triples %'], ['freeThrowsMade-freeThrowsAttempted', 'Tiros libres'], ['freeThrowPct', 'Tiros libres %'], ['totalRebounds', 'Rebotes'], ['offensiveRebounds', 'Rebotes ofensivos'], ['defensiveRebounds', 'Rebotes defensivos'], ['assists', 'Asistencias'], ['steals', 'Robos'], ['blocks', 'Tapones'], ['turnovers', 'Pérdidas'], ['fouls', 'Faltas'], ['pointsInPaint', 'Puntos en la pintura'], ['fastBreakPoints', 'Puntos de contraataque'], ['turnoverPoints', 'Puntos por pérdidas'], ['largestLead', 'Mayor ventaja']];
   function stNorm(x) { return normalize(x).replace(/[^a-z0-9]/g, ''); }
+  function hasFullStats(m) {
+    if (m.sport === 'baloncesto') return true;
+    return (m.sport === 'beisbol' || m.sport === 'lidom') && !!m.espnEventId;
+  }
+  // ---- Béisbol (MLB y LIDOM): bateo y pitcheo ----
+  function bbSides(m, d) {
+    var a = d.away, h = d.home;
+    if (a && h && stNorm(a.name) === stNorm(m.home) && stNorm(h.name) === stNorm(m.away)) return { away: h, home: a };
+    return { away: a, home: h };
+  }
+  function bbNum(v) { return v === undefined || v === null || v === '' ? '—' : esc(v); }
+  function bbTeamTables(t) {
+    if (!t) return '<div class="ldr-empty">Todavía no hay estadísticas de este equipo.</div>';
+    var bh = '<tr><th class="st-name">Bateador</th><th>VB</th><th>C</th><th>H</th><th>CI</th><th>HR</th><th>BB</th><th>K</th></tr>';
+    var bb = t.batters.map(function (b) {
+      return '<tr' + (b.sub ? ' class="st-sub"' : '') + '><td class="st-name">' + (b.sub ? '↳ ' : '') + esc(b.name) + ' <small>' + esc(b.pos) + '</small></td><td>' + bbNum(b.ab) + '</td><td>' + bbNum(b.r) + '</td><td class="st-pts">' + bbNum(b.h) + '</td><td>' + bbNum(b.rbi) + '</td><td>' + bbNum(b.hr) + '</td><td>' + bbNum(b.bb) + '</td><td>' + bbNum(b.k) + '</td></tr>';
+    }).join('');
+    var T = t.totals || {};
+    var btot = '<tr class="st-tot"><td class="st-name">Totales</td><td></td><td>' + bbNum(T.r) + '</td><td class="st-pts">' + bbNum(T.h) + '</td><td></td><td>' + bbNum(T.hr) + '</td><td>' + bbNum(T.bb) + '</td><td>' + bbNum(T.k) + '</td></tr>';
+    var ph = '<tr><th class="st-name">Lanzador</th><th>IP</th><th>H</th><th>C</th><th>CL</th><th>BB</th><th>K</th><th>Lanz.</th></tr>';
+    var pb = t.pitchers.map(function (p) {
+      return '<tr><td class="st-name">' + esc(p.name) + '</td><td>' + bbNum(p.ip) + '</td><td>' + bbNum(p.h) + '</td><td>' + bbNum(p.r) + '</td><td>' + bbNum(p.er) + '</td><td>' + bbNum(p.bb) + '</td><td class="st-pts">' + bbNum(p.k) + '</td><td>' + bbNum(p.pc) + '</td></tr>';
+    }).join('');
+    return '<div class="st-sub-h">🏏 Bateo</div><div class="st-wrap"><table class="st-table"><thead>' + bh + '</thead><tbody>' + (bb || '<tr><td class="st-name" colspan="8">Sin datos todavía</td></tr>') + btot + '</tbody></table></div>' +
+      '<div class="st-sub-h">⚾ Pitcheo</div><div class="st-wrap"><table class="st-table"><thead>' + ph + '</thead><tbody>' + (pb || '<tr><td class="st-name" colspan="8">Sin datos todavía</td></tr>') + '</tbody></table></div>' +
+      '<p class="st-legend">VB = veces al bate · C = carreras · H = hits · CI = carreras impulsadas · HR = jonrones · BB = base por bolas · K = ponches · IP = entradas lanzadas · CL = carreras limpias</p>';
+  }
+  function bbCompare(m, S) {
+    var a = (S.away && S.away.totals) || {}, h = (S.home && S.home.totals) || {};
+    var rows = [['r', 'Carreras'], ['h', 'Hits'], ['hr', 'Jonrones'], ['bb', 'Base por bolas'], ['k', 'Ponches recibidos'], ['lob', 'Dejados en base'], ['e', 'Errores'], ['avg', 'Promedio de bateo']];
+    var html = '';
+    rows.forEach(function (r) {
+      var va = a[r[0]], vh = h[r[0]];
+      if ((va === undefined || va === null) && (vh === undefined || vh === null)) return;
+      var na = stNum(va), nh = stNum(vh), pa = 50;
+      if (na !== null && nh !== null && na + nh > 0) pa = Math.round(na / (na + nh) * 100);
+      html += '<div class="st-cmp"><div class="st-cmp-top"><b>' + bbNum(va) + '</b><span>' + r[1] + '</span><b>' + bbNum(vh) + '</b></div>' +
+        '<div class="st-bar"><i style="width:' + pa + '%;background:' + teamBadge(m.away).color + '"></i><i style="width:' + (100 - pa) + '%;background:' + teamBadge(m.home).color + '"></i></div></div>';
+    });
+    return html || '<div class="ldr-empty">Las estadísticas de este partido todavía no están disponibles. Vuelve a intentarlo en unos minutos.</div>';
+  }
   function statsTeams(m, d) {
     var t = d.teams || [], away = null, home = null;
     t.forEach(function (x) {
@@ -2066,6 +2112,11 @@
     }).join('');
     var d = statsView.data;
     if (!d) { $('statsBody').innerHTML = '<div class="ldr-empty">' + (statsView.failed ? 'Las estadísticas de este partido todavía no están disponibles. Vuelve a intentarlo en unos minutos.' : 'Cargando estadísticas…') + '</div>'; return; }
+    if (d.kind === 'baseball') {
+      var S = bbSides(m, d);
+      $('statsBody').innerHTML = statsView.tab === 'teams' ? bbCompare(m, S) : bbTeamTables(statsView.tab === 'away' ? S.away : S.home);
+      return;
+    }
     var T = statsTeams(m, d);
     $('statsBody').innerHTML = statsView.tab === 'teams' ? statsCompare(m, d, T) : statsTeamTable(statsView.tab === 'away' ? T.away : T.home);
   }
@@ -2073,7 +2124,7 @@
     if (!statsView.id) return;
     var d = await apiGet('/api/game-stats/' + encodeURIComponent(statsView.id));
     if (!statsView.id) return;
-    if (d && d.teams) { statsView.data = d; statsView.failed = false; } else if (!statsView.data) statsView.failed = true;
+    if (d && (d.teams || d.kind === 'baseball')) { statsView.data = d; statsView.failed = false; } else if (!statsView.data) statsView.failed = true;
     renderStats();
   }
   function openStats(id) {
@@ -2216,7 +2267,7 @@
     'Ejemplos:': 'Examples:', 'Menú': 'Menu', 'Más': 'More', 'Outs:': 'Outs:', 'diario': 'daily', 'semanal': 'weekly', 'mensual': 'monthly',
     'esta semana': 'this week', 'este mes': 'this month', '¡Bien!': 'Great!', 'Pago seguro procesado por Stride': 'Secure payment processed by Stride',
     'La misma con la que depositaste': 'The same one you deposited with', 'Monto total': 'Total amount', 'Tu límite': 'Your limit',
-    'Puntos': 'Points', 'Rebotes': 'Rebounds', 'Asistencias': 'Assists', 'Ver estadísticas completas': 'Full stats', 'Jugador': 'Player', 'Jugadores': 'Players', 'Lanzadores': 'Pitchers', 'Estadísticas': 'Stats', 'Equipos': 'Teams', 'Titulares': 'Starters', 'Banca': 'Bench', 'Totales': 'Totals', 'No jugó': 'DNP', 'Se actualiza solo cada 20 segundos.': 'Updates every 20 seconds.', 'Cargando estadísticas…': 'Loading stats…', 'Las estadísticas de este partido todavía no están disponibles. Vuelve a intentarlo en unos minutos.': 'Stats for this game are not available yet. Try again in a few minutes.', 'Tiros de campo': 'Field goals', 'Tiros de campo %': 'Field goal %', 'Triples': '3-pointers', 'Triples %': '3-point %', 'Tiros libres': 'Free throws', 'Tiros libres %': 'Free throw %', 'Rebotes ofensivos': 'Offensive rebounds', 'Rebotes defensivos': 'Defensive rebounds', 'Robos': 'Steals', 'Tapones': 'Blocks', 'Pérdidas': 'Turnovers', 'Faltas': 'Fouls', 'Puntos de contraataque': 'Fast break points', 'Puntos en la pintura': 'Points in the paint', 'Puntos por pérdidas': 'Points off turnovers', 'Mayor ventaja': 'Largest lead'
+    'Puntos': 'Points', 'Rebotes': 'Rebounds', 'Asistencias': 'Assists', 'Ver estadísticas completas': 'Full stats', 'Ver estadísticas de los jugadores': 'Player stats', 'Bateador': 'Batter', 'Lanzador': 'Pitcher', 'Carreras': 'Runs', 'Hits': 'Hits', 'Jonrones': 'Home runs', 'Base por bolas': 'Walks', 'Ponches recibidos': 'Strikeouts', 'Dejados en base': 'Left on base', 'Errores': 'Errors', 'Promedio de bateo': 'Batting average', 'Sin datos todavía': 'No data yet', 'Jugador': 'Player', 'Jugadores': 'Players', 'Lanzadores': 'Pitchers', 'Estadísticas': 'Stats', 'Equipos': 'Teams', 'Titulares': 'Starters', 'Banca': 'Bench', 'Totales': 'Totals', 'No jugó': 'DNP', 'Se actualiza solo cada 20 segundos.': 'Updates every 20 seconds.', 'Cargando estadísticas…': 'Loading stats…', 'Las estadísticas de este partido todavía no están disponibles. Vuelve a intentarlo en unos minutos.': 'Stats for this game are not available yet. Try again in a few minutes.', 'Tiros de campo': 'Field goals', 'Tiros de campo %': 'Field goal %', 'Triples': '3-pointers', 'Triples %': '3-point %', 'Tiros libres': 'Free throws', 'Tiros libres %': 'Free throw %', 'Rebotes ofensivos': 'Offensive rebounds', 'Rebotes defensivos': 'Defensive rebounds', 'Robos': 'Steals', 'Tapones': 'Blocks', 'Pérdidas': 'Turnovers', 'Faltas': 'Fouls', 'Puntos de contraataque': 'Fast break points', 'Puntos en la pintura': 'Points in the paint', 'Puntos por pérdidas': 'Points off turnovers', 'Mayor ventaja': 'Largest lead'
   };
   /* Frases (también dentro de textos más largos). */
   var PHRASES = [
@@ -2307,7 +2358,7 @@
     ['Ya puedes retirar tus ganancias.', 'You can now withdraw your winnings.'],
     ['¿Necesitas ayuda con tu cuenta, un depósito o una apuesta? Nuestro equipo te atiende todos los días.', 'Need help with your account, a deposit or a bet? Our team is here every day.'],
     ['Lanzamientos de este turno al bate', 'Pitches in this at-bat'],
-    ['Líderes del partido', 'Game leaders'], [' — línea ', ' — line '], ['(Puntos)', '(Points)'], ['(Rebotes)', '(Rebounds)'], ['(Asistencias)', '(Assists)'], ['(Triples)', '(3-pointers)'], ['(Robos)', '(Steals)'], ['(Tapones)', '(Blocks)'], ['Las estadísticas de los jugadores aparecen en unos minutos.', 'Player stats will appear in a few minutes.'],
+    ['Líderes del partido', 'Game leaders'], ['🏏 Bateo', '🏏 Batting'], ['⚾ Pitcheo', '⚾ Pitching'], [' — línea ', ' — line '], ['(Puntos)', '(Points)'], ['(Rebotes)', '(Rebounds)'], ['(Asistencias)', '(Assists)'], ['(Triples)', '(3-pointers)'], ['(Robos)', '(Steals)'], ['(Tapones)', '(Blocks)'], ['Las estadísticas de los jugadores aparecen en unos minutos.', 'Player stats will appear in a few minutes.'],
     ['Apuesta confirmada por', 'Bet placed for'], ['Combinada confirmada por', 'Parlay placed for'],
     ['Míralas en Mis apuestas.', 'See them in My bets.'], ['Te avisamos cuando se apruebe.', "We'll let you know when it's approved."],
     ['Ya está en tu saldo.', "It's in your balance."], ['ya está en tu saldo', "it's in your balance"],
