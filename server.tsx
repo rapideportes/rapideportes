@@ -783,13 +783,14 @@ function extractMatchRefs(desc, matchText) {
       if (parts.length !== 3) return null;
       var tm = /^(Ganador|Hándicap|Total) (.*) vs (.*)$/.exec(parts[0]);
       if (!tm) return null;
-      refs.push({ away: tm[2], home: tm[3] });
+      var grp = tm[1] === 'Total' ? 'total' : / — /.test(parts[1]) ? 'x:' + parts[1].split(' — ')[0] + '|' + (parts[1].match(/[\d.]+\s*$/) || [''])[0].trim() : 'lado';
+      refs.push({ away: tm[2], home: tm[3], group: grp });
     }
     return refs;
   }
   var mm = /^(.*) @ (.*)$/.exec(matchText || '');
   if (!mm) return null;
-  return [{ away: mm[1], home: mm[2] }];
+  return [{ away: mm[1], home: mm[2], group: 'sencilla' }];
 }
 
 // Un partido deja de aceptar apuestas nuevas en cuanto: ya está en vivo,
@@ -1456,6 +1457,14 @@ app.post('/api/bets', async (c) => {
   for (const b of bets) {
     var refs = extractMatchRefs(b.desc, b.match);
     if (!refs) return c.json({ error: 'bad_request' }, 400);
+    // En una combinada no puede ir Ganador + Hándicap del mismo partido
+    // (ni los dos lados de una misma jugada). Ganador + Total sí se permite.
+    var seenGames = {};
+    for (const r of refs) {
+      var gk = matchKey(r.away, r.home) + '|' + r.group;
+      if (seenGames[gk]) return c.json({ error: 'same_game' }, 400);
+      seenGames[gk] = true;
+    }
     for (const r of refs) {
       if (isBettingClosedServer(matchesByKey[matchKey(r.away, r.home)])) {
         return c.json({ error: 'closed' }, 400);
