@@ -619,14 +619,22 @@ async function fetchNhlGamesFromStatsApi() {
   return games;
 }
 
+var anyLiveNow = true, lastLiveUpdate = 0;
 async function updateLiveScores() {
+  lastLiveUpdate = Date.now();
   try {
     const rows = await sql`SELECT value FROM app_state WHERE key = 'matches'`;
     var matches = rows[0] ? rows[0].value : [];
     if (typeof matches === 'string') {
       try { matches = JSON.parse(matches); } catch (e) { matches = []; }
     }
-    if (!Array.isArray(matches) || matches.length === 0) return;
+    if (!Array.isArray(matches) || matches.length === 0) { anyLiveNow = false; return; }
+    // ¿Hay algún juego en vivo (o por empezar)? Entonces se revisa el marcador más seguido.
+    anyLiveNow = matches.some(function (m) {
+      if (m.live) return true;
+      var t = m.startAt ? Date.parse(m.startAt) : NaN;
+      return !m.finished && t <= Date.now() + 5 * 60 * 1000 && t >= Date.now() - 6 * 3600 * 1000;
+    });
 
     var sportsInPlay = {};
     matches.forEach(function (m) {
@@ -760,7 +768,6 @@ async function updateLiveScores() {
   }
 }
 
-// Corre cada 60 segundos mientras el servidor esté vivo.
 // ---------- Calificación automática de apuestas (Ganador, Hándicap, Total) ----------
 // Cuando un partido queda "finished" (ver updateLiveScores arriba), revisamos
 // las apuestas pendientes que dependen de ese partido y las marcamos
@@ -1068,11 +1075,18 @@ async function settleBets() {
   }
 }
 
+// Con juegos en vivo el marcador se trae cada 7 segundos; sin juegos, cada 20.
+var tickBusy = false, lastSettle = 0;
 async function tick() {
-  await updateLiveScores();
-  await settleBets();
+  if (tickBusy) return;
+  if (!anyLiveNow && Date.now() - lastLiveUpdate < 20000) return;
+  tickBusy = true;
+  try {
+    await updateLiveScores();
+    if (Date.now() - lastSettle >= 20000) { lastSettle = Date.now(); await settleBets(); }
+  } finally { tickBusy = false; }
 }
-setInterval(tick, 20000);
+setInterval(tick, 7000);
 tick();
 
 const app = new Hono();
@@ -1510,12 +1524,49 @@ async function loadMatchesByKey() {
   list.forEach(function (m) { byKey[matchKey(m.away, m.home)] = m; });
   return byKey;
 }
-function cashoutOffer(bet, matchesByKey) {
+// Cash out:
+// - Sencilla: antes de que empiece el juego, 90% de lo apostado.
+// - Combinada: solo cuando ya ganó todas las jugadas y le queda el último juego
+//   (que todavía no empieza): pago × probabilidad del último × 90%.
+// - Con un juego de la apuesta en curso no hay oferta.
+const CASHOUT_MAX_LEFT = 1;
+function cashoutQuote(bet, byKey) {
   if (bet.status !== 'pending') return null;
-  var refs = extractMatchRefs(bet.desc_text, bet.match_text);
-  if (!refs || !refs.length) return null;
-  for (const r of refs) { if (isBettingClosedServer(matchesByKey[matchKey(r.away, r.home)])) return null; }
-  return Math.round(Number(bet.stake) * CASHOUT_RATE * 100) / 100;
+  var stakeOffer = Math.round(Number(bet.stake) * CASHOUT_RATE * 100) / 100;
+  if (!/^Combinada/i.test(bet.desc_text || '')) {
+    var refs = extractMatchRefs(bet.desc_text, bet.match_text);
+    if (!refs || !refs.length) return null;
+    for (const r of refs) { if (isBettingClosedServer(byKey[matchKey(r.away, r.home)])) return null; }
+    return { amount: stakeOffer, won: 0, left: 1 };
+  }
+  var legs = String(bet.match_text || '').split(' · ');
+  var won = 0, leftOdds = [], payout = Number(bet.payout);
+  for (var i = 0; i < legs.length; i++) {
+    var p = legs[i].split('@@@'); if (p.length !== 3) return null;
+    var tm = /^(Ganador|Hándicap|Total) (.*) vs (.*)$/.exec(p[0]); if (!tm) return null;
+    var dec = parseFloat(p[2]); if (!(dec > 1)) return null;
+    var m = byKey[matchKey(tm[2], tm[3])];
+    if (!m) return null;
+    if (!isBettingClosedServer(m)) { leftOdds.push(dec); continue; }   // todavía no empieza
+    if (!m.finished) return null;                                       // se está jugando
+    if (/ — /.test(p[1])) return null;                                  // jugador / medio tiempo: lo califica el admin
+    var res = gradeSelection(tm[1], tm[2], tm[3], p[1], byKey);
+    if (res === null || res === 'lost') return null;
+    if (res === 'push') { payout = payout / dec; continue; }
+    won++;
+  }
+  if (!leftOdds.length) return null;                 // ya terminó todo: se paga solo
+  // En combinadas solo se ofrece cuando ya ganó todo y le queda el último juego.
+  if (!won || leftOdds.length > CASHOUT_MAX_LEFT) return null;
+  var chance = leftOdds.reduce(function (a, d) { return a / d; }, 1);
+  var amount = Math.floor(payout * chance * CASHOUT_RATE * 100) / 100;
+  amount = Math.min(amount, Math.floor(payout * 0.95 * 100) / 100);
+  if (!(amount >= 0.5)) return null;
+  return { amount: amount, won: won, left: leftOdds.length };
+}
+function cashoutOffer(bet, matchesByKey) {
+  var q = cashoutQuote(bet, matchesByKey);
+  return q ? q.amount : null;
 }
 
 app.get('/api/bets', async (c) => {
@@ -1534,6 +1585,8 @@ app.get('/api/bets', async (c) => {
       stake: Number(r.stake), payout: Number(r.payout),
       status: r.status,
       cashout: cashoutOffer(r, byKey),
+      cashoutWon: (function () { var q = cashoutQuote(r, byKey); return q ? q.won : 0; })(),
+      cashoutLeft: (function () { var q = cashoutQuote(r, byKey); return q ? q.left : 0; })(),
       winSeen: !!r.win_seen,
       createdAt: r.created_at,
       date: new Date(r.created_at).toLocaleDateString('es-DO')
@@ -1549,6 +1602,9 @@ app.post('/api/bets/:id/cashout', async (c) => {
   if (!rows[0]) return c.json({ error: 'not_found' }, 404);
   const offer = cashoutOffer(rows[0], await loadMatchesByKey());
   if (offer === null) return c.json({ error: 'closed' }, 400);
+  let body = {}; try { body = await c.req.json(); } catch (e) {}
+  const expect = Number(body && body.expect);
+  if (expect > 0 && offer < expect - 0.009) return c.json({ error: 'changed', offer: offer }, 409);
   const upd = await sql`UPDATE bets SET status = 'cashout', payout = ${offer}, cashout_at = now()
     WHERE id = ${id} AND status = 'pending' RETURNING id`;
   if (!upd[0]) return c.json({ error: 'closed' }, 400);
