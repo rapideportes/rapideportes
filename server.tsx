@@ -44,6 +44,8 @@ await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS dob DATE`;
 
 await sql`ALTER TABLE bets ADD COLUMN IF NOT EXISTS win_seen BOOLEAN DEFAULT false`;
 await sql`ALTER TABLE bets ADD COLUMN IF NOT EXISTS cashout_at TIMESTAMPTZ`;
+// Tickets eliminados por el admin: se ocultan y ya no se califican, pero se guardan para que las cuentas cuadren.
+await sql`ALTER TABLE bets ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ`;
 
 await sql`CREATE TABLE IF NOT EXISTS deposits (
   id SERIAL PRIMARY KEY,
@@ -988,7 +990,7 @@ async function settleBets() {
     });
     if (Object.keys(finishedByKey).length === 0) return;
 
-    const pending = await sql`SELECT id, user_id, desc_text, match_text, stake, payout FROM bets WHERE status = 'pending'`;
+    const pending = await sql`SELECT id, user_id, desc_text, match_text, stake, payout FROM bets WHERE status = 'pending' AND deleted_at IS NULL`;
     var anyPropPending = pending.some(function (b) { return / — (Más|Menos) [\d.]+/.test(b.desc_text || '') || / — (Más|Menos) [\d.]+/.test(b.match_text || ''); });
 
     // Solo pedimos el boxscore (ponches) si hay al menos una apuesta de
@@ -1208,7 +1210,7 @@ async function currentMatchKeys() {
 async function findOrphanBets(onlyKey) {
   const keys = await currentMatchKeys();
   const pending = await sql`SELECT b.id, b.user_id, b.desc_text, b.match_text, b.stake, b.payout, b.created_at, u.email
-    FROM bets b JOIN users u ON u.id = b.user_id WHERE b.status = 'pending' ORDER BY b.created_at ASC`;
+    FROM bets b JOIN users u ON u.id = b.user_id WHERE b.status = 'pending' AND b.deleted_at IS NULL ORDER BY b.created_at ASC`;
   var out = [];
   pending.forEach(function (b) {
     var legs = betLegs(b);
@@ -1242,7 +1244,7 @@ function orphanView(o) {
 app.get('/api/admin/match-bets', async (c) => {
   if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
   const key = matchKey(c.req.query('away') || '', c.req.query('home') || '');
-  const pending = await sql`SELECT id, desc_text, match_text, stake FROM bets WHERE status = 'pending'`;
+  const pending = await sql`SELECT id, desc_text, match_text, stake FROM bets WHERE status = 'pending' AND deleted_at IS NULL`;
   var n = 0, total = 0, parlays = 0;
   pending.forEach(function (b) {
     if (betLegs(b).some(function (l) { return l.key === key; })) { n++; total += Number(b.stake); if (/^Combinada/i.test(b.desc_text || '')) parlays++; }
@@ -1265,6 +1267,22 @@ app.post('/api/admin/orphan-bets/resolve', async (c) => {
   var done = [];
   for (const o of list) done.push(await resolveOrphan(o));
   return c.json({ ok: true, resolved: done });
+});
+
+// Eliminar un ticket: desaparece de las listas. Si estaba pendiente, se le devuelve lo apostado al jugador.
+app.post('/api/admin/bets/:id/delete', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
+  const id = Number(c.req.param('id'));
+  if (!Number.isInteger(id)) return c.json({ error: 'not_found' }, 404);
+  // Si estaba pendiente, se anula y se le devuelve lo que apostó.
+  const pend = await sql`UPDATE bets SET deleted_at = now(), status = 'void' WHERE id = ${id} AND deleted_at IS NULL AND status = 'pending' RETURNING user_id, stake`;
+  if (pend[0]) {
+    await sql`UPDATE users SET balance = balance + ${Number(pend[0].stake)} WHERE id = ${pend[0].user_id}`;
+    return c.json({ ok: true, refunded: Number(pend[0].stake) });
+  }
+  const rows = await sql`UPDATE bets SET deleted_at = now() WHERE id = ${id} AND deleted_at IS NULL RETURNING id`;
+  if (!rows[0]) return c.json({ error: 'not_found' }, 404);
+  return c.json({ ok: true, refunded: 0 });
 });
 
 app.post('/api/admin/matches', async (c) => {
@@ -1353,7 +1371,7 @@ app.get('/api/bets', async (c) => {
   if (!user) return c.json([]);
   const rows = await sql`
     SELECT id, desc_text, match_text, stake, payout, status, created_at, win_seen
-    FROM bets WHERE user_id = ${user.id}
+    FROM bets WHERE user_id = ${user.id} AND deleted_at IS NULL
     ORDER BY created_at DESC LIMIT 20
   `;
   const byKey = await loadMatchesByKey();
@@ -1374,7 +1392,7 @@ app.post('/api/bets/:id/cashout', async (c) => {
   const user = await getUserFromCookie(c);
   if (!user) return c.json({ error: 'unauthorized' }, 401);
   const id = Number(c.req.param('id'));
-  const rows = await sql`SELECT id, desc_text, match_text, stake, status FROM bets WHERE id = ${id} AND user_id = ${user.id}`;
+  const rows = await sql`SELECT id, desc_text, match_text, stake, status FROM bets WHERE id = ${id} AND user_id = ${user.id} AND deleted_at IS NULL`;
   if (!rows[0]) return c.json({ error: 'not_found' }, 404);
   const offer = cashoutOffer(rows[0], await loadMatchesByKey());
   if (offer === null) return c.json({ error: 'closed' }, 400);
@@ -1603,14 +1621,15 @@ app.get('/api/admin/players/:id', async (c) => {
       (SELECT COUNT(*) FROM bets WHERE user_id = ${id}) AS bets_n,
       (SELECT COUNT(*) FROM bets WHERE user_id = ${id} AND status = 'won') AS won_n,
       (SELECT COUNT(*) FROM bets WHERE user_id = ${id} AND status = 'lost') AS lost_n,
-      (SELECT COUNT(*) FROM bets WHERE user_id = ${id} AND status = 'pending') AS pending_n,
-      (SELECT COALESCE(SUM(stake), 0) FROM bets WHERE user_id = ${id} AND status = 'pending') AS pending_stake,
+      (SELECT COUNT(*) FROM bets WHERE user_id = ${id} AND status = 'pending' AND deleted_at IS NULL) AS pending_n,
+      (SELECT COALESCE(SUM(stake), 0) FROM bets WHERE user_id = ${id} AND status = 'pending' AND deleted_at IS NULL) AS pending_stake,
+      (SELECT COUNT(*) FROM bets WHERE user_id = ${id} AND deleted_at IS NOT NULL) AS deleted_n,
       (SELECT COALESCE(SUM(payout), 0) FROM bets WHERE user_id = ${id} AND status = 'won') AS won,
       (SELECT COALESCE(SUM(stake), 0) FROM bets WHERE user_id = ${id} AND status = 'void') AS refunded,
       (SELECT COALESCE(SUM(payout), 0) FROM bets WHERE user_id = ${id} AND status = 'cashout') AS cashout,
       (SELECT COALESCE(SUM(amount), 0) FROM balance_adjustments WHERE user_id = ${id} AND amount > 0) AS credited,
       (SELECT COALESCE(SUM(-amount), 0) FROM balance_adjustments WHERE user_id = ${id} AND amount < 0) AS debited`;
-  const bets = await sql`SELECT id, desc_text, match_text, stake, payout, status, created_at FROM bets WHERE user_id = ${id} ORDER BY created_at DESC LIMIT 100`;
+  const bets = await sql`SELECT id, desc_text, match_text, stake, payout, status, created_at FROM bets WHERE user_id = ${id} AND deleted_at IS NULL ORDER BY created_at DESC LIMIT 100`;
   const deps = await sql`SELECT id, amount, status, method_label, created_at FROM deposits WHERE user_id = ${id} ORDER BY created_at DESC LIMIT 100`;
   const wds = await sql`SELECT id, amount, status, note, method_label, created_at, reviewed_at FROM withdrawals WHERE user_id = ${id} ORDER BY created_at DESC LIMIT 100`;
   const adj = await sql`SELECT id, amount, note, balance_after, created_at FROM balance_adjustments WHERE user_id = ${id} ORDER BY created_at DESC LIMIT 100`;
@@ -1624,7 +1643,7 @@ app.get('/api/admin/players/:id', async (c) => {
     verify: user.verify_status || 'none', dob: user.dob, limit: { period: user.limit_period, amount: N(user.limit_amount) },
     payoutMethod: pm ? pm.label : null,
     totals: { deposited: N(T.deposited), depositsCount: N(T.deposits_n), withdrawn: N(T.withdrawn), withdrawPending: N(T.withdraw_pending),
-      staked: N(T.staked), betsCount: N(T.bets_n), wonCount: N(T.won_n), lostCount: N(T.lost_n), pendingCount: N(T.pending_n), pendingStake: N(T.pending_stake),
+      staked: N(T.staked), betsCount: N(T.bets_n), wonCount: N(T.won_n), lostCount: N(T.lost_n), pendingCount: N(T.pending_n), pendingStake: N(T.pending_stake), deletedCount: N(T.deleted_n),
       won: N(T.won), refunded: N(T.refunded), cashout: N(T.cashout), credited: N(T.credited), debited: N(T.debited),
       expected: expected, ok: Math.abs(expected - N(user.balance)) < 0.01 },
     bets: bets.map(function (b) { return { id: b.id, desc: b.desc_text, match: b.match_text, stake: N(b.stake), payout: N(b.payout), status: b.status, createdAt: b.created_at }; }),
@@ -1743,6 +1762,7 @@ app.get('/api/admin/tickets', async (c) => {
   const rows = await sql`
     SELECT b.id, b.desc_text, b.match_text, b.stake, b.payout, b.status, b.created_at, u.email
     FROM bets b JOIN users u ON u.id = b.user_id
+    WHERE b.deleted_at IS NULL
     ORDER BY b.created_at DESC
     LIMIT 300
   `;
@@ -1781,7 +1801,7 @@ app.get('/api/admin/finance-summary', async (c) => {
   `;
   const pendRows = await sql`
     SELECT COALESCE(SUM(payout), 0) AS pago_potencial, COALESCE(SUM(payout - stake), 0) AS exposicion
-    FROM bets WHERE status = 'pending'
+    FROM bets WHERE status = 'pending' AND deleted_at IS NULL
   `;
   const ganRows = await sql`
     SELECT COALESCE(SUM(stake), 0) AS ganancia
