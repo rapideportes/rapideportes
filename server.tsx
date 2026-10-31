@@ -100,6 +100,30 @@ async function payoutMethod(userId) {
   return rows[0] ? { ref: rows[0].method_ref, label: rows[0].method_label || 'Método de depósito' } : null;
 }
 
+// Resultados guardados: cada partido terminado se guarda aquí con su fecha,
+// aunque después el admin lo borre de la lista.
+await sql`CREATE TABLE IF NOT EXISTS results (
+  match_id TEXT PRIMARY KEY,
+  sport TEXT, away TEXT, home TEXT,
+  away_score NUMERIC, home_score NUMERIC,
+  start_at TIMESTAMPTZ, finished_at TIMESTAMPTZ DEFAULT now(),
+  data JSONB
+)`;
+async function saveResults(list) {
+  try {
+    for (const m of (Array.isArray(list) ? list : [])) {
+      if (!m || !m.finished || !m.score || m.id === undefined) continue;
+      var a = Number(m.score.away), h = Number(m.score.home);
+      if (isNaN(a) || isNaN(h)) continue;
+      var st = m.startAt && !isNaN(Date.parse(m.startAt)) ? new Date(m.startAt).toISOString() : null;
+      await sql`INSERT INTO results (match_id, sport, away, home, away_score, home_score, start_at, data)
+        VALUES (${String(m.id)}, ${m.sport || ''}, ${m.away || ''}, ${m.home || ''}, ${a}, ${h}, ${st}, ${JSON.stringify(m)}::jsonb)
+        ON CONFLICT (match_id) DO UPDATE SET away_score = EXCLUDED.away_score, home_score = EXCLUDED.home_score,
+          away = EXCLUDED.away, home = EXCLUDED.home, sport = EXCLUDED.sport, start_at = EXCLUDED.start_at, data = EXCLUDED.data`;
+    }
+  } catch (e) {}
+}
+
 const adminTokens = new Set();
 // Las sesiones del admin se guardan en la base para que no se cierren cada vez que el servidor se reinicia (al subir cambios).
 await sql`CREATE TABLE IF NOT EXISTS admin_sessions (token TEXT PRIMARY KEY, created_at TIMESTAMPTZ DEFAULT now())`;
@@ -379,6 +403,57 @@ function espnLeaders(c) {
 
 // Consulta el "scoreboard" público de ESPN (sin clave) para una liga y arma
 // una lista simple de los partidos de hoy con marcador y estado.
+// ---------- NBA: marcador oficial (el mismo de NBA.com) ----------
+// Se usa encima de ESPN para el marcador, el cuarto y el reloj, que llegan más rápido.
+// Si la NBA no responde, se queda lo de ESPN.
+function nbaClockText(iso) {
+  var m = /^PT(\d+)M(\d+)(?:\.\d+)?S$/.exec(String(iso || ''));
+  if (!m) return '';
+  return Number(m[1]) + ':' + String(Number(m[2])).padStart(2, '0');
+}
+async function fetchNbaOfficial() {
+  try {
+    const ctl = new AbortController(); const tm = setTimeout(function () { ctl.abort(); }, 5000);
+    const res = await fetch('https://cdn.nba.com/static/json/liveData/scoreboard/todaysScoreboard_00.json?t=' + Date.now(), {
+      signal: ctl.signal,
+      headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36', 'Referer': 'https://www.nba.com/', 'Accept': 'application/json' }
+    });
+    clearTimeout(tm);
+    if (!res.ok) return [];
+    const data = await res.json();
+    return ((data.scoreboard && data.scoreboard.games) || []).map(function (g) {
+      var h = g.homeTeam || {}, a = g.awayTeam || {};
+      return {
+        homeName: h.teamName || '', awayName: a.teamName || '',
+        homeFull: ((h.teamCity || '') + ' ' + (h.teamName || '')).trim(), awayFull: ((a.teamCity || '') + ' ' + (a.teamName || '')).trim(),
+        homeScore: Number(h.score), awayScore: Number(a.score),
+        state: g.gameStatus === 2 ? 'in' : g.gameStatus === 3 ? 'post' : 'pre',
+        period: Number(g.period) || undefined,
+        clock: nbaClockText(g.gameClock),
+        statusText: g.gameStatusText || ''
+      };
+    });
+  } catch (e) { return []; }
+}
+function nbaSameTeam(espnName, full, nick) {
+  espnName = String(espnName || '').toLowerCase();
+  return !!nick && (espnName === String(full).toLowerCase() || espnName.endsWith(' ' + String(nick).toLowerCase()));
+}
+async function overlayNbaOfficial(games) {
+  var nba = await fetchNbaOfficial();
+  if (!nba.length) return games;
+  games.forEach(function (g) {
+    var n = nba.find(function (x) { return nbaSameTeam(g.home, x.homeFull, x.homeName) && nbaSameTeam(g.away, x.awayFull, x.awayName); });
+    if (!n || n.state === 'pre') return;
+    if (isNaN(n.homeScore) || isNaN(n.awayScore)) return;
+    g.homeScore = n.homeScore; g.awayScore = n.awayScore; g.state = n.state;
+    if (n.period) g.period = n.period;
+    g.clock = /halftime|half/i.test(n.statusText) ? '' : n.clock;
+    g.source = 'nba';
+  });
+  return games;
+}
+
 async function fetchEspnGames(espnPath) {
   try {
     const dateParam = todayISO().replace(/-/g, '');
@@ -609,6 +684,7 @@ async function fetchNhlGamesFromStatsApi() {
           period: pd.number || null,
           periodType: pd.periodType || 'REG',
           clock: clock.timeRemaining || null,
+          running: typeof clock.running === 'boolean' ? clock.running : null,
           inIntermission: !!clock.inIntermission
         }
       });
@@ -651,6 +727,7 @@ async function updateLiveScores() {
       gamesBySport[sport] = sport === 'beisbol' ? await fetchMlbGamesFromStatsApi()
         : sport === 'lidom' ? await fetchMlbGamesFromStatsApi(17)
         : sport === 'nhl' ? await fetchNhlGamesFromStatsApi()
+        : sport === 'baloncesto' ? await overlayNbaOfficial(await fetchEspnGames(SPORT_ESPN_PATH[sport]))
         : await fetchEspnGames(SPORT_ESPN_PATH[sport]);
     }
 
@@ -755,7 +832,21 @@ async function updateLiveScores() {
       if (u.espnEventId) m.espnEventId = u.espnEventId;
       if (u.live !== undefined) m.live = u.live;
       if (u.finished !== undefined) m.finished = u.finished;
-      if (u.score) m.score = u.score;
+      if (u.score) {
+        // ¿El reloj del juego está corriendo? NHL lo dice; en NBA/NFL se sabe
+        // comparando con la lectura anterior: si no cambió, está parado
+        // (tiempo muerto, falta, tiros libres, revisión…).
+        var pd2 = (m.score && m.score.detail) || {}, nd = u.score.detail;
+        if (nd && nd.clock) {
+          var samePer = (pd2.quarter || pd2.period) === (nd.quarter || nd.period);
+          var sameClock = samePer && pd2.clock === nd.clock;
+          if (nd.inIntermission) nd.clockRunning = false;
+          else if (typeof nd.running === 'boolean') nd.clockRunning = nd.running;
+          else nd.clockRunning = samePer && !!pd2.clock && !sameClock;
+          nd.clockAt = sameClock && pd2.clockAt ? pd2.clockAt : Date.now();
+        }
+        m.score = u.score;
+      }
       else if (u.estadoDetallado) m.estadoDetallado = u.estadoDetallado;
     });
 
@@ -764,6 +855,7 @@ async function updateLiveScores() {
         INSERT INTO app_state (key, value) VALUES ('matches', ${JSON.stringify(freshMatches)}::jsonb)
         ON CONFLICT (key) DO UPDATE SET value = ${JSON.stringify(freshMatches)}::jsonb
       `;
+      await saveResults(freshMatches.filter(function (m) { return m.finished && updatesById[m.id]; }));
     }
   } catch (e) {
     // No tumbamos el servidor por un fallo de la API externa.
@@ -1090,6 +1182,13 @@ async function tick() {
 }
 setInterval(tick, 7000);
 tick();
+(async function () {
+  try {
+    const r0 = await sql`SELECT value FROM app_state WHERE key = 'matches'`;
+    var l0 = r0[0] ? r0[0].value : []; if (typeof l0 === 'string') { try { l0 = JSON.parse(l0); } catch (e) { l0 = []; } }
+    await saveResults(l0);
+  } catch (e) {}
+})();
 
 const app = new Hono();
 
@@ -1301,6 +1400,7 @@ app.get('/api/game-stats/:id', async (c) => {
     if (typeof list === 'string') { try { list = JSON.parse(list); } catch (e) { list = []; } }
     var id = c.req.param('id');
     var m = (Array.isArray(list) ? list : []).find(function (x) { return String(x.id) === String(id); });
+    if (!m) { var ar = await sql`SELECT data FROM results WHERE match_id = ${String(id)}`; if (ar[0] && ar[0].data) m = ar[0].data; }
     if (!m || !m.espnEventId) return c.json({ error: 'not_available' }, 404);
     if (m.sport === 'beisbol' || m.sport === 'lidom') {
       var bb = await fetchBaseballBoxscore(m.espnEventId);
@@ -1451,7 +1551,22 @@ app.post('/api/admin/matches', async (c) => {
     INSERT INTO app_state (key, value) VALUES ('matches', ${JSON.stringify(matches)}::jsonb)
     ON CONFLICT (key) DO UPDATE SET value = ${JSON.stringify(matches)}::jsonb
   `;
+  await saveResults(matches);
   return c.json({ ok: true });
+});
+
+// Resultados de los últimos días (por defecto 14, máximo 60).
+app.get('/api/results', async (c) => {
+  var days = Math.min(60, Math.max(1, Number(c.req.query('days')) || 14));
+  const rows = await sql`SELECT match_id, sport, away, home, away_score, home_score, start_at, finished_at, data FROM results
+    WHERE COALESCE(start_at, finished_at) > now() - make_interval(days => ${days})
+    ORDER BY COALESCE(start_at, finished_at) DESC LIMIT 400`;
+  return c.json(rows.map(function (r) {
+    var d = r.data || {};
+    return { id: r.match_id, sport: r.sport, away: r.away, home: r.home,
+      score: { away: Number(r.away_score), home: Number(r.home_score), period: 'Final' },
+      startAt: r.start_at || r.finished_at, finished: true, espnEventId: d.espnEventId || null, archived: true };
+  }));
 });
 
 app.post('/api/bets', async (c) => {
