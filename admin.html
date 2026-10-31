@@ -634,6 +634,28 @@
   .del-ok { background: #ECFDF3; border: 1px solid #ABEFC6; color: #067647; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
   .tk-acts { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
   .tk-del { border: 1px solid #FECDD6; background: #FFF1F3; color: #B42318; border-radius: 999px; font: inherit; font-size: 12.5px; font-weight: 700; padding: 8px 12px; cursor: pointer; }
+  .jb { border: 1px solid var(--border); border-radius: 14px; background: #fff; margin: 10px 0; overflow: hidden; box-shadow: var(--shadow-sm); }
+  .jb-top { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 12px 14px 4px; }
+  .jb-type { font-weight: 800; font-size: 14.5px; }
+  .jb-top .jp-pill { margin-top: 0; font-size: 11.5px; padding: 3px 10px; }
+  .jb-meta { padding: 0 14px 10px; font-size: 12px; color: var(--text-faint); }
+  .jb-legs { border-top: 1px solid var(--border); }
+  .jb-leg { display: flex; align-items: center; gap: 10px; padding: 9px 14px; border-bottom: 1px dashed var(--border); }
+  .jb-leg:last-child { border-bottom: 0; }
+  .jb-n { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; background: var(--surface); color: var(--text-dim); font-size: 11px; font-weight: 800; display: grid; place-items: center; }
+  .jb-leg-l { flex: 1; min-width: 0; }
+  .jb-mk { display: inline-block; font-size: 10.5px; font-weight: 800; text-transform: uppercase; letter-spacing: .03em; color: var(--accent-dim); background: #FFF1F3; border-radius: 6px; padding: 1px 6px; margin-bottom: 2px; }
+  .jb-leg-l b { display: block; font-size: 14px; line-height: 1.3; }
+  .jb-leg-l small { display: block; font-size: 12px; color: var(--text-dim); line-height: 1.3; margin-top: 1px; }
+  .jb-od { flex: 0 0 auto; font-weight: 800; font-size: 14px; font-variant-numeric: tabular-nums; background: var(--surface); border-radius: 8px; padding: 4px 8px; }
+  .jb-foot { display: grid; grid-template-columns: repeat(3, 1fr); background: var(--surface); border-top: 1px solid var(--border); }
+  .jb-foot > div { padding: 9px 12px; text-align: center; }
+  .jb-foot > div + div { border-left: 1px solid var(--border); }
+  .jb-foot small { display: block; font-size: 11px; color: var(--text-dim); font-weight: 600; }
+  .jb-foot b { display: block; font-size: 15px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .jb-foot b.pos { color: #067647; } .jb-foot b.bad { color: #B42318; }
+  .jb-del { padding: 8px 14px 10px; text-align: right; border-top: 1px solid var(--border); }
+  .jb-del .tk-del.sm { display: inline-block; margin: 0; }
   .tk-del.sm { display: block; margin: 6px 0 0 auto; padding: 4px 10px; font-size: 11.5px; }
 
   .jp-pw { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: -4px 0 12px; }
@@ -1633,7 +1655,7 @@
     d.bets.forEach(function (b) {
       var isParlay = /^Combinada/i.test(b.desc);
       var sub = isParlay ? b.match.split(' · ').map(function (l) { var p = l.split('@@@'); return p.length === 3 ? p[0].replace(/^(Ganador|Hándicap|Total) /, '') + ' → ' + p[1] : l; }).join(' · ') : b.match;
-      items.push({ k: 'apuestas', t: b.createdAt, icon: '🎟️', title: b.desc, sub: sub, amount: -b.stake, del: b,
+      items.push({ k: 'apuestas', t: b.createdAt, icon: '🎟️', title: b.desc, sub: sub, amount: -b.stake, del: b, bet: b,
         right: 'Apostó ' + jpMoney(b.stake) + (b.status === 'won' ? ' · cobró ' + jpMoney(b.payout) : b.status === 'pending' ? ' · paga ' + jpMoney(b.payout) : ''), pill: jpPill(JP_BET, b.status || 'pending') });
     });
     d.deposits.forEach(function (x) { items.push({ k: 'depositos', t: x.createdAt, icon: '💵', title: 'Depósito', sub: x.method || '', amount: x.amount, pill: jpPill(JP_PAY, x.status) }); });
@@ -1641,6 +1663,65 @@
     d.adjustments.forEach(function (x) { items.push({ k: 'ajustes', t: x.createdAt, icon: x.amount > 0 ? '➕' : '➖', title: x.amount > 0 ? 'Recarga del admin' : 'Descuento del admin', sub: (x.note || 'Sin motivo') + (x.balanceAfter != null ? ' · quedó con ' + jpMoney(x.balanceAfter) : ''), amount: x.amount, pill: '' }); });
     items.sort(function (a, b) { return Date.parse(b.t) - Date.parse(a.t); });
     return items;
+  }
+  // ---- Ticket del jugador, fácil de leer ----
+  function jpFindMatch(away, home) {
+    var list = (state && state.matches) || [];
+    for (var i = 0; i < list.length; i++) if (list[i].away === away && list[i].home === home) return list[i];
+    return null;
+  }
+  function jpReadPick(market, pick, away, home) {
+    pick = String(pick || '').trim();
+    var m;
+    if (/ — /.test(pick)) { var pp = pick.split(' — '); return { mk: pp[0], pick: jpReadPick('', pp.slice(1).join(' — '), away, home).pick }; }
+    if ((m = pick.match(/^(?:>|Más)\s*([\d.]+)(.*)$/))) return { mk: market || 'Total', pick: 'Más de ' + m[1] + m[2] };
+    if ((m = pick.match(/^(?:<|Menos)\s*([\d.]+)(.*)$/))) return { mk: market || 'Total', pick: 'Menos de ' + m[1] + m[2] };
+    if ((m = pick.match(/^(?:Hándicap\s+)?([+-]?\d+(?:\.\d+)?)$/)) && (market === 'Hándicap' || /^Hándicap/.test(pick))) {
+      var line = parseFloat(m[1]), g = jpFindMatch(away, home), team = '';
+      if (g && g.handicap) {
+        var a = parseFloat(g.handicap.awayLine), h = parseFloat(g.handicap.homeLine);
+        if (a === line && h !== line) team = away; else if (h === line && a !== line) team = home;
+      }
+      var txt = (line > 0 ? '+' : '') + line;
+      return { mk: 'Hándicap', pick: team ? team + ' ' + txt : 'Hándicap ' + txt };
+    }
+    return { mk: market || 'Ganador', pick: pick };
+  }
+  function jpBetLegs(b) {
+    var legs = [];
+    if (/^Combinada/i.test(b.desc || '')) {
+      String(b.match || '').split(' · ').forEach(function (l) {
+        var p = l.split('@@@');
+        if (p.length !== 3) { legs.push({ mk: '', pick: l, game: '', odds: '' }); return; }
+        var mm = p[0].match(/^(Ganador|Hándicap|Total)\s+(.*)$/), market = mm ? mm[1] : '', game = mm ? mm[2] : p[0];
+        var vs = game.split(' vs '), r = jpReadPick(market, p[1], vs[0], vs[1]);
+        legs.push({ mk: r.mk, pick: r.pick, game: game, odds: p[2] });
+      });
+    } else {
+      var d = String(b.desc || ''), om = d.match(/\s\(([\d.]+)\)$/), key = om ? d.slice(0, om.index) : d;
+      var t = String(b.match || '').split(' @ '), r2 = jpReadPick('', key, t[0], t[1]);
+      legs.push({ mk: r2.mk, pick: r2.pick, game: t.length === 2 ? t[0] + ' vs ' + t[1] : b.match, odds: om ? om[1] : '' });
+    }
+    return legs;
+  }
+  function jpBetCard(b, d) {
+    var legs = jpBetLegs(b), st = b.status || 'pending', isParlay = /^Combinada/i.test(b.desc || '');
+    var cuota = b.stake ? (Number(b.payout) / Number(b.stake)) : 0;
+    var last = st === 'won' ? ['Ganó', jpMoney(b.payout), 'pos'] : st === 'lost' ? ['Perdió', jpMoney(b.stake), 'bad'] :
+      st === 'void' ? ['Se le devolvió', jpMoney(b.stake), ''] : st === 'cashout' ? ['Cobró antes', jpMoney(b.payout), 'pos'] : ['Si gana, cobra', jpMoney(b.payout), ''];
+    return '<div class="jb">' +
+      '<div class="jb-top"><span class="jb-type">🎟️ ' + (isParlay ? 'Combinada · ' + legs.length + ' selecciones' : 'Apuesta sencilla') + '</span>' + jpPill(JP_BET, st) + '</div>' +
+      '<div class="jb-meta">Ticket T-' + String(b.id).padStart(6, '0') + ' · ' + esc(jpWhen(b.createdAt)) + '</div>' +
+      '<div class="jb-legs">' + legs.map(function (l, n) {
+        return '<div class="jb-leg">' + (isParlay ? '<span class="jb-n">' + (n + 1) + '</span>' : '') +
+          '<div class="jb-leg-l">' + (l.mk ? '<span class="jb-mk">' + esc(l.mk) + '</span>' : '') + '<b>' + esc(l.pick) + '</b>' + (l.game ? '<small>' + esc(l.game) + '</small>' : '') + '</div>' +
+          (l.odds ? '<span class="jb-od">' + esc(l.odds) + '</span>' : '') + '</div>';
+      }).join('') + '</div>' +
+      '<div class="jb-foot"><div><small>Apostó</small><b>' + jpMoney(b.stake) + '</b></div>' +
+        '<div><small>' + (isParlay ? 'Cuota total' : 'Cuota') + '</small><b>' + (cuota ? cuota.toFixed(2) : '—') + '</b></div>' +
+        '<div><small>' + last[0] + '</small><b class="' + last[2] + '">' + last[1] + '</b></div></div>' +
+      '<div class="jb-del"><button type="button" class="tk-del sm" data-tk-del="' + b.id + '" data-tk-num="T-' + String(b.id).padStart(6, '0') + '" data-tk-who="' + esc(d.email) + '" data-tk-stake="' + b.stake + '" data-tk-pending="' + (st === 'pending' ? '1' : '') + '">🗑️ Eliminar ticket</button></div>' +
+    '</div>';
   }
   function renderProfile() {
     var d = jp.prof, T = d.totals;
@@ -1687,6 +1768,7 @@
       '<div class="jp-htabs">' + [['todo', 'Todo'], ['apuestas', 'Apuestas'], ['depositos', 'Depósitos'], ['retiros', 'Retiros'], ['ajustes', 'Ajustes']].map(function (t) {
         return '<button type="button" data-jp-ptab="' + t[0] + '" class="' + (jp.profTab === t[0] ? 'on' : '') + '">' + t[1] + ' <i>' + counts[t[0]] + '</i></button>'; }).join('') + '</div>' +
       (shown.length ? '<div class="jp-hist">' + shown.map(function (i) {
+        if (i.bet) return jpBetCard(i.bet, d);
         return '<div class="jp-h"><span class="jp-h-ic">' + i.icon + '</span><div class="jp-h-t"><b>' + esc(i.title) + '</b>' + (i.sub ? '<small>' + esc(i.sub) + '</small>' : '') + '<small class="jp-h-when">' + esc(jpWhen(i.t)) + '</small></div>' +
           '<div class="jp-h-r"><b class="' + (i.amount >= 0 ? 'pos' : 'neg') + '">' + (i.amount >= 0 ? '+' : '−') + jpMoney(Math.abs(i.amount)).replace('−', '') + '</b>' + (i.right ? '<small>' + esc(i.right) + '</small>' : '') + i.pill +
           (i.del ? '<button type="button" class="tk-del sm" data-tk-del="' + i.del.id + '" data-tk-num="T-' + String(i.del.id).padStart(6, '0') + '" data-tk-who="' + esc(d.email) + '" data-tk-stake="' + i.del.stake + '" data-tk-pending="' + (i.del.status === 'pending' ? '1' : '') + '">🗑️ Eliminar</button>' : '') + '</div></div>';
