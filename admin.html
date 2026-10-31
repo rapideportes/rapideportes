@@ -635,6 +635,17 @@
   .tk-acts { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
   .tk-del { border: 1px solid #FECDD6; background: #FFF1F3; color: #B42318; border-radius: 999px; font: inherit; font-size: 12.5px; font-weight: 700; padding: 8px 12px; cursor: pointer; }
   .tk-del.sm { display: block; margin: 6px 0 0 auto; padding: 4px 10px; font-size: 11.5px; }
+
+  .jp-pw { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: -4px 0 12px; }
+  .jp-pw > span { font-size: 12px; color: var(--text-faint); flex: 1; min-width: 180px; }
+  .jp-pw .del-warn, .jp-pw .del-acts { width: 100%; }
+  .jp-pw .del-acts { margin-top: 0; }
+  .jp-pw-new { width: 100%; background: var(--bg); border: 1px dashed var(--border-strong); border-radius: 14px; padding: 12px; text-align: center; }
+  .jp-pw-new small { display: block; font-size: 11.5px; color: var(--text-dim); text-transform: uppercase; letter-spacing: .5px; font-weight: 700; }
+  .jp-pw-new b { display: block; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 26px; letter-spacing: 3px; margin: 4px 0 10px; }
+  .jp-pw-new span { display: block; font-size: 12px; color: var(--text-faint); margin-top: 8px; }
+  .jp-pw-acts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+  .jp-pw-acts .btn { white-space: normal !important; }
 </style>
 </head>
 <body>
@@ -1582,6 +1593,30 @@
     if (!document.getElementById('jpProfOv').hidden && jp.prof && jp.prof.id === a.id) openProfile(a.id, true);
   }
 
+  // ---- Contraseña temporal ----
+  async function jpNewPassword(id) {
+    var box = document.getElementById('jpPwBox');
+    if (!box.dataset.confirm) {
+      box.dataset.confirm = '1';
+      box.innerHTML = '<div class="del-warn">¿Seguro? Se cambia su contraseña por una nueva y se le cierra la sesión.</div><div class="del-acts"><button type="button" class="btn" data-jp-pw-cancel>Cancelar</button><button type="button" class="btn bad solid" data-jp-pw="' + id + '">Sí, crear contraseña</button></div>';
+      box.querySelector('[data-jp-pw-cancel]').addEventListener('click', function (e) { e.stopPropagation(); renderProfile(); });
+      return;
+    }
+    var r = await apiPost('/api/admin/players/' + id + '/password', {});
+    if (!r.ok) { showToast('No se pudo cambiar la contraseña.'); renderProfile(); return; }
+    var msg = 'Hola, tu contraseña de RapiDeportes ahora es: ' + r.data.password + ' . Entra con tu correo ' + r.data.email + ' y esa contraseña.';
+    box.removeAttribute('data-confirm');
+    box.innerHTML = '<div class="jp-pw-new"><small>Contraseña temporal</small><b>' + esc(r.data.password) + '</b>' +
+      '<div class="jp-pw-acts"><button type="button" class="btn jp-btn" data-jp-copy="' + esc(r.data.password) + '">📋 Copiar contraseña</button>' +
+      '<button type="button" class="btn jp-btn ok" data-jp-copy="' + esc(msg) + '">💬 Copiar mensaje para WhatsApp</button></div>' +
+      '<span>Mándasela al jugador. Solo se enseña esta vez.</span></div>';
+  }
+  function jpCopy(text, btn) {
+    var done = function () { var old = btn.textContent; btn.textContent = '✅ Copiado'; setTimeout(function () { btn.textContent = old; }, 1500); };
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(text).then(done, function () { window.prompt('Copia esto:', text); });
+    else window.prompt('Copia esto:', text);
+  }
+
   // ---- Perfil ----
   async function openProfile(id, keepTab) {
     if (!keepTab) jp.profTab = 'todo';
@@ -1623,6 +1658,7 @@
       '</div>' +
       '<div class="jp-prof-bal"><div><small>Saldo disponible</small><b>' + jpMoney(d.balance) + '</b></div>' +
         '<div class="jp-prof-acts"><button type="button" class="btn jp-btn ok" data-jp-adj="credit" data-jp-id="' + d.id + '">+ Recargar</button><button type="button" class="btn jp-btn bad" data-jp-adj="debit" data-jp-id="' + d.id + '">− Descontar</button></div></div>' +
+      '<div class="jp-pw" id="jpPwBox"><button type="button" class="btn jp-btn" data-jp-pw="' + d.id + '">🔑 Nueva contraseña</button><span>Para cuando el jugador no puede entrar. Se le cierra la sesión en todos sus aparatos.</span></div>' +
       '<div class="jp-stats">' +
         stat('Depositó', jpMoney(T.deposited), T.depositsCount + (T.depositsCount === 1 ? ' depósito' : ' depósitos'), 'pos') +
         stat('Retiró', jpMoney(T.withdrawn), T.withdrawPending ? jpMoney(T.withdrawPending) + ' pendiente' : 'pagado', 'neg') +
@@ -1672,6 +1708,8 @@
     var pr = t.closest('[data-jp-prof]'); if (pr) { openProfile(Number(pr.dataset.jpProf)); return; }
     var amt = t.closest('[data-jp-amt]'); if (amt) { document.getElementById('jpAdjAmount').value = amt.dataset.jpAmt; jpAdjPreview(); return; }
     var pt = t.closest('[data-jp-ptab]'); if (pt) { jp.profTab = pt.dataset.jpPtab; renderProfile(); return; }
+    var pw = t.closest('[data-jp-pw]'); if (pw) { jpNewPassword(Number(pw.dataset.jpPw)); return; }
+    var cp = t.closest('[data-jp-copy]'); if (cp) { jpCopy(cp.dataset.jpCopy, cp); return; }
     var cl = t.closest('[data-jp-close]'); if (cl) { jpClose(cl.dataset.jpClose); return; }
     if (t.classList && t.classList.contains('jp-ov')) jpClose(t.id);
   });
