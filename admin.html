@@ -630,6 +630,11 @@
   .orph-row small { display: block; color: var(--text-dim); margin-top: 2px; }
   .orph-row span { flex: 0 0 auto; max-width: 42%; text-align: right; font-weight: 700; color: #067647; font-size: 12.5px; }
   .orph .btn { width: 100%; margin-top: 4px; }
+
+  .del-ok { background: #ECFDF3; border: 1px solid #ABEFC6; color: #067647; border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
+  .tk-acts { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+  .tk-del { border: 1px solid #FECDD6; background: #FFF1F3; color: #B42318; border-radius: 999px; font: inherit; font-size: 12.5px; font-weight: 700; padding: 8px 12px; cursor: pointer; }
+  .tk-del.sm { display: block; margin: 6px 0 0 auto; padding: 4px 10px; font-size: 11.5px; }
 </style>
 </head>
 <body>
@@ -932,6 +937,14 @@
     <div class="jp-sheet-head"><h3 id="delTitle">¿Borrar partido?</h3></div>
     <div id="delBody" class="del-body"></div>
     <div class="del-acts"><button type="button" class="btn" id="delCancel">Cancelar</button><button type="button" class="btn bad solid" id="delGo">Borrar</button></div>
+  </div>
+</div>
+
+<div class="jp-ov" id="tkOv" hidden>
+  <div class="jp-sheet jp-sheet-sm">
+    <div class="jp-sheet-head"><h3 id="tkTitle">¿Eliminar ticket?</h3></div>
+    <div id="tkBody" class="del-body"></div>
+    <div class="del-acts"><button type="button" class="btn" id="tkCancel">Cancelar</button><button type="button" class="btn bad solid" id="tkGo">Eliminar ticket</button></div>
   </div>
 </div>
 
@@ -1389,6 +1402,33 @@
     });
   }
 
+  /* ---------- Eliminar ticket (sin tocar el saldo) ---------- */
+  var tkDel = null;
+  document.addEventListener('click', function (e) {
+    var b = e.target.closest && e.target.closest('[data-tk-del]');
+    if (!b) return;
+    e.stopPropagation();
+    tkDel = { id: Number(b.dataset.tkDel), num: b.dataset.tkNum, who: b.dataset.tkWho, stake: Number(b.dataset.tkStake), pending: !!b.dataset.tkPending };
+    document.getElementById('tkTitle').textContent = '¿Eliminar el ticket ' + tkDel.num + '?';
+    document.getElementById('tkBody').innerHTML = '<p>Jugador: <b>' + esc(tkDel.who) + '</b> · apostó <b>' + pgMoney(tkDel.stake) + '</b></p>' +
+      '<p>Se borra de la lista de tickets y del historial del jugador.</p>' +
+      (tkDel.pending ? '<div class="del-ok">Este ticket está <b>pendiente</b>: se le <b>devuelven ' + pgMoney(tkDel.stake) + '</b> al jugador.</div>'
+        : '<div class="del-warn">Este ticket ya se calificó: <b>el saldo del jugador no cambia</b>.</div>');
+    document.getElementById('tkOv').hidden = false;
+  }, true);
+  document.getElementById('tkCancel').addEventListener('click', function () { document.getElementById('tkOv').hidden = true; });
+  document.getElementById('tkGo').addEventListener('click', async function () {
+    if (!tkDel) return;
+    this.disabled = true;
+    var r = await apiPost('/api/admin/bets/' + tkDel.id + '/delete', {});
+    this.disabled = false;
+    document.getElementById('tkOv').hidden = true;
+    if (!r.ok) { showToast('No se pudo eliminar el ticket.'); return; }
+    showToast('🗑️ Ticket ' + tkDel.num + ' eliminado' + (r.data && r.data.refunded ? '. Se le devolvieron ' + pgMoney(r.data.refunded) + '.' : '.'));
+    if (!document.getElementById('tabFinanciero').hidden) refreshFinanceAndTickets();
+    if (!document.getElementById('jpProfOv').hidden && jp.prof) openProfile(jp.prof.id, true);
+  });
+
   function openAdminPanel() {
     loadOrphans();
     renderAdminList();
@@ -1539,7 +1579,7 @@
     d.bets.forEach(function (b) {
       var isParlay = /^Combinada/i.test(b.desc);
       var sub = isParlay ? b.match.split(' · ').map(function (l) { var p = l.split('@@@'); return p.length === 3 ? p[0].replace(/^(Ganador|Hándicap|Total) /, '') + ' → ' + p[1] : l; }).join(' · ') : b.match;
-      items.push({ k: 'apuestas', t: b.createdAt, icon: '🎟️', title: b.desc, sub: sub, amount: -b.stake,
+      items.push({ k: 'apuestas', t: b.createdAt, icon: '🎟️', title: b.desc, sub: sub, amount: -b.stake, del: b,
         right: 'Apostó ' + jpMoney(b.stake) + (b.status === 'won' ? ' · cobró ' + jpMoney(b.payout) : b.status === 'pending' ? ' · paga ' + jpMoney(b.payout) : ''), pill: jpPill(JP_BET, b.status || 'pending') });
     });
     d.deposits.forEach(function (x) { items.push({ k: 'depositos', t: x.createdAt, icon: '💵', title: 'Depósito', sub: x.method || '', amount: x.amount, pill: jpPill(JP_PAY, x.status) }); });
@@ -1593,7 +1633,8 @@
         return '<button type="button" data-jp-ptab="' + t[0] + '" class="' + (jp.profTab === t[0] ? 'on' : '') + '">' + t[1] + ' <i>' + counts[t[0]] + '</i></button>'; }).join('') + '</div>' +
       (shown.length ? '<div class="jp-hist">' + shown.map(function (i) {
         return '<div class="jp-h"><span class="jp-h-ic">' + i.icon + '</span><div class="jp-h-t"><b>' + esc(i.title) + '</b>' + (i.sub ? '<small>' + esc(i.sub) + '</small>' : '') + '<small class="jp-h-when">' + esc(jpWhen(i.t)) + '</small></div>' +
-          '<div class="jp-h-r"><b class="' + (i.amount >= 0 ? 'pos' : 'neg') + '">' + (i.amount >= 0 ? '+' : '−') + jpMoney(Math.abs(i.amount)).replace('−', '') + '</b>' + (i.right ? '<small>' + esc(i.right) + '</small>' : '') + i.pill + '</div></div>';
+          '<div class="jp-h-r"><b class="' + (i.amount >= 0 ? 'pos' : 'neg') + '">' + (i.amount >= 0 ? '+' : '−') + jpMoney(Math.abs(i.amount)).replace('−', '') + '</b>' + (i.right ? '<small>' + esc(i.right) + '</small>' : '') + i.pill +
+          (i.del ? '<button type="button" class="tk-del sm" data-tk-del="' + i.del.id + '" data-tk-num="T-' + String(i.del.id).padStart(6, '0') + '" data-tk-who="' + esc(d.email) + '" data-tk-stake="' + i.del.stake + '" data-tk-pending="' + (i.del.status === 'pending' ? '1' : '') + '">🗑️ Eliminar</button>' : '') + '</div></div>';
       }).join('') + '</div>' : '<div class="pg-empty">No hay movimientos aquí todavía.</div>');
   }
 
@@ -1757,7 +1798,8 @@
         '<div class="ticket-stat"><span class="k">Gana</span><span class="v" style="color:var(--win);">' + fmtMoneyAdmin(t.ganancia_potencial) + '</span></div>' +
         '<div class="ticket-stat"><span class="k">Cobra</span><span class="v" style="color:var(--accent);">' + fmtMoneyAdmin(t.total_a_cobrar) + '</span></div>' +
         '</div>';
-      html += '<button type="button" class="ticket-toggle-btn" data-ticket-toggle="' + t.id + '">Ver ' + t.num_selecciones + (t.num_selecciones === 1 ? ' selección' : ' selecciones') + ' ▾</button>';
+      html += '<div class="tk-acts"><button type="button" class="ticket-toggle-btn" data-ticket-toggle="' + t.id + '">Ver ' + t.num_selecciones + (t.num_selecciones === 1 ? ' selección' : ' selecciones') + ' ▾</button>' +
+        '<button type="button" class="tk-del" data-tk-del="' + t.id + '" data-tk-num="' + esc(t.ticket) + '" data-tk-who="' + esc(t.jugador) + '" data-tk-stake="' + t.monto_apostado + '" data-tk-pending="' + (t.estado === 'pending' ? '1' : '') + '">🗑️ Eliminar</button></div>';
       html += '<div id="ticket-detail-' + t.id + '" style="display:none; margin-top:10px;">';
       t.selecciones.forEach(function (l) {
         html += '<div class="ticket-leg"><div class="leg-main">' + esc(l.descripcion) + '</div>' +
