@@ -162,10 +162,16 @@ const SPORT_ESPN_PATH = {
   beisbol: 'baseball/mlb',
   baloncesto: 'basketball/nba',
   nfl: 'football/nfl',
-  nhl: 'hockey/nhl'
+  nhl: 'hockey/nhl',
+  lidom: 'statsapi/winter' // LIDOM: marcador de la API oficial de MLB (ligas de invierno), no de ESPN
 };
 
 const TEAM_ES_TO_EN = {
+  // LIDOM: palabra con la que termina el nombre oficial de cada equipo (sin acentos).
+  lidom: {
+    'Tigres del Licey': 'Licey', 'Águilas Cibaeñas': 'Cibaenas', 'Leones del Escogido': 'Escogido',
+    'Gigantes del Cibao': 'Cibao', 'Estrellas Orientales': 'Orientales', 'Toros del Este': 'Este'
+  },
   beisbol: {
     'Arizona Diamondbacks': 'Arizona Diamondbacks',
     'Atlanta Braves': 'Atlanta Braves',
@@ -469,15 +475,23 @@ var MLB_DETAILED_STATE_ES = {
   'Delayed': 'Retrasado', 'Rain Delay': 'Retrasado por lluvia', 'Game Over': 'Final', 'Final': 'Final'
 };
 
-async function fetchMlbGamesFromStatsApi() {
+// sportId 1 = MLB, 17 = ligas de invierno (ahí está la LIDOM).
+var LIDOM_KEYS = ['licey', 'cibaenas', 'escogido', 'cibao', 'orientales', 'este'];
+function isLidomTeamName(n) { var t = normTeam(n); return LIDOM_KEYS.some(function (k) { return t.endsWith(' ' + k) || t === k; }); }
+async function fetchMlbGamesFromStatsApi(sportId) {
+  sportId = sportId || 1;
   var games = [];
   try {
-    var url = 'https://statsapi.mlb.com/api/v1/schedule?sportId=1&date=' + todayISO() + '&hydrate=linescore,probablePitcher';
+    var url = 'https://statsapi.mlb.com/api/v1/schedule?sportId=' + sportId + '&date=' + todayISO() + '&hydrate=linescore,probablePitcher';
     var res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36' } });
     if (!res.ok) return games;
     var data = await res.json();
     var rawGames = [];
     (data.dates || []).forEach(function (d) { (d.games || []).forEach(function (g) { rawGames.push(g); }); });
+    if (sportId === 17) rawGames = rawGames.filter(function (g) {
+      var h = g.teams && g.teams.home && g.teams.home.team, a = g.teams && g.teams.away && g.teams.away.team;
+      return h && a && isLidomTeamName(h.name) && isLidomTeamName(a.name);
+    });
 
     for (var i = 0; i < rawGames.length; i++) {
       var g = rawGames[i];
@@ -618,6 +632,7 @@ async function updateLiveScores() {
     for (var i = 0; i < sportsList.length; i++) {
       var sport = sportsList[i];
       gamesBySport[sport] = sport === 'beisbol' ? await fetchMlbGamesFromStatsApi()
+        : sport === 'lidom' ? await fetchMlbGamesFromStatsApi(17)
         : sport === 'nhl' ? await fetchNhlGamesFromStatsApi()
         : await fetchEspnGames(SPORT_ESPN_PATH[sport]);
     }
@@ -657,7 +672,7 @@ async function updateLiveScores() {
       // Siempre a partir de lo que reportó la fuente oficial — nunca
       // inventado ni calculado con un reloj local.
       var sportDetail = null;
-      if (m.sport === 'beisbol' && g.sportDetail) {
+      if ((m.sport === 'beisbol' || m.sport === 'lidom') && g.sportDetail) {
         sportDetail = g.sportDetail;
       } else if (m.sport === 'nhl' && g.sportDetail) {
         sportDetail = g.sportDetail;
@@ -1003,7 +1018,7 @@ async function settleBets() {
     if (anyPropPending) {
       for (const key of Object.keys(finishedByKey)) {
         var fm = finishedByKey[key];
-        if (fm.sport === 'beisbol' && fm.espnEventId) {
+        if ((fm.sport === 'beisbol' || fm.sport === 'lidom') && fm.espnEventId) {
           statsByEventId[fm.espnEventId] = await fetchPitcherStrikeouts(fm.espnEventId);
         } else if (fm.sport === 'baloncesto' && fm.espnEventId) {
           try { statsByEventId[fm.espnEventId] = await fetchNbaBoxscore(fm.espnEventId); } catch (e) {}
@@ -1103,6 +1118,35 @@ app.get('/api/me', async (c) => {
 // ordenado: jugadores de cada equipo y comparación de equipos.
 // Se guarda 20 segundos para no pedirlo de nuevo con cada visita.
 var gameStatsCache = {};
+// Box score de béisbol (MLB y LIDOM) desde la API oficial de MLB: bateo y pitcheo de cada jugador.
+async function fetchBaseballBoxscore(gamePk) {
+  var key = 'bb' + gamePk, hit = gameStatsCache[key];
+  if (hit && Date.now() - hit.t < 20000) return hit.data;
+  var res = await fetch('https://statsapi.mlb.com/api/v1/game/' + encodeURIComponent(gamePk) + '/boxscore', { headers: { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36' } });
+  if (!res.ok) return null;
+  var data = await res.json();
+  if (!data || !data.teams) return null;
+  function side(t) {
+    if (!t) return null;
+    var P = t.players || {};
+    var pl = function (id) { return P['ID' + id] || {}; };
+    var batters = (t.batters || []).map(function (id) {
+      var p = pl(id), b = (p.stats && p.stats.batting) || {};
+      return { name: (p.person && p.person.fullName) || '', pos: (p.position && p.position.abbreviation) || '', sub: !!(p.battingOrder && String(p.battingOrder).slice(-2) !== '00'),
+        ab: b.atBats, r: b.runs, h: b.hits, rbi: b.rbi, hr: b.homeRuns, bb: b.baseOnBalls, k: b.strikeOuts };
+    }).filter(function (b) { return b.name && b.pos !== 'P' || (b.ab || 0) > 0; });
+    var pitchers = (t.pitchers || []).map(function (id) {
+      var p = pl(id), x = (p.stats && p.stats.pitching) || {};
+      return { name: (p.person && p.person.fullName) || '', ip: x.inningsPitched, h: x.hits, r: x.runs, er: x.earnedRuns, bb: x.baseOnBalls, k: x.strikeOuts, pc: x.numberOfPitches || x.pitchesThrown };
+    }).filter(function (p) { return p.name; });
+    var ts = t.teamStats || {}, tb = ts.batting || {}, tf = ts.fielding || {};
+    return { name: (t.team && t.team.name) || '', batters: batters, pitchers: pitchers,
+      totals: { r: tb.runs, h: tb.hits, hr: tb.homeRuns, bb: tb.baseOnBalls, k: tb.strikeOuts, lob: tb.leftOnBase, avg: tb.avg, e: tf.errors } };
+  }
+  var out = { kind: 'baseball', away: side(data.teams.away), home: side(data.teams.home) };
+  gameStatsCache[key] = { t: Date.now(), data: out };
+  return out;
+}
 async function fetchNbaBoxscore(eventId) {
   var hit = gameStatsCache[eventId];
   if (hit && Date.now() - hit.t < 20000) return hit.data;
@@ -1155,7 +1199,13 @@ app.get('/api/game-stats/:id', async (c) => {
     if (typeof list === 'string') { try { list = JSON.parse(list); } catch (e) { list = []; } }
     var id = c.req.param('id');
     var m = (Array.isArray(list) ? list : []).find(function (x) { return String(x.id) === String(id); });
-    if (!m || m.sport !== 'baloncesto' || !m.espnEventId) return c.json({ error: 'not_available' }, 404);
+    if (!m || !m.espnEventId) return c.json({ error: 'not_available' }, 404);
+    if (m.sport === 'beisbol' || m.sport === 'lidom') {
+      var bb = await fetchBaseballBoxscore(m.espnEventId);
+      if (!bb) return c.json({ error: 'not_available' }, 404);
+      return c.json(bb);
+    }
+    if (m.sport !== 'baloncesto') return c.json({ error: 'not_available' }, 404);
     var stats = await fetchNbaBoxscore(m.espnEventId);
     if (!stats || !stats.teams.length) return c.json({ error: 'not_available' }, 404);
     return c.json(stats);
@@ -1995,7 +2045,7 @@ app.get('/api/admin/debug-live', async (c) => {
     if (!SPORT_ESPN_PATH[m.sport]) continue;
     var homeEn = lookupEnglishTeam(m.sport, m.home);
     var awayEn = lookupEnglishTeam(m.sport, m.away);
-    var games = m.sport === 'beisbol' ? await fetchMlbGamesFromStatsApi() : m.sport === 'nhl' ? await fetchNhlGamesFromStatsApi() : await fetchEspnGames(SPORT_ESPN_PATH[m.sport]);
+    var games = m.sport === 'beisbol' ? await fetchMlbGamesFromStatsApi() : m.sport === 'lidom' ? await fetchMlbGamesFromStatsApi(17) : m.sport === 'nhl' ? await fetchNhlGamesFromStatsApi() : await fetchEspnGames(SPORT_ESPN_PATH[m.sport]);
     out.push({
       guardado_home: m.home,
       guardado_away: m.away,
