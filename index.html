@@ -686,6 +686,24 @@
   .rc-acts .btn { margin: 0; }
   @media (prefers-reduced-motion: reduce) { .rc-paper.go { animation: none; transform: none; } }
   .co-left-note { font-size: 12px; color: #067647; background: #ECFDF3; border-radius: 10px; padding: 7px 10px; margin-top: 6px; line-height: 1.35; text-align: center; }
+  .lv-chips { margin-bottom: 4px; }
+  .lv-chips .chip { display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .lv-n { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--live); color: #fff; font-size: 11.5px; font-weight: 800; display: inline-grid; place-items: center; }
+  .chip.active .lv-n { background: #fff; color: var(--accent); }
+  .lv-league { display: flex; align-items: center; gap: 8px; margin: 14px 2px 8px; font-size: 13px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: .04em; }
+  .lv-league span { font-size: 11px; color: var(--text-faint); background: var(--surface); border-radius: 999px; padding: 1px 8px; }
+  .live-badge { animation: lvpulse 1.6s ease-in-out infinite; }
+  @keyframes lvpulse { 0%, 100% { box-shadow: 0 0 0 0 rgba(240,20,70,.5); } 50% { box-shadow: 0 0 0 5px rgba(240,20,70,0); } }
+  .bn-item.live-tab.has-live { color: var(--live); }
+  @media (prefers-reduced-motion: reduce) { .live-badge { animation: none; } }
+  .res-day { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 16px 2px 8px; font-size: 13.5px; font-weight: 800; color: var(--text); }
+  .res-day span { font-size: 11.5px; font-weight: 700; color: var(--text-faint); }
+  .res-all { margin-top: 6px; }
+  .lv-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; background: var(--surface); border: 1px solid var(--border); border-radius: 999px; padding: 4px; margin: 4px 0 12px; }
+  .lv-tabs button { border: 0; background: transparent; border-radius: 999px; padding: 11px 8px; font: inherit; font-size: 14.5px; font-weight: 800; color: var(--text-dim); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
+  .lv-tabs button.on { background: var(--accent); color: #fff; box-shadow: var(--shadow-red); }
+  .lv-tabs button span { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--live); color: #fff; font-size: 11.5px; display: inline-grid; place-items: center; }
+  .lv-tabs button.on span { background: #fff; color: var(--accent); }
 </style>
 </head>
 <body>
@@ -754,7 +772,7 @@
 <nav class="bottom" aria-label="Navegación principal">
   <div class="bn">
     <button class="bn-item active" data-view="home"><span class="bn-ic">🏠</span><span>Inicio</span></button>
-    <button class="bn-item" data-view="live"><span class="bn-ic">🔴</span><span>En vivo</span></button>
+    <button class="bn-item live-tab" data-view="live"><span class="bn-ic">🔴</span><span id="liveTabTxt">En vivo</span><b class="badge live-badge" id="liveBadge">0</b></button>
     <button class="bn-item bets" data-view="bets"><span class="bn-ic">🎟️</span><span>Mis apuestas</span><b class="badge" id="betsBadge">0</b></button>
     <button class="bn-item" data-view="promos"><span class="bn-ic">🎁</span><span>Promociones</span></button>
     <button class="bn-item" data-view="search"><span class="bn-ic">🔍</span><span>Buscar</span></button>
@@ -1068,7 +1086,6 @@
   async function loadMatches() {
     var data = await apiGet('/api/matches');
     var list = stampToday(Array.isArray(data) ? data : []);
-    noteClocks(list);
     return list;
   }
 
@@ -1076,29 +1093,20 @@
      El marcador llega cada pocos segundos; entre una actualización y otra el reloj
      sigue bajando en la pantalla. Si el reloj del juego está parado (tiempo muerto,
      tiros libres, intermedio) no se mueve. */
-  var clockMem = {};
+  // El servidor dice si el reloj está corriendo (clockRunning) y desde cuándo (clockAt).
+  // Si está parado (tiempo muerto, falta, intermedio) se queda quieto.
+  // Corriendo, se adelanta como mucho 9 segundos hasta que llegue la próxima lectura.
   function clockSecs(txt) {
     var t = String(txt || '').trim(), m = /^(\d+):(\d{1,2})(?:\.\d+)?$/.exec(t);
     if (m) return Number(m[1]) * 60 + Number(m[2]);
     m = /^(\d+(?:\.\d+)?)$/.exec(t); if (m) return Math.floor(Number(m[1]));
     return null;
   }
-  function noteClocks(list) {
-    var now = Date.now();
-    list.forEach(function (m) {
-      var d = m.score && m.score.detail;
-      if (!m.live || !d || !d.clock || d.inIntermission) { delete clockMem[m.id]; return; }
-      var secs = clockSecs(d.clock); if (secs === null) { delete clockMem[m.id]; return; }
-      var per = d.quarter || d.period || 0, prev = clockMem[m.id];
-      if (!prev || prev.per !== per) { clockMem[m.id] = { secs: secs, at: now, per: per, running: false }; return; }
-      if (secs !== prev.secs) clockMem[m.id] = { secs: secs, at: now, per: per, running: secs < prev.secs };
-      else if (now - prev.at > 30000) prev.running = false; // lleva rato igual: está parado
-    });
-  }
-  function liveClockText(m, fallback) {
-    var c = clockMem[m.id]; if (!c) return fallback;
-    var left = c.secs;
-    if (c.running) left = Math.max(0, c.secs - Math.min(30, Math.floor((Date.now() - c.at) / 1000)));
+    function liveClockText(m, fallback) {
+    var d = (m.score && m.score.detail) || {}, secs = clockSecs(d.clock);
+    if (secs === null || !m.live) return fallback;
+    var left = secs;
+    if (d.clockRunning && d.clockAt) left = Math.max(0, secs - Math.min(9, Math.max(0, Math.floor((nowMs() - Number(d.clockAt)) / 1000))));
     return Math.floor(left / 60) + ':' + String(left % 60).padStart(2, '0');
   }
   function clockSpan(m, fallback) {
@@ -1136,7 +1144,7 @@
 
   /* ---------- Estado ---------- */
   var state = {
-    view: 'home', sport: 'all', slip: {}, slipMode: 'singles', slipModeManual: false, parlayStake: 10,
+    view: 'home', sport: 'all', results: [], slip: {}, slipMode: 'singles', slipModeManual: false, parlayStake: 10,
     user: null, balance: 0, history: [], matches: [],
     authMode: 'login', searchQuery: '', expanded: {}, expandedZone: {}, expandedLiveRow: {}, isAdmin: false, cashPanel: null, cashAmt: 50, extrasLoaded: false, cashoutConfirm: null, winDismissed: false, favs: loadFavs(), limits: { period: 'day', amount: 0, used: 0 }, limitDraft: null, verify: { status: 'none' }, vfDraft: { dob: '' }, withdrawals: [], payoutLabel: null
   };
@@ -1491,18 +1499,63 @@
     });
     return html;
   }
-  function resultsHTML() {
-    var list = state.matches.filter(function (m) { return m.finished && (state.sport === 'all' || m.sport === state.sport); });
-    var html = '<div class="sec-title">🏁 Resultados<span class="count">' + list.length + ' partidos</span></div><p class="sec-sub">Partidos terminados y su marcador final.</p>';
-    if (!list.length) return html + emptyHTML('🏁', 'Todavía no hay partidos terminados.');
-    list.forEach(function (m) {
-      var sa = m.score ? Number(m.score.away) : NaN, sh = m.score ? Number(m.score.home) : NaN;
-      function row(name, sc, win) { var b = teamBadge(name); return '<div class="res-team' + (win ? ' w' : '') + '"><span class="mc-badge" style="' + badgeStyle(b) + '">' + esc(b.abbr) + '</span><span class="nm">' + esc(name) + '</span><span class="sc">' + (isNaN(sc) ? '—' : sc) + '</span></div>'; }
-      html += '<div class="res-card"><div class="res-head"><b>' + esc((SPORT_ICON[m.sport] || '') + ' ' + (SPORT_LABELS[m.sport] || m.sportLabel || '')) + '</b><span>Final · ' + esc(m.time || '') + '</span></div>' +
-        row(m.away, sa, sa > sh) + row(m.home, sh, sh > sa) +
-        (hasFullStats(m) ? '<button type="button" class="ldr-more" data-stats-open="' + esc(m.id) + '">📋 Ver estadísticas completas</button>' : '') + '</div>';
-    });
+  /* ---------- Resultados guardados (con su fecha) ---------- */
+  var resultsLoadedAt = 0;
+  async function loadResults(force) {
+    if (!force && Date.now() - resultsLoadedAt < 60000) return;
+    resultsLoadedAt = Date.now();
+    var d = await apiGet('/api/results?days=30');
+    if (Array.isArray(d)) state.results = d;
+  }
+  // Todos los terminados: los guardados más los que todavía están en la lista.
+  function finishedList(sport) {
+    var byId = {};
+    (state.results || []).forEach(function (m) { byId[m.id] = m; });
+    state.matches.forEach(function (m) { if (m.finished) byId[m.id] = m; });
+    return Object.keys(byId).map(function (k) { return byId[k]; })
+      .filter(function (m) { return sport === 'all' || m.sport === sport; })
+      .sort(function (a, b) { return (Date.parse(b.startAt) || 0) - (Date.parse(a.startAt) || 0); });
+  }
+  function findAnyMatch(id) {
+    return state.matches.filter(function (x) { return String(x.id) === String(id); })[0] ||
+      (state.results || []).filter(function (x) { return String(x.id) === String(id); })[0];
+  }
+  function dayTitle(ms) {
+    var day = prYMD(ms), today = prYMD(nowMs()), yest = prYMD(nowMs() - 86400000);
+    if (day === today) return 'Hoy';
+    if (day === yest) return 'Ayer';
+    var t = new Date(ms).toLocaleDateString('es-DO', { timeZone: PR_TZ, weekday: 'long', day: 'numeric', month: 'long' });
+    return t.charAt(0).toUpperCase() + t.slice(1);
+  }
+  function resCardHTML(m) {
+    var sa = m.score ? Number(m.score.away) : NaN, sh = m.score ? Number(m.score.home) : NaN;
+    function row(name, sc, win) { var b = teamBadge(name); return '<div class="res-team' + (win ? ' w' : '') + '"><span class="mc-badge" style="' + badgeStyle(b) + '">' + esc(b.abbr) + '</span><span class="nm">' + esc(name) + '</span><span class="sc">' + (isNaN(sc) ? '—' : sc) + '</span></div>'; }
+    var t = Date.parse(m.startAt), hora = isNaN(t) ? '' : new Date(t).toLocaleTimeString('es-DO', { timeZone: PR_TZ, hour: 'numeric', minute: '2-digit', hour12: true });
+    var canStats = hasFullStats(m) && (!m.archived || !!m.espnEventId);
+    return '<div class="res-card"><div class="res-head"><b>' + esc((SPORT_ICON[m.sport] || '') + ' ' + (SPORT_LABELS[m.sport] || m.sportLabel || '')) + '</b><span>Final' + (hora ? ' · ' + esc(hora) : '') + '</span></div>' +
+      row(m.away, sa, sa > sh) + row(m.home, sh, sh > sa) +
+      (canStats ? '<button type="button" class="ldr-more" data-stats-open="' + esc(m.id) + '">📋 Ver estadísticas completas</button>' : '') + '</div>';
+  }
+  // Lista agrupada por día: "Hoy", "Ayer", "Jueves, 29 de octubre"…
+  function finishedByDayHTML(list, maxDays) {
+    var html = '', lastDay = null, days = 0;
+    for (var i = 0; i < list.length; i++) {
+      var m = list[i], t = Date.parse(m.startAt) || 0, day = prYMD(t);
+      if (day !== lastDay) {
+        days++; if (maxDays && days > maxDays) break;
+        var n = list.filter(function (x) { return prYMD(Date.parse(x.startAt) || 0) === day; }).length;
+        html += '<div class="res-day">' + esc(dayTitle(t)) + '<span>' + n + (n === 1 ? ' partido' : ' partidos') + '</span></div>';
+        lastDay = day;
+      }
+      html += resCardHTML(m);
+    }
     return html;
+  }
+  function resultsHTML() {
+    var list = finishedList(state.sport);
+    var html = '<div class="sec-title">🏁 Resultados<span class="count">' + list.length + ' partidos</span></div><p class="sec-sub">Partidos terminados con su marcador final, por día.</p>';
+    if (!list.length) return html + emptyHTML('🏁', 'Todavía no hay partidos terminados.');
+    return html + finishedByDayHTML(list, 0);
   }
   function homeHTML() {
     var list = state.matches.filter(function (m) { return (state.sport === 'all' || m.sport === state.sport) && !isBettingClosed(m); });
@@ -1524,23 +1577,51 @@
     }
     return html;
   }
+  // Ligas en el orden en que se enseñan en "En vivo".
+  var LIVE_LEAGUES = [['baloncesto', 'NBA', '🏀'], ['lidom', 'LIDOM', '⚾'], ['beisbol', 'MLB', '⚾'], ['nfl', 'NFL', '🏈'], ['nhl', 'NHL', '🏒']];
   function liveHTML() {
-    var live = state.matches.filter(function (m) { return m.live; });
+    var all = state.matches;
+    var isLiveNow = function (m) { return m.live || (!m.finished && isBettingClosed(m)); };
+    var sel = state.liveSport || 'all';
+    // Botones por liga: cada uno dice cuántos juegos tiene en vivo ahora.
+    var finAll = finishedList('all');
+    var leagues = LIVE_LEAGUES.filter(function (L) { return all.some(function (m) { return m.sport === L[0] && (isLiveNow(m) || /^hoy/i.test(m.time || '')); }) || finAll.some(function (m) { return m.sport === L[0]; }); });
+    if (sel !== 'all' && !leagues.some(function (L) { return L[0] === sel; })) sel = state.liveSport = 'all';
+    var nLive = function (sp) { return all.filter(function (m) { return (sp === 'all' || m.sport === sp) && isLiveNow(m); }).length; };
+    var chipsHtml = '<div class="chips lv-chips">' + [['all', 'Todos', '']].concat(leagues).map(function (L) {
+      var n = nLive(L[0]);
+      return '<button type="button" class="chip' + (sel === L[0] ? ' active' : '') + '" data-live-sport="' + L[0] + '">' + (L[2] ? L[2] + ' ' : '') + L[1] + '</button>';
+    }).join('') + '</div>';
+    var pick = function (m) { return sel === 'all' || m.sport === sel; };
+    var live = all.filter(function (m) { return m.live && pick(m); });
     // Ya llegó su hora pero la fuente todavía no lo marca en vivo: se enseña como "Comenzando".
-    var starting = state.matches.filter(function (m) { return !m.live && !m.finished && isBettingClosed(m); });
-    var soon = state.matches.filter(function (m) { return !isBettingClosed(m) && /^hoy/i.test(m.time || ''); });
-    var finished = state.matches.filter(function (m) { return m.finished; });
-    var html = '<div class="sec-title">🔴 En vivo ahora<span class="count">' + (live.length + starting.length) + '</span></div>';
-    if (live.length) live.forEach(function (m) { html += liveRowHTML(m); });
-    starting.forEach(function (m) { html += matchCard(m); });
-    if (!live.length && !starting.length) html += emptyHTML('📡', 'No hay partidos en vivo en este momento.');
+    var starting = all.filter(function (m) { return !m.live && !m.finished && isBettingClosed(m) && pick(m); });
+    var soon = all.filter(function (m) { return !isBettingClosed(m) && /^hoy/i.test(m.time || '') && pick(m); });
+    var finished = finishedList(sel);
+    // Dos pestañas aparte: "En vivo" y "Finalizados".
+    var tab = state.liveTab === 'fin' ? 'fin' : 'live';
+    var tabsHtml = '<div class="lv-tabs"><button type="button" data-live-tab="live" class="' + (tab === 'live' ? 'on' : '') + '">🔴 En vivo</button>' +
+      '<button type="button" data-live-tab="fin" class="' + (tab === 'fin' ? 'on' : '') + '">✅ Finalizados</button></div>';
+    if (tab === 'fin') {
+      var fh = tabsHtml + chipsHtml;
+      if (!finished.length) return fh + emptyHTML('🏁', 'Todavía no hay partidos terminados.');
+      return fh + finishedByDayHTML(finished, 0);
+    }
+    var html = tabsHtml + chipsHtml + '<div class="sec-title">🔴 En vivo ahora<span class="count">' + (live.length + starting.length) + '</span></div>';
+    // En "Todos" los juegos en vivo van separados por liga.
+    LIVE_LEAGUES.forEach(function (L) {
+      var lv = live.filter(function (m) { return m.sport === L[0]; }), st = starting.filter(function (m) { return m.sport === L[0]; });
+      if (!lv.length && !st.length) return;
+      if (sel === 'all') html += '<div class="lv-league">' + L[2] + ' ' + L[1] + '<span>' + (lv.length + st.length) + '</span></div>';
+      lv.forEach(function (m) { html += liveRowHTML(m); });
+      st.forEach(function (m) { html += matchCard(m); });
+    });
+    var others = live.concat(starting).filter(function (m) { return !LIVE_LEAGUES.some(function (L) { return L[0] === m.sport; }); });
+    others.forEach(function (m) { html += m.live ? liveRowHTML(m) : matchCard(m); });
+    if (!live.length && !starting.length) html += emptyHTML('📡', sel === 'all' ? 'No hay partidos en vivo en este momento.' : 'No hay partidos de esta liga en vivo ahora.');
     if (soon.length) {
       html += '<div class="sec-title">⏱️ Comienzan hoy<span class="count">' + soon.length + '</span></div>';
       soon.forEach(function (m) { html += matchCard(m); });
-    }
-    if (finished.length) {
-      html += '<div class="sec-title">✅ Finalizados<span class="count">' + finished.length + '</span></div>';
-      finished.forEach(function (m) { html += matchCard(m); });
     }
     return html;
   }
@@ -1736,7 +1817,17 @@
       b.classList.toggle('active', b.dataset.view === state.view);
     });
   }
+  // Abajo, en "En vivo": cuántos juegos hay en vivo ahora mismo.
+  function updateLiveBadge() {
+    var n = state.matches.filter(function (m) { return m.live || (!m.finished && isBettingClosed(m)); }).length, b = $('liveBadge'), tab = b && b.parentNode;
+    if (!b) return;
+    b.textContent = n > 99 ? '99+' : n;
+    b.style.display = n > 0 ? 'flex' : 'none';
+    tab.classList.toggle('has-live', n > 0);
+    tab.setAttribute('aria-label', n > 0 ? 'En vivo: ' + n + (n === 1 ? ' juego' : ' juegos') + ' ahora' : 'En vivo');
+  }
   function renderView() {
+    updateLiveBadge();
     var app = $('app'), v = state.view;
     if (v === 'home') app.innerHTML = homeHTML();
     else if (v === 'live') app.innerHTML = liveHTML();
@@ -1750,6 +1841,7 @@
   function setView(v, focusSearch) {
     state.view = v;
     renderView();
+    if (v === 'live' || v === 'results') loadResults().then(function () { if (state.view === v) { var y = window.scrollY; renderView(); window.scrollTo(0, y); } });
     window.scrollTo(0, 0);
     if (v === 'search' && focusSearch) { var i = $('searchInput'); if (i) i.focus(); }
   }
@@ -2302,6 +2394,8 @@
       return;
     }
     var go = t.closest('[data-goto]'); if (go) { goToMatch(go.dataset.goto); return; }
+    var ltab = t.closest('[data-live-tab]'); if (ltab) { state.liveTab = ltab.dataset.liveTab; renderView(); window.scrollTo(0, 0); return; }
+    var lchip = t.closest('[data-live-sport]'); if (lchip) { state.liveSport = lchip.dataset.liveSport; renderView(); return; }
     var chip = t.closest('[data-sport]'); if (chip) { state.sport = chip.dataset.sport; renderView(); return; }
     var q = t.closest('[data-q]');
     if (q) { state.searchQuery = q.dataset.q; var inp = $('searchInput'); if (inp) inp.value = state.searchQuery; updateSearchResults(); return; }
@@ -2456,7 +2550,7 @@
     return rows || '<div class="ldr-empty">Las estadísticas de este partido todavía no están disponibles. Vuelve a intentarlo en unos minutos.</div>';
   }
   function renderStats() {
-    var m = state.matches.filter(function (x) { return String(x.id) === String(statsView.id); })[0];
+    var m = findAnyMatch(statsView.id);
     if (!m) { closeStats(); return; }
     var sc = m.score || {}, ba = teamBadge(m.away), bh = teamBadge(m.home);
     $('statsScore').innerHTML = '<div class="st-team"><b class="mc-badge" style="' + badgeStyle(ba) + '">' + esc(ba.abbr) + '</b><span>' + esc(m.away) + '</span></div>' +
@@ -2598,7 +2692,7 @@
   // Revisa cada 30 segundos si algún partido pasó a "en vivo" (o terminó),
   // para que se mueva solo entre "Comienzan hoy" y "En vivo ahora" sin que
   // el jugador tenga que recargar la página.
-  // Con juegos en vivo se actualiza cada 7 segundos; si no, cada 15.
+  // Con juegos en vivo se actualiza cada 5 segundos; si no, cada 15.
   var lastPoll = 0;
   setInterval(async function () {
     if (document.visibilityState !== 'visible') return;
@@ -2607,9 +2701,10 @@
     if (!anyLive && Date.now() - lastPoll < 15000) return;
     lastPoll = Date.now();
     state.matches = await loadMatches(); pruneSlip();
+    if (state.view === 'live' || state.view === 'results') await loadResults();
     if (state.view === 'bets' && state.user && openBets().length) state.history = (await apiGet('/api/bets')) || state.history;
     var y = window.scrollY; renderView(); window.scrollTo(0, y);
-  }, 7000);
+  }, 5000);
 
   // Avisa al servidor que el jugador sigue en la página (para "En línea" en el panel)
   // y de paso trae el saldo al día, por si el admin le recargó o descontó.
@@ -2624,6 +2719,7 @@
   /* ---------- Inicio ---------- */
   (async function bootstrap() {
     state.matches = await loadMatches(); pruneSlip();
+    await loadResults(true);
     var me = await apiGet('/api/me');
     if (me) {
       state.user = { email: me.email };
@@ -2790,7 +2886,7 @@
     ['Apuesta', 'Bet'], ['paga', 'pays'], ['Final ·', 'Final ·'], ['Promociones', 'Promotions'], ['Resultados', 'Results'],
     ['En vivo', 'Live'], ['Ganador', 'Winner'], ['Hándicap', 'Handicap'], ['carreras', 'runs'], ['puntos', 'points'], ['goles', 'goals'],
     ['Imprimiendo tu ticket…', 'Printing your ticket…'], ['¡Listo! Apuesta confirmada', 'Done! Bet confirmed'], ['📲 Compartir jugada', '📲 Share bet'],
-    ['SI GANAS', 'IF YOU WIN'], ['🧾 Ver ticket y compartir', '🧾 View ticket & share'], ['Tu ticket', 'Your ticket'], ['Se guardó la foto del ticket. Mándala por WhatsApp o donde quieras.', 'The ticket image was saved. Send it on WhatsApp or anywhere.'], ['APUESTA SENCILLA', 'SINGLE BET'], ['Apostaste', 'You bet'], ['cuota total', 'total odds'],
+    ['SI GANAS', 'IF YOU WIN'], ['Ver todos los resultados', 'See all results'], ['Ayer', 'Yesterday'], ['Partidos terminados con su marcador final, por día.', 'Finished games with their final score, by day.'], ['🧾 Ver ticket y compartir', '🧾 View ticket & share'], ['Tu ticket', 'Your ticket'], ['Se guardó la foto del ticket. Mándala por WhatsApp o donde quieras.', 'The ticket image was saved. Send it on WhatsApp or anywhere.'], ['APUESTA SENCILLA', 'SINGLE BET'], ['Apostaste', 'You bet'], ['cuota total', 'total odds'],
     ['Más ', 'Over '], ['Menos ', 'Under '], ['Cerrar', 'Close'], ['Hoy ', 'Today '], ['Mañana ', 'Tomorrow ']
   ];
   PHRASES.sort(function (a, b) { return b[0].length - a[0].length; });
