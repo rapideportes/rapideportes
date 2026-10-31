@@ -84,6 +84,15 @@ await sql`CREATE TABLE IF NOT EXISTS balance_adjustments (
 )`;
 await sql`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_seen TIMESTAMPTZ`;
 
+// Recuperar contraseña: se guarda solo el "hash" del enlace, nunca el enlace en sí.
+await sql`CREATE TABLE IF NOT EXISTS password_resets (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at TIMESTAMPTZ,
+  created_at TIMESTAMPTZ DEFAULT now()
+)`;
+
 async function payoutMethod(userId) {
   const rows = await sql`SELECT method_ref, method_label FROM deposits
     WHERE user_id = ${userId} AND status = 'approved' AND method_ref IS NOT NULL
@@ -1058,6 +1067,73 @@ tick();
 
 const app = new Hono();
 
+// ---------- Recuperar contraseña ----------
+// Se activa al poner RESEND_API_KEY (y MAIL_FROM, ej. "RapiDeportes <no-responder@rapideportes.com>") en Railway.
+function emailEnabled() { return !!Bun.env.RESEND_API_KEY; }
+function sha256Hex(t) { return new Bun.CryptoHasher('sha256').update(t).digest('hex'); }
+function randomToken(bytes) { var a = new Uint8Array(bytes); crypto.getRandomValues(a); return Array.from(a, function (b) { return b.toString(16).padStart(2, '0'); }).join(''); }
+function publicBase(c) {
+  if (Bun.env.PUBLIC_URL) return String(Bun.env.PUBLIC_URL).replace(/\/+$/, '');
+  var u = new URL(c.req.url);
+  var proto = c.req.header('x-forwarded-proto') || u.protocol.replace(':', '');
+  var host = c.req.header('x-forwarded-host') || c.req.header('host') || u.host;
+  return proto + '://' + host;
+}
+var resetLimiter = new Map(); // correo o IP -> últimos pedidos (para que no abusen)
+function tooMany(key, max, ms) {
+  var now = Date.now(), arr = (resetLimiter.get(key) || []).filter(function (t) { return now - t < ms; });
+  if (arr.length >= max) { resetLimiter.set(key, arr); return true; }
+  arr.push(now); resetLimiter.set(key, arr); return false;
+}
+async function sendResetEmail(to, link) {
+  var from = Bun.env.MAIL_FROM || 'RapiDeportes <no-responder@rapideportes.com>';
+  var html = '<div style="font-family:Arial,sans-serif;max-width:520px;margin:auto;color:#101828">' +
+    '<div style="background:#0B1630;border-bottom:3px solid #F01446;padding:18px 22px;border-radius:12px 12px 0 0"><b style="color:#fff;font-size:20px">Rapi<span style="color:#F01446">deportes</span></b></div>' +
+    '<div style="border:1px solid #EAECF0;border-top:none;padding:22px;border-radius:0 0 12px 12px">' +
+    '<h2 style="margin:0 0 10px">Crea una contraseña nueva</h2>' +
+    '<p style="color:#475467;line-height:1.5">Recibimos un pedido para cambiar la contraseña de tu cuenta. Toca el botón para crear una nueva. El enlace vence en 1 hora y sirve una sola vez.</p>' +
+    '<p style="margin:22px 0"><a href="' + link + '" style="background:#F01446;color:#fff;text-decoration:none;padding:13px 22px;border-radius:999px;font-weight:bold;display:inline-block">Crear contraseña nueva</a></p>' +
+    '<p style="color:#667085;font-size:13px;line-height:1.5">Si tú no lo pediste, ignora este correo: tu contraseña sigue igual.</p></div></div>';
+  var res = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: { 'Authorization': 'Bearer ' + Bun.env.RESEND_API_KEY, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from: from, to: [to], subject: 'Recupera tu contraseña de RapiDeportes', html: html })
+  });
+  return res.ok;
+}
+app.get('/api/password/status', (c) => c.json({ emailEnabled: emailEnabled() }));
+app.post('/api/password/forgot', async (c) => {
+  let body = {};
+  try { body = await c.req.json(); } catch (e) {}
+  const email = String(body.email || '').trim().toLowerCase();
+  if (!emailEnabled()) return c.json({ ok: false, emailEnabled: false });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return c.json({ error: 'invalid' }, 400);
+  const ip = c.req.header('x-forwarded-for') || 'ip';
+  // Siempre contestamos lo mismo, exista o no la cuenta (así nadie averigua qué correos están registrados).
+  if (tooMany('e:' + email, 3, 15 * 60 * 1000) || tooMany('i:' + ip, 10, 15 * 60 * 1000)) return c.json({ ok: true });
+  const u = await sql`SELECT id FROM users WHERE email = ${email}`;
+  if (u[0]) {
+    const token = randomToken(32);
+    await sql`INSERT INTO password_resets (token_hash, user_id, expires_at) VALUES (${sha256Hex(token)}, ${u[0].id}, now() + interval '1 hour')`;
+    try { await sendResetEmail(email, publicBase(c) + '/?reset=' + token); } catch (e) {}
+  }
+  return c.json({ ok: true });
+});
+app.post('/api/password/reset', async (c) => {
+  let body = {};
+  try { body = await c.req.json(); } catch (e) {}
+  const token = String(body.token || ''), password = String(body.password || '');
+  if (password.length < 6) return c.json({ error: 'short' }, 400);
+  if (!/^[a-f0-9]{64}$/.test(token)) return c.json({ error: 'invalid_link' }, 400);
+  const rows = await sql`UPDATE password_resets SET used_at = now()
+    WHERE token_hash = ${sha256Hex(token)} AND used_at IS NULL AND expires_at > now() RETURNING user_id`;
+  if (!rows[0]) return c.json({ error: 'invalid_link' }, 400);
+  const hash = await Bun.password.hash(password);
+  await sql`UPDATE users SET password_hash = ${hash} WHERE id = ${rows[0].user_id}`;
+  await sql`DELETE FROM sessions WHERE user_id = ${rows[0].user_id}`; // cierra la sesión en todos los aparatos
+  return c.json({ ok: true });
+});
+
 app.post('/api/register', async (c) => {
   let body;
   try { body = await c.req.json(); } catch (e) { return c.json({ error: 'bad_request' }, 400); }
@@ -1709,6 +1785,21 @@ app.get('/api/admin/players/:id', async (c) => {
 });
 
 // Recargar (type: 'credit') o descontar (type: 'debit') saldo a mano.
+// El admin le pone una contraseña temporal a un jugador (para dársela por WhatsApp).
+app.post('/api/admin/players/:id/password', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'unauthorized' }, 401);
+  const id = Number(c.req.param('id'));
+  if (!Number.isInteger(id)) return c.json({ error: 'not_found' }, 404);
+  const abc = 'abcdefghjkmnpqrstuvwxyz23456789';
+  var r = new Uint8Array(8); crypto.getRandomValues(r);
+  const temp = Array.from(r, function (b) { return abc[b % abc.length]; }).join('');
+  const hash = await Bun.password.hash(temp);
+  const rows = await sql`UPDATE users SET password_hash = ${hash} WHERE id = ${id} RETURNING email`;
+  if (!rows[0]) return c.json({ error: 'not_found' }, 404);
+  await sql`DELETE FROM sessions WHERE user_id = ${id}`;
+  return c.json({ ok: true, email: rows[0].email, password: temp });
+});
+
 app.post('/api/admin/players/:id/adjust', async (c) => {
   if (!isAdminReq(c)) return c.json({ error: 'unauthorized' }, 401);
   let body;
