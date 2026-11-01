@@ -2361,6 +2361,7 @@
       var errCode = res.data && res.data.error;
       if (errCode === 'odds_changed') { await resyncSlipOdds(); showToast('Las cuotas cambiaron. Revisa tu boleto y confirma otra vez.'); return; }
       if (errCode === 'max_prop_stake') { showToast('En apuestas con jugadores el máximo es ' + fmtMoney(res.data.limit) + '.'); return; }
+      if (errCode === 'max_selection') { showToast('Ya tienes apostado en esa jugada. El máximo por jugada es ' + fmtMoney(res.data.limit) + (res.data.left > 0 ? '; te quedan ' + fmtMoney(res.data.left) + '.' : '.')); return; }
       if (errCode === 'max_stake') { showToast('El máximo por apuesta es ' + fmtMoney(res.data.limit) + '.'); return; }
       if (errCode === 'max_payout') { showToast('El pago máximo por ticket es ' + fmtMoney(res.data.limit) + '. Baja el monto.'); return; }
       if (errCode === 'min_stake') { showToast('El mínimo por apuesta es ' + fmtMoney(res.data.limit) + '.'); return; }
