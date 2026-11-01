@@ -1674,7 +1674,7 @@
     if (!d) { box.innerHTML = '<p class="imp-empty">No se pudo buscar. Intenta otra vez.</p>'; return; }
     imp.games = d.games || []; imp.sport = document.getElementById('impSport').value; imp.picked = {}; imp.props = {}; loadPapiUsage();
     imp.games.forEach(function (g) { if (!impExists(g)) imp.picked[impKey(g)] = true; });
-    impRender();
+    impRender(); loadPapiUsage();
   });
   document.getElementById('papiTest').addEventListener('click', async function () {
     var o = document.getElementById('papiOut'); o.hidden = false; o.textContent = 'Probando conexión…';
@@ -1683,6 +1683,7 @@
     if (!d.key) { o.textContent = '⚠️ No encontré la clave. En Railway → Variables pon ODDSPAPI_KEY con tu clave y espera a que se reinicie.'; return; }
     o.textContent = '✅ Clave encontrada. Mándale una foto de esto a Claude:\n\n' +
       Object.keys(d).filter(function (k) { return k !== 'key'; }).map(function (k) { return k.toUpperCase() + ':\n' + d[k]; }).join('\n\n');
+    loadPapiUsage();
   });
   document.getElementById('impMargin').addEventListener('input', function () { if (imp.games.length) impRender(); });
   document.getElementById('impList').addEventListener('change', function (e) {
