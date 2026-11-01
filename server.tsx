@@ -1801,7 +1801,18 @@ app.get('/api/admin/oddspapi-test', async (c) => {
       var od = await oddsPapi('odds-by-tournaments', { bookmaker: bkSlug, tournamentIds: String(nbaT.tournamentId), oddsFormat: 'decimal' });
       var ods = Array.isArray(od.data) ? od.data : [];
       out.oddsStatus = od.status || od.error;
-      out.oddsSample = papiShort(ods.slice(0, 1), 2500) || papiShort(od.data || od.text, 600);
+      out.oddsSample = papiShort(ods.slice(0, 1), 1200) || papiShort(od.data || od.text, 600);
+      // Jugadores: qué mercados de jugador trae PokerStars y cómo vienen.
+      var propDefs = mks.filter(function (m) { return m.playerProp; });
+      out.playerMarkets = papiShort(propDefs.slice(0, 6).map(function (m) { return { marketId: m.marketId, marketName: m.marketName, marketType: m.marketType, handicap: m.handicap, period: m.period, outcomes: m.outcomes }; }), 1500) || 'sin mercados de jugador';
+      var propIds = {}; propDefs.forEach(function (m) { propIds[m.marketId] = m.marketName; });
+      var sample = [];
+      ods.some(function (f) {
+        var bm = f.bookmakerOdds && f.bookmakerOdds.pokerstars && f.bookmakerOdds.pokerstars.markets || {};
+        Object.keys(bm).forEach(function (mid) { if (propIds[mid] && sample.length < 3) sample.push({ marketId: mid, name: propIds[mid], outcomes: bm[mid].outcomes }); });
+        return sample.length >= 3;
+      });
+      out.playerOdds = papiShort(sample, 2000) || 'PokerStars no trae jugadores en esta muestra';
     }
   }
   return c.json(out);
