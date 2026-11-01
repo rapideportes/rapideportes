@@ -733,6 +733,8 @@
   .tk-top .tk-brand { font-size: 22px; }
   .tk-lg { letter-spacing: .08em; min-width: 0; overflow: hidden; }
   .tk-pick.pl b { font-size: 28px; }
+  .tk-pick:not(.pl) b { white-space: nowrap; overflow: hidden; }
+  .tk-pick > div { min-width: 0; }
   .tk-brand em { font-style: normal; color: var(--accent); }
   .tk-game { font-weight: 800; font-size: 15px; margin: 14px 0 10px; }
   .tk-pick { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
@@ -756,10 +758,12 @@
   .tk-tape span { display: inline-flex; gap: 10px; align-items: center; padding: 8px 14px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12.5px; font-weight: 700; color: #FDA4B8; letter-spacing: .08em; }
   .tk-tape span b { font-family: var(--font-display); font-size: 17px; letter-spacing: 0; color: #fff; }
   @keyframes tktape { to { transform: translateX(-50%); } }
-  .tk-nums { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 0 10px; }
-  .tk-nums small { display: block; font-size: 11.5px; font-weight: 800; letter-spacing: .1em; color: #D0D5DD; }
+  .tk-nums { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 16px 0 12px; }
+  .tk-sum { font-size: 13.5px; font-weight: 700; color: #E4E7EC; padding: 2px 0 12px; }
+  .tk-nums small { display: block; font-size: 11.5px; font-weight: 800; letter-spacing: .1em; color: #D0D5DD; white-space: nowrap; }
   .tk-nums small.hl { color: #FDA4B8; }
-  .tk-nums b { display: block; font-family: var(--font-display); font-weight: 900; font-size: 36px; line-height: 1.05; }
+  .tk-nums b { display: block; font-family: var(--font-display); font-weight: 900; font-size: 36px; line-height: 1.05; white-space: nowrap; overflow: hidden; }
+  .tk-nums > div { min-width: 0; }
   .tk-nums b.hl { color: #FF5C82; }
   .tk-foot { display: flex; justify-content: space-between; gap: 10px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; color: #98A2B3; letter-spacing: .08em; }
   .tk-st.won { color: #32D583; } .tk-st.lost { color: #FF5C82; }
@@ -2340,8 +2344,9 @@
       shirt: single ? (L0.player || !L0.team ? { split: [teamBadge(L0.away).color, teamBadge(L0.home).color] } : { solid: teamBadge(L0.team).color }) : { stripes: legs.map(function (l) { return l.color; }) },
       lg: parlay ? 'COMBINADA ×' + legs.length : lg || 'DEPORTES', game: gameTitle, mainName: mainName, mainSub: mainSub, avatar: av, mainRes: L0.res || '',
       legs: legs.map(function (l) { return { dot: l.player ? [teamBadge(l.away).color, teamBadge(l.home).color] : [l.color], pick: l.pickText, game: teamBadge(l.away).abbr + ' ' + tkNick(l.away, l.sport) + ' vs ' + teamBadge(l.home).abbr + ' ' + tkNick(l.home, l.sport), odds: l.odds, res: l.res }; }),
-      payLabel: st && (st.cls === 'cash' || st.cls === 'won') ? 'COBRÓ' : 'PAGO SI GANA', pay: money2(pay),
-      rightLabel: single ? 'PROBABILIDAD' : 'CUOTA TOTAL', rightValue: single ? (prob(L0.odds) || '—') + '%' : mult.toFixed(2),
+      stake: money2(stake), payLabel: st && (st.cls === 'cash' || st.cls === 'won') ? 'COBRÓ' : 'PAGO SI GANA', pay: money2(pay),
+      rightLabel: 'PROBABILIDAD', rightValue: ((single ? prob(L0.odds) : probAll) || '—') + '%',
+      sum: (probAll ? probAll + '% de probabilidad · ' : '') + 'Cuota ' + mult.toFixed(2) + ' · Apostó ' + money2(stake),
       when: when2, stTxt: stTxt, stCls: st ? st.cls : '', code: (codes[0] || 'RD').replace('-', '')
     };
     $('rcPaper').innerHTML =
@@ -2352,20 +2357,24 @@
           (single ?
             '<div class="tk-game">' + esc(gameTitle) + '</div>' +
             '<div class="tk-pick' + (L0.player ? ' pl' : '') + '">' + avatar + '<div><b>' + esc(mainName) + '</b><small>' + esc(mainSub) + '</small></div>' + (L0.res === 'won' ? '<i class="tk-res won">✓</i>' : L0.res === 'lost' ? '<i class="tk-res lost">✗</i>' : '') + '</div>'
-            : '<div class="tk-legs">' + legsHtml + '</div>') +
+            : '<div class="tk-legs">' + legsHtml + '</div><div class="tk-sum">' + (probAll ? probAll + '% de probabilidad · ' : '') + 'Cuota ' + mult.toFixed(2) + ' · Apostó ' + money2(stake) + '</div>') +
           '<div class="tk-tape"><div class="tk-tape-in">' + tape + tape + '</div></div>' +
           '<div class="tk-nums"><div><small>' + (st && (st.cls === 'cash' || st.cls === 'won') ? 'COBRÓ' : 'PAGO SI GANA') + '</small><b>' + money2(pay) + '</b></div>' +
-            '<div><small class="hl">' + (single ? 'PROBABILIDAD' : 'CUOTA TOTAL') + '</small><b class="hl">' + (single ? (prob(L0.odds) || '—') + '%' : mult.toFixed(2)) + '</b></div></div>' +
+            '<div><small class="hl">PROBABILIDAD</small><b class="hl">' + ((single ? prob(L0.odds) : probAll) || '—') + '%</b></div></div>' +
           '<div class="tk-foot"><span>' + esc(when2) + '</span><span class="tk-st ' + (st ? st.cls : '') + '">' + esc(stTxt) + '</span></div>' +
         '</div>' +
       '</div>';
     var acts = document.querySelector('.rc-acts'), card = $('rcPaper');
     card.classList.remove('go'); void card.offsetWidth; acts.classList.remove('show');
     // El nombre grande se achica hasta que quepa en una línea.
+    // Los números de abajo se achican si no caben en su columna.
     var fitBig = function () {
-      var el = card.querySelector('.tk-big'); if (!el) return;
-      var size = 92; el.style.fontSize = size + 'px';
-      while (el.scrollWidth > el.clientWidth + 1 && size > 26) { size -= 4; el.style.fontSize = size + 'px'; }
+      var nm = card.querySelector('.tk-pick:not(.pl) b');
+      if (nm) { var ns = 34; nm.style.fontSize = ns + 'px'; while (nm.scrollWidth > nm.clientWidth + 1 && ns > 20) { ns--; nm.style.fontSize = ns + 'px'; } }
+      Array.prototype.forEach.call(card.querySelectorAll('.tk-nums b'), function (el) {
+        var size = 36; el.style.fontSize = size + 'px';
+        while (el.scrollWidth > el.clientWidth + 1 && size > 16) { size -= 1; el.style.fontSize = size + 'px'; }
+      });
     };
     $('rcStatus').innerHTML = '<span class="rc-spin"></span> Preparando tu ticket…';
     openOv('rcptOverlay');
@@ -2401,13 +2410,18 @@
     // ---- medidas ----
     var F = { name: '800 ' + (M.avatar && M.mainName.length > 16 ? 28 : 34) + 'px ' + DISP, sub: '700 14px ' + SANS, game: '800 15px ' + SANS, pick: '800 14.5px ' + SANS, lgame: '500 11.5px ' + SANS, odds: '800 15px ' + SANS };
     var textW = CW - IN * 2;
-    var nameLines = M.single ? wrap(M.mainName, F.name, textW - 70) : [];
+    var nameLines = [];
+    if (M.single) {
+      if (M.avatar && /^[A-Z]{2,4} /.test(M.mainName) || M.mainName.length <= 18) { var nfs = 34; ctx.font = '800 ' + nfs + 'px ' + DISP; while (nfs > 20 && ctx.measureText(M.mainName).width > textW - 70) { nfs--; ctx.font = '800 ' + nfs + 'px ' + DISP; } F.name = '800 ' + nfs + 'px ' + DISP; nameLines = [M.mainName]; }
+      else nameLines = wrap(M.mainName, F.name, textW - 70);
+    }
+    var sumLines = M.single ? [] : wrap(M.sum, '700 13.5px ' + SANS, textW);
     var subLines = M.single ? wrap(M.mainSub, F.sub, textW - 70) : [];
     var legRows = M.single ? [] : M.legs.map(function (l) { return { p: wrap(l.pick, F.pick, textW - 90), g: wrap(l.game, F.lgame, textW - 90), l: l }; });
     var archH = Math.round(CW * 130 / 340) + 6;
     var cardH = 16 + 34 + 1;
     if (M.single) cardH += 14 + 22 + Math.max(56, nameLines.length * 33 + subLines.length * 19 + 6) + 14;
-    else { cardH += 10; legRows.forEach(function (rw) { cardH += Math.max(30, rw.p.length * 18 + rw.g.length * 14) + 16; }); cardH += 2; }
+    else { cardH += 10; legRows.forEach(function (rw) { cardH += Math.max(30, rw.p.length * 18 + rw.g.length * 14) + 16; }); cardH += 2 + sumLines.length * 18 + 10; }
     cardH += 36 + 78 + 26;
     var H = 18 + archH + 4 + cardH + 18;
     cv.width = W * S; cv.height = H * S; ctx.scale(S, S);
@@ -2486,7 +2500,7 @@
         y += h + 16;
         if (ri < legRows.length - 1) { ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fillRect(L, y - 1, R - L, 1); }
       });
-      y += 2;
+      y += 2; ctx.fillStyle = '#E4E7EC'; ctx.font = '700 13.5px ' + SANS; sumLines.forEach(function (t) { y += 14; ctx.fillText(t, L, y); y += 4; }); y += 10;
     }
     // franja con el código
     ctx.fillStyle = 'rgba(240,20,70,.16)'; ctx.fillRect(cx, y, CW, 36); ctx.fillStyle = 'rgba(240,20,70,.35)'; ctx.fillRect(cx, y, CW, 1); ctx.fillRect(cx, y + 35, CW, 1);
@@ -2497,9 +2511,12 @@
     }
     ctx.textBaseline = 'alphabetic'; y += 36;
     // números
-    var mx = cx + CW / 2 + 4; y += 26;
-    ctx.font = '800 11.5px ' + SANS; ctx.fillStyle = '#D0D5DD'; spaced(M.payLabel, L, y, 1.2); ctx.fillStyle = '#FDA4B8'; spaced(M.rightLabel, mx, y, 1.2);
-    y += 38; ctx.font = '900 36px ' + DISP; ctx.fillStyle = '#FFFFFF'; ctx.fillText(M.pay, L, y); ctx.fillStyle = '#FF5C82'; ctx.fillText(M.rightValue, mx, y);
+    var colW = (R - L) / 2, c2 = L + colW + 5; y += 26;
+    ctx.font = '800 11.5px ' + SANS; ctx.fillStyle = '#D0D5DD'; spaced(M.payLabel, L, y, 1.2); ctx.fillStyle = '#FDA4B8'; spaced(M.rightLabel, c2, y, 1.2);
+    y += 38;
+    var fsz = 36; ctx.font = '900 ' + fsz + 'px ' + DISP;
+    while (fsz > 18 && Math.max(ctx.measureText(M.pay).width, ctx.measureText(M.rightValue).width) > colW - 10) { fsz--; ctx.font = '900 ' + fsz + 'px ' + DISP; }
+    ctx.fillStyle = '#FFFFFF'; ctx.fillText(M.pay, L, y); ctx.fillStyle = '#FF5C82'; ctx.fillText(M.rightValue, c2, y);
     y += 14 + 12; ctx.font = '500 11.5px ' + MONO; ctx.fillStyle = '#98A2B3'; spaced(M.when, L, y, 0.8);
     ctx.textAlign = 'right'; ctx.fillStyle = M.stCls === 'won' ? '#32D583' : M.stCls === 'lost' ? '#FF5C82' : '#98A2B3'; spaced(M.stTxt, R, y, 0.8); ctx.textAlign = 'left';
     ctx.restore(); ctx.restore();
