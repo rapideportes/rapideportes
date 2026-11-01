@@ -701,6 +701,11 @@
   .imp-legend { font-size: 12px; color: var(--text-dim); text-align: center; margin: 8px 0 0; }
   .imp-test { display: block; width: 100%; margin-top: 12px; border: 1px dashed var(--border-strong); background: transparent; border-radius: 12px; padding: 10px; font: inherit; font-weight: 700; color: var(--text-dim); cursor: pointer; }
   .papi-out { white-space: pre-wrap; word-break: break-all; font-size: 11px; line-height: 1.4; background: #0B1630; color: #D0D5DD; border-radius: 12px; padding: 12px; margin-top: 10px; max-height: 520px; overflow: auto; }
+  .papi-use { margin-top: 12px; border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; background: #fff; }
+  .papi-use b { display: block; font-size: 13.5px; } .papi-use span { display: block; font-size: 12.5px; color: var(--text-dim); margin-top: 2px; }
+  .papi-use strong { color: #067647; }
+  .papi-bar { height: 8px; border-radius: 99px; background: var(--surface); margin-top: 8px; overflow: hidden; } .papi-bar i { display: block; height: 100%; background: #12B76A; border-radius: 99px; }
+  .papi-use.low strong { color: #B42318; } .papi-use.low .papi-bar i { background: var(--accent); }
 </style>
 </head>
 <body>
@@ -759,6 +764,7 @@
         <label for="impMargin"><b>Bajar las cuotas</b><small>Tus cuotas salen un poco más bajas que las de PokerStars, para que la casa gane más.</small></label>
         <div class="imp-mg-in"><input type="number" id="impMargin" min="0" max="15" step="0.5" value="3"><span>%</span></div>
       </div>
+      <div class="papi-use" id="papiUse" hidden></div>
       <div id="impList"></div>
       <button type="button" class="imp-test" id="papiTest">🔌 Probar conexión con OddsPapi</button>
       <pre class="papi-out" id="papiOut" hidden></pre>
@@ -1626,13 +1632,21 @@
       }).join('') +
       '<p class="imp-legend">' + (imp.games.some(function (g) { return g.odds; }) ? 'En grande, tu cuota; en gris, la de PokerStars.' : '') + '</p><button type="button" class="btn primary" id="impAdd" style="width:100%; margin-top:6px;"' + (nPick ? '' : ' disabled') + '>Agregar ' + nPick + (nPick === 1 ? ' juego' : ' juegos') + '</button>';
   }
+  async function loadPapiUsage() {
+    var d = await apiGet('/api/admin/oddspapi-usage'), el = document.getElementById('papiUse');
+    if (!d || !d.key) { el.hidden = true; return; }
+    var left = Math.max(0, d.limit - d.used), pc = Math.min(100, Math.round(d.used / d.limit * 100));
+    el.hidden = false; el.className = 'papi-use' + (left < 30 ? ' low' : '');
+    el.innerHTML = '<div><b>Cuotas de PokerStars este mes</b><span>' + d.used + ' de ' + d.limit + ' consultas usadas · te quedan <strong>' + left + '</strong></span></div><div class="papi-bar"><i style="width:' + pc + '%"></i></div>';
+  }
+  loadPapiUsage();
   document.getElementById('impFind').addEventListener('click', async function () {
     var b = this, box = document.getElementById('impList');
     b.disabled = true; box.innerHTML = '<p class="imp-empty">Buscando juegos…</p>';
     var d = await apiGet('/api/admin/schedule?sport=' + document.getElementById('impSport').value + '&date=' + document.getElementById('impDay').value);
     b.disabled = false;
     if (!d) { box.innerHTML = '<p class="imp-empty">No se pudo buscar. Intenta otra vez.</p>'; return; }
-    imp.games = d.games || []; imp.sport = document.getElementById('impSport').value; imp.picked = {};
+    imp.games = d.games || []; imp.sport = document.getElementById('impSport').value; imp.picked = {}; loadPapiUsage();
     imp.games.forEach(function (g) { if (!impExists(g)) imp.picked[impKey(g)] = true; });
     impRender();
   });
