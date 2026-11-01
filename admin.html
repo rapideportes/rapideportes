@@ -711,7 +711,8 @@
   .imp-pr { margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 6px; }
   .imp-pr summary { cursor: pointer; font-size: 13px; font-weight: 800; color: var(--accent); padding: 6px 0; }
   .imp-pr summary b { color: #067647; }
-  .imp-pr-acts { display: flex; gap: 8px; margin: 4px 0 6px; }
+  .imp-pr-acts { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 6px; }
+  .imp-pr-h { margin: 10px 0 2px; font-size: 12px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--accent); }
   .imp-pr-acts button { border: 1px solid var(--border-strong); background: #fff; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
   .imp-pr-r { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; cursor: pointer; }
   .imp-pr-r input { width: 18px; height: 18px; accent-color: var(--accent); flex: 0 0 auto; }
@@ -1633,9 +1634,13 @@
     if (o.props && o.props.length) {
       var gi = imp.games.indexOf(g), sel = imp.props[impKey(g)] || {}, nSel = Object.keys(sel).length;
       h += '<details class="imp-pr"' + (nSel ? ' open' : '') + '><summary>🏀 Jugadores · ' + o.props.length + ' disponibles' + (nSel ? ' · <b>' + nSel + ' marcados</b>' : '') + '</summary>' +
-        '<div class="imp-pr-acts"><button type="button" data-imp-pts="' + gi + '">Marcar Puntos</button><button type="button" data-imp-none="' + gi + '">Quitar</button></div>' +
+        '<div class="imp-pr-acts">' + o.props.map(function (pr) { return pr.stat; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).map(function (st) {
+          var n = o.props.filter(function (pr) { return pr.stat === st; }).length;
+          return '<button type="button" data-imp-pts="' + gi + '" data-stat="' + st + '">Marcar ' + st + ' (' + n + ')</button>';
+        }).join('') + '<button type="button" data-imp-pts="' + gi + '" data-stat="*">Marcar todos</button><button type="button" data-imp-none="' + gi + '">Quitar</button></div>' +
         o.props.map(function (pr, pi) {
-          return '<label class="imp-pr-r"><input type="checkbox" data-imp-pr="' + gi + '-' + pi + '"' + (sel[pi] ? ' checked' : '') + '><span><b>' + pr.player + '</b><small>' + pr.stat + ' · línea ' + pr.line + '</small></span><em>Más <b>' + impCut(pr.over).toFixed(2) + '</b><br>Menos <b>' + impCut(pr.under).toFixed(2) + '</b></em></label>';
+          var hdr = (pi === 0 || o.props[pi - 1].stat !== pr.stat) ? '<div class="imp-pr-h">' + pr.stat + '</div>' : '';
+          return hdr + '<label class="imp-pr-r"><input type="checkbox" data-imp-pr="' + gi + '-' + pi + '"' + (sel[pi] ? ' checked' : '') + '><span><b>' + pr.player + '</b><small>' + pr.stat + ' · línea ' + pr.line + '</small></span><em>Más <b>' + impCut(pr.over).toFixed(2) + '</b><br>Menos <b>' + impCut(pr.under).toFixed(2) + '</b></em></label>';
         }).join('') + '</details>';
     }
     return h;
@@ -1691,8 +1696,8 @@
     var pts = e.target.closest('[data-imp-pts]'), none = e.target.closest('[data-imp-none]');
     if (pts || none) {
       var gg = imp.games[+(pts || none).dataset[pts ? 'impPts' : 'impNone']], k2 = impKey(gg);
-      imp.props[k2] = {};
-      if (pts) { gg.odds.props.forEach(function (pr, pi) { if (pr.stat === 'Puntos') imp.props[k2][pi] = true; }); imp.picked[k2] = true; }
+      if (!pts || pts.dataset.stat === '*' || !imp.props[k2]) imp.props[k2] = {};
+      if (pts) { var want = pts.dataset.stat; gg.odds.props.forEach(function (pr, pi) { if (want === '*' || pr.stat === want) imp.props[k2][pi] = true; }); imp.picked[k2] = true; }
       impRender(); return;
     }
     if (e.target.closest('#impAll')) {
