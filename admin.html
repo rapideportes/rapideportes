@@ -706,6 +706,17 @@
   .papi-use strong { color: #067647; }
   .papi-bar { height: 8px; border-radius: 99px; background: var(--surface); margin-top: 8px; overflow: hidden; } .papi-bar i { display: block; height: 100%; background: #12B76A; border-radius: 99px; }
   .papi-use.low strong { color: #B42318; } .papi-use.low .papi-bar i { background: var(--accent); }
+  .imp-g > input { margin-top: 3px; align-self: flex-start; }
+  .imp-t { flex: 1; min-width: 0; } .imp-t > label { display: block; cursor: pointer; }
+  .imp-pr { margin-top: 8px; border-top: 1px dashed var(--border); padding-top: 6px; }
+  .imp-pr summary { cursor: pointer; font-size: 13px; font-weight: 800; color: var(--accent); padding: 6px 0; }
+  .imp-pr summary b { color: #067647; }
+  .imp-pr-acts { display: flex; gap: 8px; margin: 4px 0 6px; }
+  .imp-pr-acts button { border: 1px solid var(--border-strong); background: #fff; border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 12px; font-weight: 700; cursor: pointer; }
+  .imp-pr-r { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--border); font-size: 13px; cursor: pointer; }
+  .imp-pr-r input { width: 18px; height: 18px; accent-color: var(--accent); flex: 0 0 auto; }
+  .imp-pr-r span { flex: 1; min-width: 0; } .imp-pr-r span b { display: block; font-size: 14px; } .imp-pr-r span small { display: block; font-size: 12px; color: var(--text-dim); }
+  .imp-pr-r em { font-style: normal; font-size: 12px; color: var(--text-dim); white-space: nowrap; text-align: right; line-height: 1.5; } .imp-pr-r em b { color: var(--text); display: inline; font-size: 13px; }
 </style>
 </head>
 <body>
@@ -932,6 +943,7 @@
       <div class="lim-grid">
         <label class="lim-f"><span>Máximo por apuesta</span><div class="lim-in"><b>$</b><input type="number" inputmode="decimal" min="1" step="1" id="limMaxStake"></div></label>
         <label class="lim-f"><span>Pago máximo por ticket</span><div class="lim-in"><b>$</b><input type="number" inputmode="decimal" min="1" step="1" id="limMaxPayout"></div></label>
+        <label class="lim-f"><span>Máximo en apuestas de jugadores</span><div class="lim-in"><b>$</b><input type="number" inputmode="decimal" min="1" step="1" id="limMaxProp"></div></label>
       </div>
       <button type="button" class="btn primary" id="limSave" style="width:100%; margin-top:12px;">Guardar límites</button>
       <p class="amc-sub" id="limNow" style="margin-top:8px; text-align:center;"></p>
@@ -1597,7 +1609,7 @@
   document.getElementById('tabBtnPagos').addEventListener('click', function () { setAdminTab('pagos'); });
 
   // ---- Traer juegos del calendario ----
-  var imp = { games: [], picked: {} };
+  var imp = { games: [], picked: {}, props: {} };
   (function fillDays() {
     var sel = document.getElementById('impDay'), html = '';
     for (var i = 0; i < 7; i++) {
@@ -1617,7 +1629,16 @@
     var h = '<div class="imp-od">' + cell('Gana visit.', o.away) + cell('Gana local', o.home);
     if (o.hcap) h += cell((o.hcap.awayLine > 0 ? '+' : '') + o.hcap.awayLine, o.hcap.awayOdds) + cell((o.hcap.homeLine > 0 ? '+' : '') + o.hcap.homeLine, o.hcap.homeOdds);
     if (o.total) h += cell('Más ' + o.total.line, o.total.over) + cell('Menos ' + o.total.line, o.total.under);
-    return h + '</div>';
+    h += '</div>';
+    if (o.props && o.props.length) {
+      var gi = imp.games.indexOf(g), sel = imp.props[impKey(g)] || {}, nSel = Object.keys(sel).length;
+      h += '<details class="imp-pr"' + (nSel ? ' open' : '') + '><summary>🏀 Jugadores · ' + o.props.length + ' disponibles' + (nSel ? ' · <b>' + nSel + ' marcados</b>' : '') + '</summary>' +
+        '<div class="imp-pr-acts"><button type="button" data-imp-pts="' + gi + '">Marcar Puntos</button><button type="button" data-imp-none="' + gi + '">Quitar</button></div>' +
+        o.props.map(function (pr, pi) {
+          return '<label class="imp-pr-r"><input type="checkbox" data-imp-pr="' + gi + '-' + pi + '"' + (sel[pi] ? ' checked' : '') + '><span><b>' + pr.player + '</b><small>' + pr.stat + ' · línea ' + pr.line + '</small></span><em>Más <b>' + impCut(pr.over).toFixed(2) + '</b><br>Menos <b>' + impCut(pr.under).toFixed(2) + '</b></em></label>';
+        }).join('') + '</details>';
+    }
+    return h;
   }
   function impRender() {
     var box = document.getElementById('impList');
@@ -1627,8 +1648,8 @@
     box.innerHTML = '<div class="imp-head"><span>' + imp.games.length + ' juegos · ' + nNew + ' nuevos</span><button type="button" class="imp-all" id="impAll">' + (nPick === nNew && nNew ? 'Quitar todos' : 'Marcar todos') + '</button></div>' +
       imp.games.map(function (g, i) {
         var ex = impExists(g), on = !!imp.picked[impKey(g)];
-        return '<label class="imp-g' + (ex ? ' ex' : '') + '"><input type="checkbox" data-imp="' + i + '"' + (on ? ' checked' : '') + (ex ? ' disabled' : '') + '>' +
-          '<span class="imp-t"><b>' + g.away + ' @ ' + g.home + '</b><small>' + prLabel(g.startAt) + (ex ? ' · ya está en tu lista' : '') + '</small>' + (ex ? '' : impOddsHTML(g)) + '</span></label>';
+        return '<div class="imp-g' + (ex ? ' ex' : '') + '"><input type="checkbox" id="impg' + i + '" data-imp="' + i + '"' + (on ? ' checked' : '') + (ex ? ' disabled' : '') + '>' +
+          '<span class="imp-t"><label for="impg' + i + '"><b>' + g.away + ' @ ' + g.home + '</b><small>' + prLabel(g.startAt) + (ex ? ' · ya está en tu lista' : '') + '</small></label>' + (ex ? '' : impOddsHTML(g)) + '</span></div>';
       }).join('') +
       '<p class="imp-legend">' + (imp.games.some(function (g) { return g.odds; }) ? 'En grande, tu cuota; en gris, la de PokerStars.' : '') + '</p><button type="button" class="btn primary" id="impAdd" style="width:100%; margin-top:6px;"' + (nPick ? '' : ' disabled') + '>Agregar ' + nPick + (nPick === 1 ? ' juego' : ' juegos') + '</button>';
   }
@@ -1646,7 +1667,7 @@
     var d = await apiGet('/api/admin/schedule?sport=' + document.getElementById('impSport').value + '&date=' + document.getElementById('impDay').value);
     b.disabled = false;
     if (!d) { box.innerHTML = '<p class="imp-empty">No se pudo buscar. Intenta otra vez.</p>'; return; }
-    imp.games = d.games || []; imp.sport = document.getElementById('impSport').value; imp.picked = {}; loadPapiUsage();
+    imp.games = d.games || []; imp.sport = document.getElementById('impSport').value; imp.picked = {}; imp.props = {}; loadPapiUsage();
     imp.games.forEach(function (g) { if (!impExists(g)) imp.picked[impKey(g)] = true; });
     impRender();
   });
@@ -1660,11 +1681,20 @@
   });
   document.getElementById('impMargin').addEventListener('input', function () { if (imp.games.length) impRender(); });
   document.getElementById('impList').addEventListener('change', function (e) {
+    var pc = e.target.closest('[data-imp-pr]');
+    if (pc) { var pp = pc.dataset.impPr.split('-'), gk = impKey(imp.games[+pp[0]]); imp.props[gk] = imp.props[gk] || {}; if (pc.checked) imp.props[gk][+pp[1]] = true; else delete imp.props[gk][+pp[1]]; if (pc.checked) imp.picked[gk] = true; impRender(); return; }
     var cb = e.target.closest('[data-imp]'); if (!cb) return;
     var g = imp.games[Number(cb.dataset.imp)]; if (cb.checked) imp.picked[impKey(g)] = true; else delete imp.picked[impKey(g)];
     impRender();
   });
   document.getElementById('impList').addEventListener('click', function (e) {
+    var pts = e.target.closest('[data-imp-pts]'), none = e.target.closest('[data-imp-none]');
+    if (pts || none) {
+      var gg = imp.games[+(pts || none).dataset[pts ? 'impPts' : 'impNone']], k2 = impKey(gg);
+      imp.props[k2] = {};
+      if (pts) { gg.odds.props.forEach(function (pr, pi) { if (pr.stat === 'Puntos') imp.props[k2][pi] = true; }); imp.picked[k2] = true; }
+      impRender(); return;
+    }
     if (e.target.closest('#impAll')) {
       var nNew = imp.games.filter(function (g) { return !impExists(g); });
       if (Object.keys(imp.picked).length === nNew.length) imp.picked = {}; else nNew.forEach(function (g) { imp.picked[impKey(g)] = true; });
@@ -1681,6 +1711,8 @@
         var nm = state.matches[state.matches.length - 1], o = g.odds;
         if (o && o.hcap) nm.handicap = { homeLine: o.hcap.homeLine, homeOdds: decimalToAmerican(String(impCut(o.hcap.homeOdds))), awayLine: o.hcap.awayLine, awayOdds: decimalToAmerican(String(impCut(o.hcap.awayOdds))) };
         if (o && o.total) nm.total = { line: o.total.line, over: decimalToAmerican(String(impCut(o.total.over))), under: decimalToAmerican(String(impCut(o.total.under))) };
+        var ps = imp.props[impKey(g)] || {};
+        if (o && o.props) { var chosen = o.props.filter(function (pr, pi) { return ps[pi]; }); if (chosen.length) nm.props = chosen.map(function (pr) { return { player: pr.player, stat: pr.stat, line: pr.line, over: decimalToAmerican(String(impCut(pr.over))), under: decimalToAmerican(String(impCut(pr.under))) }; }); }
       });
       saveMatches(state.matches); renderAdminList(); imp.picked = {}; impRender();
       var withOdds = add.filter(function (g) { return g.odds; }).length;
@@ -1693,14 +1725,18 @@
   function showLimits(v) {
     document.getElementById('limMaxStake').value = v.maxStake;
     document.getElementById('limMaxPayout').value = v.maxPayout;
-    document.getElementById('limNow').textContent = 'Ahora: máximo ' + limMoney(v.maxStake) + ' por apuesta y ' + limMoney(v.maxPayout) + ' de pago por ticket.';
+    document.getElementById('limMaxProp').value = v.maxPropStake;
+    document.getElementById('limNow').textContent = 'Ahora: máximo ' + limMoney(v.maxStake) + ' por apuesta, ' + limMoney(v.maxPropStake) + ' si tiene jugadores, y ' + limMoney(v.maxPayout) + ' de pago por ticket.';
   }
   async function loadLimits() { var v = await apiGet('/api/admin/bet-limits'); if (v) showLimits(v); }
   document.getElementById('limSave').addEventListener('click', async function () {
     var ms = Number(document.getElementById('limMaxStake').value), mp = Number(document.getElementById('limMaxPayout').value);
     if (!(ms >= 1)) { showToast('Pon un máximo por apuesta de al menos $1.'); return; }
     if (!(mp >= ms)) { showToast('El pago máximo tiene que ser igual o mayor que el máximo por apuesta.'); return; }
-    var r = await apiPost('/api/admin/bet-limits', { maxStake: ms, maxPayout: mp });
+    var mpr = Number(document.getElementById('limMaxProp').value);
+    if (!(mpr >= 1)) { showToast('Pon un máximo de al menos $1 para las apuestas de jugadores.'); return; }
+    if (mpr > ms) { showToast('El máximo de jugadores no puede ser mayor que el máximo por apuesta.'); return; }
+    var r = await apiPost('/api/admin/bet-limits', { maxStake: ms, maxPayout: mp, maxPropStake: mpr });
     if (!r.ok) { if (r.status === 401) { adminSaveFailed(); return; } showToast('No se pudieron guardar los límites.'); return; }
     showLimits(r.data); showToast('✅ Límites guardados.');
   });
