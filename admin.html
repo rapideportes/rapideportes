@@ -817,7 +817,7 @@
             </div>
             <div class="amc-ml-side">
               <div class="amc-ml-team">Local</div>
-              <input type="number" id="newOdds1Num" placeholder="1.91" min="1.01" step="0.01" tabindex="11">
+              <input type="number" id="newOdds1Num" placeholder="Cuota" min="1.01" step="0.01" tabindex="11">
             </div>
           </div>
         </div>
@@ -845,7 +845,7 @@
                 </div>
               </div>
             </div>
-            <div class="field" style="flex:1;"><label for="newHcapAwayOdds">Cuota visitante</label><input type="number" step="0.01" id="newHcapAwayOdds" placeholder="1.91" class="odds-num-input"></div>
+            <div class="field" style="flex:1;"><label for="newHcapAwayOdds">Cuota visitante</label><input type="number" step="0.01" id="newHcapAwayOdds" placeholder="Cuota" class="odds-num-input"></div>
           </div>
           <div style="display:flex; gap:10px; margin-top:10px;">
             <div class="field" style="flex:1;">
@@ -859,7 +859,7 @@
                 </div>
               </div>
             </div>
-            <div class="field" style="flex:1;"><label for="newHcapHomeOdds">Cuota local</label><input type="number" step="0.01" id="newHcapHomeOdds" placeholder="1.91" class="odds-num-input"></div>
+            <div class="field" style="flex:1;"><label for="newHcapHomeOdds">Cuota local</label><input type="number" step="0.01" id="newHcapHomeOdds" placeholder="Cuota" class="odds-num-input"></div>
           </div>
         </div>
 
@@ -867,8 +867,8 @@
           <div class="amc-market-head"><span>Total / Más-Menos</span><button type="button" class="amc-market-close" data-close-market="total">&times;</button></div>
           <div style="display:flex; gap:10px;">
             <div class="field" style="flex:1;"><label for="newTotalLine">Línea</label><input type="number" step="0.5" id="newTotalLine" placeholder="8.5" class="odds-num-input"></div>
-            <div class="field" style="flex:1;"><label for="newTotalOver">Cuota Más</label><input type="number" step="0.01" id="newTotalOver" placeholder="1.91" class="odds-num-input"></div>
-            <div class="field" style="flex:1;"><label for="newTotalUnder">Cuota Menos</label><input type="number" step="0.01" id="newTotalUnder" placeholder="1.91" class="odds-num-input"></div>
+            <div class="field" style="flex:1;"><label for="newTotalOver">Cuota Más</label><input type="number" step="0.01" id="newTotalOver" placeholder="Cuota" class="odds-num-input"></div>
+            <div class="field" style="flex:1;"><label for="newTotalUnder">Cuota Menos</label><input type="number" step="0.01" id="newTotalUnder" placeholder="Cuota" class="odds-num-input"></div>
           </div>
         </div>
 
@@ -885,8 +885,8 @@
             <div class="field"><label for="newPropStat">Estadística</label><input type="text" id="newPropStat" placeholder="Ej. Ponches" class="odds-num-input"></div>
             <div style="display:flex; gap:10px;">
               <div class="field" style="flex:1;"><label for="newPropLine">Línea</label><input type="number" step="0.5" id="newPropLine" placeholder="6.5" class="odds-num-input"></div>
-              <div class="field" style="flex:1;"><label for="newPropOver">Cuota Más</label><input type="number" step="0.01" id="newPropOver" placeholder="1.91" class="odds-num-input"></div>
-              <div class="field" style="flex:1;"><label for="newPropUnder">Cuota Menos</label><input type="number" step="0.01" id="newPropUnder" placeholder="1.91" class="odds-num-input"></div>
+              <div class="field" style="flex:1;"><label for="newPropOver">Cuota Más</label><input type="number" step="0.01" id="newPropOver" placeholder="Cuota" class="odds-num-input"></div>
+              <div class="field" style="flex:1;"><label for="newPropUnder">Cuota Menos</label><input type="number" step="0.01" id="newPropUnder" placeholder="Cuota" class="odds-num-input"></div>
             </div>
             <div class="line-note" data-line-note="1" hidden></div>
           </div>
@@ -901,8 +901,8 @@
             <div class="field"><label for="newProp2Stat">Estadística</label><input type="text" id="newProp2Stat" placeholder="Ej. Ponches" class="odds-num-input"></div>
             <div style="display:flex; gap:10px;">
               <div class="field" style="flex:1;"><label for="newProp2Line">Línea</label><input type="number" step="0.5" id="newProp2Line" placeholder="6" class="odds-num-input"></div>
-              <div class="field" style="flex:1;"><label for="newProp2Over">Cuota Más</label><input type="number" step="0.01" id="newProp2Over" placeholder="1.91" class="odds-num-input"></div>
-              <div class="field" style="flex:1;"><label for="newProp2Under">Cuota Menos</label><input type="number" step="0.01" id="newProp2Under" placeholder="1.91" class="odds-num-input"></div>
+              <div class="field" style="flex:1;"><label for="newProp2Over">Cuota Más</label><input type="number" step="0.01" id="newProp2Over" placeholder="Cuota" class="odds-num-input"></div>
+              <div class="field" style="flex:1;"><label for="newProp2Under">Cuota Menos</label><input type="number" step="0.01" id="newProp2Under" placeholder="Cuota" class="odds-num-input"></div>
             </div>
             <div class="line-note" data-line-note="2" hidden></div>
           </div>
@@ -2209,7 +2209,7 @@
         if (oi === 1 && (m.sport === 'beisbol' || m.sport === 'lidom')) return;
         var decVal = o.v ? americanToDecimalStr(o.v) : '';
         html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">' + o.k + '</label>';
-        html += '<input type="number" step="0.01" class="odds-num-input" style="width:74px; padding:6px 8px; font-size:13px;" data-num-match="' + mi + '" data-num-idx="' + oi + '" value="' + decVal + '" placeholder="1.91">';
+        html += '<input type="number" step="0.01" class="odds-num-input" style="width:74px; padding:6px 8px; font-size:13px;" data-num-match="' + mi + '" data-num-idx="' + oi + '" value="' + decVal + '" placeholder="Cuota">';
         html += '</div>';
       });
       html += '<label style="display:flex; align-items:center; gap:5px; font-size:12px; color:var(--text-dim); margin-left:6px;"><input type="checkbox" data-live="' + mi + '"' + (m.live ? ' checked' : '') + '> En vivo</label>';
@@ -2229,18 +2229,18 @@
       var hcHomeDec = m.handicap && m.handicap.homeOdds ? americanToDecimalStr(m.handicap.homeOdds) : '';
       var hcAwayDec = m.handicap && m.handicap.awayOdds ? americanToDecimalStr(m.handicap.awayOdds) : '';
       html += '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">';
-      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Hándicap local (línea)</label><input type="number" step="0.5" class="odds-num-input" style="width:78px;" data-hcap-home-line="' + mi + '" value="' + hcLine + '" placeholder="-4.5"></div>';
-      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota local</label><input type="number" step="0.01" class="odds-num-input" style="width:70px;" data-hcap-home-num="' + mi + '" value="' + hcHomeDec + '" placeholder="1.91"></div>';
-      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Hándicap visitante (línea)</label><input type="number" step="0.5" class="odds-num-input" style="width:78px;" data-hcap-away-line="' + mi + '" value="' + hcAwayLine + '" placeholder="4.5"></div>';
-      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota visitante</label><input type="number" step="0.01" class="odds-num-input" style="width:70px;" data-hcap-away-num="' + mi + '" value="' + hcAwayDec + '" placeholder="1.91"></div>';
+      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Hándicap local (línea)</label><input type="number" step="0.5" class="odds-num-input" style="width:78px;" data-hcap-home-line="' + mi + '" value="' + hcLine + '" placeholder="Línea"></div>';
+      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota local</label><input type="number" step="0.01" class="odds-num-input" style="width:70px;" data-hcap-home-num="' + mi + '" value="' + hcHomeDec + '" placeholder="Cuota"></div>';
+      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Hándicap visitante (línea)</label><input type="number" step="0.5" class="odds-num-input" style="width:78px;" data-hcap-away-line="' + mi + '" value="' + hcAwayLine + '" placeholder="Línea"></div>';
+      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota visitante</label><input type="number" step="0.01" class="odds-num-input" style="width:70px;" data-hcap-away-num="' + mi + '" value="' + hcAwayDec + '" placeholder="Cuota"></div>';
       html += '</div>';
       var tLine = m.total ? m.total.line : sug.total;
       var tOverDec = m.total && m.total.over ? americanToDecimalStr(m.total.over) : '';
       var tUnderDec = m.total && m.total.under ? americanToDecimalStr(m.total.under) : '';
       html += '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">';
       html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Línea (más/menos ' + (TOTAL_UNIT[m.sport] || 'total') + ')</label><input type="number" step="0.5" class="odds-num-input" style="width:84px; padding:6px 8px; font-size:13px;" data-total-line="' + mi + '" value="' + tLine + '" placeholder="8.5"></div>';
-      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota Más</label><input type="number" step="0.01" class="odds-num-input" style="width:70px; padding:6px 8px; font-size:13px;" data-total-over-num="' + mi + '" value="' + tOverDec + '" placeholder="1.91"></div>';
-      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota Menos</label><input type="number" step="0.01" class="odds-num-input" style="width:70px; padding:6px 8px; font-size:13px;" data-total-under-num="' + mi + '" value="' + tUnderDec + '" placeholder="1.91"></div>';
+      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota Más</label><input type="number" step="0.01" class="odds-num-input" style="width:70px; padding:6px 8px; font-size:13px;" data-total-over-num="' + mi + '" value="' + tOverDec + '" placeholder="Cuota"></div>';
+      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota Menos</label><input type="number" step="0.01" class="odds-num-input" style="width:70px; padding:6px 8px; font-size:13px;" data-total-under-num="' + mi + '" value="' + tUnderDec + '" placeholder="Cuota"></div>';
       html += '</div>';
       html += '<div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">';
       html += '<div style="font-size:11px; color:var(--text-faint); margin-bottom:6px;">' + propTitle(m.sport) + '</div>';
@@ -2265,8 +2265,8 @@
       html += '<div><label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:3px;">Estadística</label><input type="text" class="odds-num-input" style="width:100%;" data-newprop-stat="' + mi + '" placeholder="' + (m.sport === 'baloncesto' ? 'Puntos, Rebotes, Asistencias…" list="nbaStatOptions' : 'Ej. Ponches') + '"></div>';
       html += '<div style="display:flex; gap:8px;">';
       html += '<div style="flex:1;"><label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:3px;">Línea</label><input type="number" step="0.5" class="odds-num-input" style="width:100%;" data-newprop-line="' + mi + '" placeholder="6.5"></div>';
-      html += '<div style="flex:1;"><label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:3px;">Cuota Más</label><input type="number" step="0.01" class="odds-num-input" style="width:100%;" data-newprop-over-num="' + mi + '" placeholder="1.91"></div>';
-      html += '<div style="flex:1;"><label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:3px;">Cuota Menos</label><input type="number" step="0.01" class="odds-num-input" style="width:100%;" data-newprop-under-num="' + mi + '" placeholder="1.91"></div>';
+      html += '<div style="flex:1;"><label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:3px;">Cuota Más</label><input type="number" step="0.01" class="odds-num-input" style="width:100%;" data-newprop-over-num="' + mi + '" placeholder="Cuota"></div>';
+      html += '<div style="flex:1;"><label style="font-size:11px; color:var(--text-dim); display:block; margin-bottom:3px;">Cuota Menos</label><input type="number" step="0.01" class="odds-num-input" style="width:100%;" data-newprop-under-num="' + mi + '" placeholder="Cuota"></div>';
       html += '</div>';
       html += '<div class="line-note" data-line-note-match="' + mi + '" hidden></div>';
       html += '<button class="btn primary" data-newprop-add="' + mi + '" style="padding:8px; font-size:13px; margin-top:4px;">+ Agregar ' + propWord(m.sport) + '</button>';
