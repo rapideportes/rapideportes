@@ -2507,7 +2507,7 @@
   }
   $('rcClose').addEventListener('click', function () { closeOv('rcptOverlay'); });
   $('rcShare').addEventListener('click', async function () {
-    var btn = this, txt = receiptText(), name = 'ticket-' + ((lastReceipt && lastReceipt.codes[0]) || 'rapideportes') + '.png';
+    var btn = this, txt = 'https://www.rapideportes.com', name = 'ticket-' + ((lastReceipt && lastReceipt.codes[0]) || 'rapideportes') + '.png';
     btn.disabled = true;
     var blob = null; try { blob = await ticketImage(); } catch (e) {}
     btn.disabled = false;
