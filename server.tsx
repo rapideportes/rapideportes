@@ -1882,10 +1882,9 @@ async function oddsPapi(path, params) {
   // Cuenta cada consulta del mes (para que el admin vea cuántas le quedan).
   try {
     var month = new Date().toISOString().slice(0, 7);
-    await sql`INSERT INTO app_state (key, value) VALUES ('papi_usage', ${JSON.stringify({ month: month, count: 1 })}::jsonb)
-      ON CONFLICT (key) DO UPDATE SET value = CASE WHEN app_state.value->>'month' = ${month}
-        THEN jsonb_set(app_state.value, '{count}', to_jsonb(COALESCE((app_state.value->>'count')::int, 0) + 1))
-        ELSE ${JSON.stringify({ month: month, count: 1 })}::jsonb END`;
+    await sql`INSERT INTO app_state (key, value) VALUES ('papi_usage', jsonb_build_object('month', ${month}::text, 'count', 1))
+      ON CONFLICT (key) DO UPDATE SET value = jsonb_build_object('month', ${month}::text, 'count',
+        CASE WHEN app_state.value->>'month' = ${month}::text THEN COALESCE((app_state.value->>'count')::int, 0) + 1 ELSE 1 END)`;
   } catch (e) {}
   try {
     var r = await fetch('https://api.oddspapi.io/v4/' + path + '?' + qs, { headers: { 'Accept': 'application/json' } });
