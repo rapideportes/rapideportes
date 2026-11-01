@@ -712,8 +712,13 @@
   /* ---------- Ticket tarjeta ---------- */
   .tk-status { display: flex; align-items: center; gap: 10px; background: #0B1630; color: #fff; border-radius: 999px; padding: 10px 16px; font-size: 14px; font-weight: 700; margin-bottom: 12px; }
   .tk-status .ok-ic { width: 22px; height: 22px; border-radius: 50%; background: #12B76A; display: grid; place-items: center; font-size: 13px; }
-  .tk-wrap { width: 100%; opacity: 0; transform: translateY(24px) scale(.97); }
-  .tk-wrap.go { animation: tkin .7s cubic-bezier(.2,.9,.25,1.1) forwards; }
+  /* El ticket sale de la impresora poco a poco */
+  .tk-printer { position: relative; z-index: 2; width: 100%; background: linear-gradient(180deg, #16213F, #0B1630); border-radius: 22px 22px 14px 14px; padding: 12px 14px 16px; box-shadow: 0 12px 30px rgba(11,22,48,.45); }
+  .tk-printer .tk-status { background: rgba(255,255,255,.06); border: 1px solid rgba(255,255,255,.08); border-radius: 12px; margin: 8px 0 0; }
+  .tk-clip { width: 94%; margin: -12px auto 0; overflow: hidden; position: relative; z-index: 1; padding-bottom: 16px; }
+  .tk-wrap { width: 100%; transform: translateY(-102%); }
+  .tk-wrap.go { animation: tkprint 2.2s steps(18, end) forwards; }
+  @keyframes tkprint { to { transform: translateY(0); } }
   @keyframes tkin { to { opacity: 1; transform: none; } }
   .tk2 { position: relative; border-radius: 26px; padding: 18px 16px 18px; overflow: hidden; box-shadow: 0 18px 40px rgba(0,0,0,.35); isolation: isolate; }
   .tk-shirt { position: absolute; inset: 0; z-index: -2; }
@@ -1008,8 +1013,12 @@
 
 <div class="overlay rc-ov" id="rcptOverlay">
   <div class="rc-wrap">
-    <div class="tk-status" id="rcStatus"><span class="rc-spin"></span> Preparando tu ticket…</div>
-    <div class="tk-wrap" id="rcPaper"></div>
+    <div class="tk-printer">
+      <div class="rc-led" id="rcLed"></div>
+      <div class="tk-status" id="rcStatus"><span class="rc-spin"></span> Imprimiendo tu ticket…</div>
+      <div class="rc-slot"></div>
+    </div>
+    <div class="tk-clip"><div class="tk-wrap" id="rcPaper"></div></div>
     <div class="rc-acts">
       <button type="button" class="btn" id="rcClose">Cerrar</button>
       <button type="button" class="btn primary" id="rcShare">📲 Compartir jugada</button>
@@ -2511,8 +2520,8 @@
           '<div class="tk-foot"><span>' + esc(when2) + '</span><span class="tk-st ' + (st ? st.cls : '') + '">' + esc(stTxt) + '</span></div>' +
         '</div>' +
       '</div>';
-    var acts = document.querySelector('.rc-acts'), card = $('rcPaper');
-    card.classList.remove('go'); void card.offsetWidth; acts.classList.remove('show');
+    var acts = document.querySelector('.rc-acts'), card = $('rcPaper'), led = $('rcLed');
+    card.classList.remove('go'); void card.offsetWidth; acts.classList.remove('show'); if (led) led.classList.remove('ok');
     // El nombre grande se achica hasta que quepa en una línea.
     // Los números de abajo se achican si no caben en su columna.
     var fitBig = function () {
@@ -2523,14 +2532,14 @@
         while (el.scrollWidth > el.clientWidth + 1 && size > 16) { size -= 1; el.style.fontSize = size + 'px'; }
       });
     };
-    $('rcStatus').innerHTML = '<span class="rc-spin"></span> Preparando tu ticket…';
+    $('rcStatus').innerHTML = '<span class="rc-spin"></span> Imprimiendo tu ticket…';
     openOv('rcptOverlay');
     fitBig(); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitBig);
     card.classList.add('go');
     setTimeout(function () {
-      acts.classList.add('show');
+      acts.classList.add('show'); if (led) led.classList.add('ok');
       $('rcStatus').innerHTML = '<span class="ok-ic">✓</span> ' + (opt.at ? 'Tu ticket' : '¡Listo! Apuesta confirmada');
-    }, 900);
+    }, 2300);
   }
   function receiptText() {
     var r = lastReceipt; if (!r) return '';
