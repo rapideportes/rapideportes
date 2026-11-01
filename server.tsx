@@ -1569,6 +1569,95 @@ app.get('/api/results', async (c) => {
   }));
 });
 
+// ---------- Precio de cada apuesta, calculado por el servidor ----------
+// El pago ya no se toma del teléfono del jugador: se calcula aquí con las
+// cuotas actuales de la lista. Si no cuadra con lo que vio el jugador
+// (la cuota cambió), se le avisa en vez de aceptar la apuesta.
+function amToDec(v) {
+  var n = parseInt(v, 10);
+  if (!n || isNaN(n)) return null;
+  return n > 0 ? 1 + n / 100 : 1 + 100 / Math.abs(n);
+}
+function numEq(a, b) { return Math.abs(Number(a) - Number(b)) < 0.001; }
+// Devuelve la cuota (americana) de una selección, o null si no existe.
+function priceOf(m, market, pick) {
+  if (!m) return null;
+  pick = String(pick || '').trim();
+  var mm;
+  if (/ — /.test(pick)) {
+    var left = pick.split(' — ')[0], right = pick.split(' — ').slice(1).join(' — ');
+    if ((mm = /^(Más|Menos)\s+([\d.]+)/.exec(right))) {
+      var pr = (m.props || []).find(function (p) { return (left === p.player || left === p.player + ' (' + p.stat + ')') && numEq(p.line, mm[2]); });
+      return pr ? (mm[1] === 'Más' ? pr.over : pr.under) : null;
+    }
+    if (m.halftime) { if (right === m.away) return m.halftime.away; if (right === m.home) return m.halftime.home; }
+    return null;
+  }
+  if ((mm = /^(?:>|Más)\s*([\d.]+)/.exec(pick))) return m.total && numEq(m.total.line, mm[1]) ? m.total.over : null;
+  if ((mm = /^(?:<|Menos)\s*([\d.]+)/.exec(pick))) return m.total && numEq(m.total.line, mm[1]) ? m.total.under : null;
+  if (market === 'Hándicap' || /^Hándicap\s/.test(pick)) {
+    if (!m.handicap) return null;
+    var hp = pick.replace(/^Hándicap\s+/, ''), side = null, line;
+    if ((mm = /^(.*\S)\s+([+-]?\d+(?:\.\d+)?)$/.exec(hp)) && (mm[1] === m.away || mm[1] === m.home)) { side = mm[1] === m.away ? 'away' : 'home'; line = mm[2]; }
+    else if ((mm = /^([+-]?\d+(?:\.\d+)?)$/.exec(hp))) {
+      line = mm[1];
+      if (numEq(m.handicap.awayLine, line) && !numEq(m.handicap.homeLine, line)) side = 'away';
+      else if (numEq(m.handicap.homeLine, line) && !numEq(m.handicap.awayLine, line)) side = 'home';
+    }
+    if (!side) return null;
+    if (side === 'away') return numEq(m.handicap.awayLine, line) ? m.handicap.awayOdds : null;
+    return numEq(m.handicap.homeLine, line) ? m.handicap.homeOdds : null;
+  }
+  var o = m.odds || [];
+  if (pick === m.away) return o[2] && o[2].v;
+  if (pick === m.home) return o[0] && o[0].v;
+  if (pick === 'Empate') return o[1] && o[1].v;
+  return null;
+}
+// Calcula el pago de una apuesta (sencilla o combinada). null si algo no cuadra.
+function priceBet(b, byKey) {
+  var stake = Number(b.stake);
+  if (/^Combinada/i.test(b.desc || '')) {
+    var legs = String(b.match || '').split(' · '), dec = 1;
+    if (legs.length < 2) return null;
+    for (var i = 0; i < legs.length; i++) {
+      var p = legs[i].split('@@@'); if (p.length !== 3) return null;
+      var tm = /^(Ganador|Hándicap|Total) (.*) vs (.*)$/.exec(p[0]); if (!tm) return null;
+      var d = amToDec(priceOf(byKey[matchKey(tm[2], tm[3])], tm[1], p[1]));
+      if (!d) return null;
+      dec *= d;
+    }
+    return Math.round(stake * dec * 100) / 100;
+  }
+  var mm = /^(.*) @ (.*)$/.exec(b.match || ''); if (!mm) return null;
+  var key = String(b.desc || '').replace(/\s*\([^)]*\)\s*$/, '');
+  var d1 = amToDec(priceOf(byKey[matchKey(mm[1], mm[2])], '', key));
+  return d1 ? Math.round(stake * d1 * 100) / 100 : null;
+}
+// Límites de apuesta (el admin los cambia en el panel).
+const DEFAULT_LIMITS = { maxStake: Number(Bun.env.MAX_STAKE) || 500, maxPayout: Number(Bun.env.MAX_PAYOUT) || 5000, minStake: 1 };
+async function betLimits() {
+  const r = await sql`SELECT value FROM app_state WHERE key = 'bet_limits'`;
+  var v = r[0] ? r[0].value : null;
+  if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
+  return Object.assign({}, DEFAULT_LIMITS, v || {});
+}
+app.get('/api/bet-limits', async (c) => c.json(await betLimits()));
+app.get('/api/admin/bet-limits', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'unauthorized' }, 401);
+  return c.json(await betLimits());
+});
+app.post('/api/admin/bet-limits', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'unauthorized' }, 401);
+  let body = {}; try { body = await c.req.json(); } catch (e) { return c.json({ error: 'bad_request' }, 400); }
+  var maxStake = Math.round(Number(body.maxStake) * 100) / 100, maxPayout = Math.round(Number(body.maxPayout) * 100) / 100;
+  if (!(maxStake >= 1) || !(maxPayout >= maxStake)) return c.json({ error: 'bad_request' }, 400);
+  var v = { maxStake: maxStake, maxPayout: maxPayout, minStake: 1 };
+  await sql`INSERT INTO app_state (key, value) VALUES ('bet_limits', ${JSON.stringify(v)}::jsonb)
+    ON CONFLICT (key) DO UPDATE SET value = ${JSON.stringify(v)}::jsonb`;
+  return c.json(v);
+});
+
 app.post('/api/bets', async (c) => {
   const user = await getUserFromCookie(c);
   if (!user) return c.json({ error: 'unauthorized' }, 401);
@@ -1612,11 +1701,26 @@ app.post('/api/bets', async (c) => {
     }
   }
 
-  const balRows = await sql`SELECT balance FROM users WHERE id = ${user.id}`;
-  const currentBalance = Number(balRows[0].balance);
-  if (stakeSum > currentBalance) return c.json({ error: 'insufficient' }, 400);
-  const newBalance = currentBalance - stakeSum;
-  await sql`UPDATE users SET balance = ${newBalance} WHERE id = ${user.id}`;
+  // El servidor calcula el pago de cada apuesta y revisa los límites.
+  const lim = await betLimits();
+  for (const b of bets) {
+    var st = Math.round(Number(b.stake) * 100) / 100;
+    if (st < lim.minStake) return c.json({ error: 'min_stake', limit: lim.minStake }, 400);
+    if (st > lim.maxStake) return c.json({ error: 'max_stake', limit: lim.maxStake }, 400);
+    var fair = priceBet(b, matchesByKey);
+    if (fair === null) return c.json({ error: 'odds_changed' }, 409);
+    // Lo que vio el jugador debe coincidir (con un margen de 1 centavo por redondeo).
+    if (Math.abs(fair - Number(b.payout)) > Math.max(0.05, fair * 0.005)) return c.json({ error: 'odds_changed' }, 409);
+    if (fair > lim.maxPayout) return c.json({ error: 'max_payout', limit: lim.maxPayout }, 400);
+    b.payout = fair;
+    b.stake = st;
+  }
+
+  stakeSum = bets.reduce(function (a, b) { return a + Number(b.stake); }, 0);
+  // Se descuenta de una sola vez y solo si alcanza (evita que dos toques seguidos gasten de más).
+  const upd = await sql`UPDATE users SET balance = balance - ${stakeSum} WHERE id = ${user.id} AND balance >= ${stakeSum} RETURNING balance`;
+  if (!upd[0]) return c.json({ error: 'insufficient' }, 400);
+  const newBalance = Number(upd[0].balance);
   const ids = [];
   for (const b of bets) {
     const ins = await sql`
