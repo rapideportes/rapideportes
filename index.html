@@ -1437,29 +1437,36 @@
       '<span class="lrow-chevron">' + (open ? '︿' : '›') + '</span>' +
       '</div>';
     // NBA: los líderes se abren dentro del mismo cuadro (un solo cuadro).
-    if (open && m.sport === 'baloncesto') return html + leadersHTML(m) + '</div>';
+    if (open && LEADER_CATS[m.sport]) return html + leadersHTML(m) + '</div>';
     html += '</div>';
     if (open) html += matchCard(m);
     return html;
   }
   // Líderes del partido (NBA): puntos, rebotes y asistencias de cada equipo,
   // tal como los publica ESPN. Solo se muestran si el servidor los mandó.
+  var LEADER_CATS = {
+    baloncesto: [['points', 'Puntos'], ['rebounds', 'Rebotes'], ['assists', 'Asistencias']],
+    nhl: [['goals', 'Goles'], ['assists', 'Asistencias'], ['points', 'Puntos']],
+    nfl: [['passingYards', 'Yardas pase'], ['rushingYards', 'Yardas carrera'], ['receivingYards', 'Yardas recep.']]
+  };
   function leadersHTML(m) {
-    if (m.sport !== 'baloncesto') return '';
+    var cats = LEADER_CATS[m.sport]; if (!cats) return '';
+    var more = m.sport === 'baloncesto' ? '<button type="button" class="ldr-more" data-stats-open="' + esc(m.id) + '">📋 Ver estadísticas completas</button>' : '';
     var L = m.score && m.score.detail && m.score.detail.leaders;
     var html = '<div class="ldr"><div class="ldr-title">📊 Líderes del partido</div>';
-    if (!L || (!L.home && !L.away)) return html + '<div class="ldr-empty">Las estadísticas de los jugadores aparecen en unos minutos.</div><button type="button" class="ldr-more" data-stats-open="' + esc(m.id) + '">📋 Ver estadísticas completas</button></div>';
+    if (!L || (!L.home && !L.away)) return html + '<div class="ldr-empty">Las estadísticas de los jugadores aparecen en unos minutos.</div>' + more + '</div>';
     var ba = teamBadge(m.away), bh = teamBadge(m.home);
     html += '<div class="ldr-head"><span><b class="mc-badge" style="' + badgeStyle(ba) + '">' + esc(ba.abbr) + '</b></span><span></span><span><b class="mc-badge" style="' + badgeStyle(bh) + '">' + esc(bh.abbr) + '</b></span></div>';
-    [['points', 'Puntos'], ['rebounds', 'Rebotes'], ['assists', 'Asistencias']].forEach(function (c) {
+    cats.forEach(function (c) {
       var a = (L.away || {})[c[0]], h = (L.home || {})[c[0]];
+      if (!a && !h) return;
       html += '<div class="ldr-row">' +
         '<div class="ldr-side">' + (a ? '<b>' + esc(a.value) + '</b><span>' + esc(a.name) + '</span>' : '<span>—</span>') + '</div>' +
         '<div class="ldr-cat">' + c[1] + '</div>' +
         '<div class="ldr-side r">' + (h ? '<b>' + esc(h.value) + '</b><span>' + esc(h.name) + '</span>' : '<span>—</span>') + '</div>' +
         '</div>';
     });
-    return html + '<button type="button" class="ldr-more" data-stats-open="' + esc(m.id) + '">📋 Ver estadísticas completas</button></div>';
+    return html + more + '</div>';
   }
   // Línea de "tiempo/entrada + información del juego", siempre a partir
   // de lo que mandó el servidor (que a su vez viene de la fuente oficial
@@ -3324,7 +3331,7 @@
     ['Ya puedes retirar tus ganancias.', 'You can now withdraw your winnings.'],
     ['¿Necesitas ayuda con tu cuenta, un depósito o una apuesta? Nuestro equipo te atiende todos los días.', 'Need help with your account, a deposit or a bet? Our team is here every day.'],
     ['Lanzamientos de este turno al bate', 'Pitches in this at-bat'],
-    ['Líderes del partido', 'Game leaders'], ['🏏 Bateo', '🏏 Batting'], ['⚾ Pitcheo', '⚾ Pitching'], [' — línea ', ' — line '], ['(Puntos)', '(Points)'], ['(Rebotes)', '(Rebounds)'], ['(Asistencias)', '(Assists)'], ['(Triples)', '(3-pointers)'], ['(Robos)', '(Steals)'], ['(Tapones)', '(Blocks)'], ['Las estadísticas de los jugadores aparecen en unos minutos.', 'Player stats will appear in a few minutes.'],
+    ['Líderes del partido', 'Game leaders'], ['🏏 Bateo', '🏏 Batting'], ['⚾ Pitcheo', '⚾ Pitching'], [' — línea ', ' — line '], ['(Puntos)', '(Points)'], ['Goles', 'Goals'], ['Yardas pase', 'Pass yds'], ['Yardas carrera', 'Rush yds'], ['Yardas recep.', 'Rec yds'], ['(Rebotes)', '(Rebounds)'], ['(Asistencias)', '(Assists)'], ['(Triples)', '(3-pointers)'], ['(Robos)', '(Steals)'], ['(Tapones)', '(Blocks)'], ['Las estadísticas de los jugadores aparecen en unos minutos.', 'Player stats will appear in a few minutes.'],
     ['Apuesta confirmada por', 'Bet placed for'], ['Combinada confirmada por', 'Parlay placed for'],
     ['Míralas en Mis apuestas.', 'See them in My bets.'], ['Te avisamos cuando se apruebe.', "We'll let you know when it's approved."],
     ['Ya está en tu saldo.', "It's in your balance."], ['ya está en tu saldo', "it's in your balance"],
