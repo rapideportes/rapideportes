@@ -839,7 +839,7 @@
             </div>
           </div>
         </div>
-        <div class="field-error" id="newMatchErr">Completa los equipos y ambas cuotas.</div>
+        <div class="field-error" id="newMatchErr">Completa la fecha, la hora, los equipos y ambas cuotas (sin hora no se aceptan apuestas).</div>
       </div>
 
       <div class="amc-block">
@@ -2517,7 +2517,7 @@
     var o1 = decimalToAmerican(o1n);
     var o3 = decimalToAmerican(o3n);
     var oddsPattern = /^[+-]\d{2,4}$/;
-    if (!home || !away || !oddsPattern.test(o1) || !oddsPattern.test(o3)) {
+    if (!home || !away || !dateVal || !timeVal || !oddsPattern.test(o1) || !oddsPattern.test(o3)) {
       document.getElementById('newMatchErr').style.display = 'block';
       return;
     }
