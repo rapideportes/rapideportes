@@ -768,6 +768,20 @@
   .tk-foot { display: flex; justify-content: space-between; gap: 10px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; color: #98A2B3; letter-spacing: .08em; }
   .tk-st.won { color: #32D583; } .tk-st.lost { color: #FF5C82; }
   @media (prefers-reduced-motion: reduce) { .tk-wrap.go { animation: none; opacity: 1; transform: none; } .tk-tape-in { animation: none; } }
+  .eh-hero { text-align: center; background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: 22px 18px; margin: 4px 0 14px; box-shadow: var(--shadow-sm); }
+  .eh-ic { font-size: 34px; margin-bottom: 6px; }
+  .eh-hero b { display: block; font-size: 17px; font-weight: 800; }
+  .eh-hero span { display: block; font-size: 14px; color: var(--text-dim); margin-top: 4px; line-height: 1.45; }
+  .eh-live, .eh-bets { width: 100%; display: flex; align-items: center; gap: 12px; text-align: left; border: 0; border-radius: 16px; padding: 14px 16px; margin: 0 0 12px; font: inherit; cursor: pointer; }
+  .eh-live { background: #0B1630; color: #fff; }
+  .eh-bets { background: #FFF1F3; color: var(--text); border: 1px solid #FECDD6; font-size: 20px; }
+  .eh-live b, .eh-bets b { display: block; font-size: 15.5px; font-weight: 800; }
+  .eh-live small, .eh-bets small { display: block; font-size: 12.5px; opacity: .75; margin-top: 2px; font-weight: 600; }
+  .eh-live > span:nth-child(2), .eh-bets > span:nth-child(2) { flex: 1; }
+  .eh-go { font-weight: 800; color: var(--accent); font-size: 14px; }
+  .eh-live .eh-go { color: #FF5C82; }
+  .eh-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 4px rgba(240,20,70,.25); animation: copulse 1.2s ease-in-out infinite; flex: 0 0 auto; }
+  @keyframes copulse { 50% { opacity: .35; } }
 </style>
 </head>
 <body>
@@ -1620,11 +1634,31 @@
     if (!list.length) return html + emptyHTML('🏁', 'Todavía no hay partidos terminados.');
     return html + finishedByDayHTML(list, 0);
   }
+  // Cuando no hay partidos para apostar: lo que está en vivo, sus apuestas y los últimos resultados.
+  function emptyHomeHTML() {
+    var sp = state.sport, pick = function (m) { return sp === 'all' || m.sport === sp; };
+    var lg = sp === 'all' ? '' : ' de ' + (SPORT_LABELS[sp] || '');
+    var html = '<div class="eh-hero"><div class="eh-ic">⏳</div><b>No hay partidos' + esc(lg) + ' para apostar ahora</b><span>Estamos preparando las líneas de los próximos juegos. Vuelve pronto.</span></div>';
+    var live = state.matches.filter(function (m) { return pick(m) && (m.live || (!m.finished && isBettingClosed(m))); });
+    if (live.length) {
+      html += '<button type="button" class="eh-live" data-view="live"><span class="eh-dot"></span><span><b>' + live.length + (live.length === 1 ? ' juego en vivo' : ' juegos en vivo') + ' ahora</b><small>Mira el marcador al momento</small></span><span class="eh-go">Ver ›</span></button>';
+      live.slice(0, 3).forEach(function (m) { html += m.live ? liveRowHTML(m) : matchCard(m); });
+    }
+    var open = state.user ? openBets().length : 0;
+    if (open) html += '<button type="button" class="eh-bets" data-view="bets">🎟️ <span><b>Tienes ' + open + (open === 1 ? ' apuesta abierta' : ' apuestas abiertas') + '</b><small>Mira cómo van</small></span><span class="eh-go">Ver ›</span></button>';
+    var fin = finishedList(sp).slice(0, 3);
+    if (fin.length) {
+      html += '<div class="sec-title">✅ Resultados recientes</div>';
+      fin.forEach(function (m) { html += resCardHTML(m); });
+      html += '<button type="button" class="btn block res-all" data-view="results">Ver todos los resultados</button>';
+    }
+    return html;
+  }
   function homeHTML() {
     var list = state.matches.filter(function (m) { return (state.sport === 'all' || m.sport === state.sport) && !isBettingClosed(m); });
     var html = winBannerHTML() + chipsHTML();
     if (state.sport === 'all') html += favsHTML();
-    if (state.sport === 'all' && state.matches.length) {
+    if (state.sport === 'all' && popularMatches().length) {
       html += '<div class="sec-title">🔥 Más jugados</div>';
       popularMatches().forEach(function (m) {
         html += '<button type="button" class="pop" data-goto="' + esc(m.id) + '"><span class="pop-rank">🔥</span><span class="pop-main"><span class="pop-teams">' + esc(m.away) + ' vs ' + esc(m.home) + '</span>' +
@@ -1634,7 +1668,7 @@
     if (state.sport === 'all') html += combosHTML();
     html += '<div class="sec-title">Partidos<span class="count">' + list.length + (list.length === 1 ? ' partido' : ' partidos') + '</span></div>';
     if (!list.length) {
-      html += state.matches.length ? emptyHTML('🔎', 'No hay partidos en esta categoría por ahora.') : emptyHTML('⚾', 'Aún no hay partidos disponibles.<br>Vuelve pronto, estamos preparando las líneas.');
+      html += emptyHomeHTML();
     } else {
       list.forEach(function (m) { html += matchCard(m); });
     }
@@ -3164,7 +3198,7 @@
     ['Apuesta', 'Bet'], ['paga', 'pays'], ['Final ·', 'Final ·'], ['Promociones', 'Promotions'], ['Resultados', 'Results'],
     ['En vivo', 'Live'], ['Ganador', 'Winner'], ['Hándicap', 'Handicap'], ['carreras', 'runs'], ['puntos', 'points'], ['goles', 'goals'],
     ['Imprimiendo tu ticket…', 'Printing your ticket…'], ['¡Listo! Apuesta confirmada', 'Done! Bet confirmed'], ['📲 Compartir jugada', '📲 Share bet'],
-    ['SI GANAS', 'IF YOU WIN'], ['Las cuotas cambiaron. Revisa tu boleto y confirma otra vez.', 'The odds changed. Check your slip and confirm again.'], ['Ver todos los resultados', 'See all results'], ['Ayer', 'Yesterday'], ['Partidos terminados con su marcador final, por día.', 'Finished games with their final score, by day.'], ['🧾 Ver ticket y compartir', '🧾 View ticket & share'], ['Tu ticket', 'Your ticket'], ['Se guardó la foto del ticket. Mándala por WhatsApp o donde quieras.', 'The ticket image was saved. Send it on WhatsApp or anywhere.'], ['APUESTA SENCILLA', 'SINGLE BET'], ['Apostaste', 'You bet'], ['cuota total', 'total odds'],
+    ['SI GANAS', 'IF YOU WIN'], ['Estamos preparando las líneas de los próximos juegos. Vuelve pronto.', 'We are preparing the lines for the next games. Check back soon.'], ['Mira el marcador al momento', 'Watch the live score'], ['Mira cómo van', 'See how they are going'], ['Resultados recientes', 'Recent results'], ['Las cuotas cambiaron. Revisa tu boleto y confirma otra vez.', 'The odds changed. Check your slip and confirm again.'], ['Ver todos los resultados', 'See all results'], ['Ayer', 'Yesterday'], ['Partidos terminados con su marcador final, por día.', 'Finished games with their final score, by day.'], ['🧾 Ver ticket y compartir', '🧾 View ticket & share'], ['Tu ticket', 'Your ticket'], ['Se guardó la foto del ticket. Mándala por WhatsApp o donde quieras.', 'The ticket image was saved. Send it on WhatsApp or anywhere.'], ['APUESTA SENCILLA', 'SINGLE BET'], ['Apostaste', 'You bet'], ['cuota total', 'total odds'],
     ['Más ', 'Over '], ['Menos ', 'Under '], ['Cerrar', 'Close'], ['Hoy ', 'Today '], ['Mañana ', 'Tomorrow ']
   ];
   PHRASES.sort(function (a, b) { return b[0].length - a[0].length; });
