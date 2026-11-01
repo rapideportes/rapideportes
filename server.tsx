@@ -1672,7 +1672,7 @@ async function papiParticipants(sport) {
   });
 }
 // Saca Ganador, hándicap principal y total principal de un partido.
-const PAPI_PROP_STAT = [[/points/i, 'Puntos'], [/rebounds/i, 'Rebotes'], [/assists/i, 'Asistencias'], [/three|3pt|3-point/i, 'Triples'], [/steals/i, 'Robos'], [/blocks/i, 'Tapones']];
+const PAPI_PROP_STAT = [[/points/i, 'Puntos'], [/rebound/i, 'Rebotes'], [/assist/i, 'Asistencias'], [/three|3pt|3-point|threes/i, 'Triples'], [/steal/i, 'Robos'], [/block/i, 'Tapones']];
 // "Walsh, Jordan" → "J. Walsh" (igual que la lista de jugadores del panel).
 function papiPlayerName(n) {
   var m = /^([^,]+),\s*(.+)$/.exec(String(n || '').trim());
@@ -1688,7 +1688,9 @@ function papiLines(fx, markets) {
     var def = markets[mid]; if (!def) return;
     if (def.prop) {
       // Jugadores (NBA): solo las estadísticas que la página sabe calificar sola.
-      var stat = PAPI_PROP_STAT.find(function (x) { return x[0].test(def.type); });
+      // Las combinadas ("points-rebounds", "pra"…) se saltan: la página no las califica sola.
+      var hits = PAPI_PROP_STAT.filter(function (x) { return x[0].test(def.type); });
+      var stat = hits.length === 1 && !/combo|\+|pra|double/i.test(def.type) ? hits[0] : null;
       if (!stat || (def.period && def.period !== 'result' && def.period !== 'fulltime')) return;
       var po = bk.markets[mid].outcomes || {}, byPl = {};
       Object.keys(po).forEach(function (oid) {
@@ -1840,7 +1842,12 @@ app.get('/api/admin/oddspapi-test', async (c) => {
       // Jugadores: qué mercados de jugador trae PokerStars y cómo vienen.
       var propDefs = mks.filter(function (m) { return m.playerProp; });
       out.playerMarkets = papiShort(propDefs.slice(0, 6).map(function (m) { return { marketId: m.marketId, marketName: m.marketName, marketType: m.marketType, handicap: m.handicap, period: m.period, outcomes: m.outcomes }; }), 1500) || 'sin mercados de jugador';
+      var types = {}; propDefs.forEach(function (m) { types[m.marketType] = (types[m.marketType] || 0) + 1; });
+      out.playerTypes = JSON.stringify(types);
       var propIds = {}; propDefs.forEach(function (m) { propIds[m.marketId] = m.marketName; });
+      var seenTypes = {};
+      ods.forEach(function (f) { var bm = f.bookmakerOdds && f.bookmakerOdds.pokerstars && f.bookmakerOdds.pokerstars.markets || {}; Object.keys(bm).forEach(function (mid) { var d = propDefs.find(function (x) { return String(x.marketId) === mid; }); if (d) seenTypes[d.marketType] = (seenTypes[d.marketType] || 0) + 1; }); });
+      out.pokerstarsPlayerTypes = JSON.stringify(seenTypes);
       var sample = [];
       ods.some(function (f) {
         var bm = f.bookmakerOdds && f.bookmakerOdds.pokerstars && f.bookmakerOdds.pokerstars.markets || {};
