@@ -349,6 +349,18 @@ function normTeam(s) {
     .replace(/[.]/g, '')
     .trim();
 }
+// Los equipos de LIDOM se escriben de muchas formas ("Licey", "Tigres del Licey",
+// "Estrellas de Oriente"…): se reducen a una clave fija para emparejarlos.
+function lidomKey(n) {
+  var t = normTeam(n);
+  if (/licey/.test(t)) return 'licey';
+  if (/aguila|cibaen/.test(t)) return 'aguilas';
+  if (/escogido/.test(t)) return 'escogido';
+  if (/gigante|cibao/.test(t)) return 'gigantes';
+  if (/estrella|orient/.test(t)) return 'estrellas';
+  if (/toros|\beste\b/.test(t)) return 'toros';
+  return null;
+}
 function teamNamesMatch(a, b) {
   var na = normTeam(a), nb = normTeam(b);
   if (!na || !nb) return false;
@@ -427,7 +439,7 @@ async function fetchNbaOfficial() {
         homeName: h.teamName || '', awayName: a.teamName || '',
         homeFull: ((h.teamCity || '') + ' ' + (h.teamName || '')).trim(), awayFull: ((a.teamCity || '') + ' ' + (a.teamName || '')).trim(),
         homeScore: Number(h.score), awayScore: Number(a.score),
-        state: g.gameStatus === 2 ? 'in' : g.gameStatus === 3 ? 'post' : 'pre',
+        state: g.gameStatus === 2 ? 'in' : (g.gameStatus === 3 && /final/i.test(g.gameStatusText || '')) ? 'post' : 'pre',
         period: Number(g.period) || undefined,
         clock: nbaClockText(g.gameClock),
         statusText: g.gameStatusText || ''
@@ -475,7 +487,11 @@ async function fetchEspnGames(espnPath) {
         away: away.team ? away.team.displayName : '',
         homeScore: home.score !== undefined ? Number(home.score) : undefined,
         awayScore: away.score !== undefined ? Number(away.score) : undefined,
-        state: comp.status && comp.status.type ? comp.status.type.state : '', // 'pre' | 'in' | 'post'
+        // ESPN marca "post" también a los juegos pospuestos/cancelados (completed=false):
+        // esos NO se tratan como terminados (si no, se pagarían con 0-0).
+        state: (function () { var ty = comp.status && comp.status.type ? comp.status.type : {}; var stt = ty.state || ''; return stt === 'post' && ty.completed === false ? 'pre' : stt; })(),
+        estadoDetallado: (function () { var ty = comp.status && comp.status.type ? comp.status.type : {}; if (ty.state !== 'post' || ty.completed !== false) return null; return /cancel/i.test(ty.name || '') ? 'Cancelado' : /suspend/i.test(ty.name || '') ? 'Suspendido' : 'Pospuesto'; })(),
+        startTimeUtc: ev.date || null,
         period: comp.status ? comp.status.period : undefined,
         clock: comp.status ? comp.status.displayClock : '',
         leaders: { home: espnLeaders(home), away: espnLeaders(away) }
@@ -556,7 +572,8 @@ async function fetchMlbLiveDetail(gamePk) {
 
 var MLB_DETAILED_STATE_ES = {
   'Suspended': 'Suspendido', 'Postponed': 'Pospuesto', 'Delayed Start': 'Retrasado',
-  'Delayed': 'Retrasado', 'Rain Delay': 'Retrasado por lluvia', 'Game Over': 'Final', 'Final': 'Final'
+  'Delayed': 'Retrasado', 'Rain Delay': 'Retrasado por lluvia', 'Game Over': 'Final', 'Final': 'Final',
+  'Cancelled': 'Cancelado', 'Canceled': 'Cancelado'
 };
 
 // sportId 1 = MLB, 17 = ligas de invierno (ahí está la LIDOM).
@@ -588,7 +605,7 @@ async function fetchMlbGamesFromStatsApi(sportId) {
       var estadoDetallado = null;
       if (MLB_DETAILED_STATE_ES[detailed] && detailed !== 'Final' && detailed !== 'Game Over') {
         estadoDetallado = MLB_DETAILED_STATE_ES[detailed];
-        if (/suspend|delay|postpon/i.test(detailed)) state = 'pre'; // no lo marcamos "en vivo" mientras está detenido
+        if (/suspend|delay|postpon|cancel/i.test(detailed)) state = 'pre'; // no lo marcamos "en vivo" mientras está detenido
       }
       var ls = g.linescore || {};
       var inningWord = ls.inningState === 'Top' ? 'Alta' : ls.inningState === 'Bottom' ? 'Baja' : ls.inningState === 'Middle' ? 'Entre' : ls.inningState === 'End' ? 'Fin' : (ls.inningState || '');
@@ -741,6 +758,17 @@ async function updateLiveScores() {
       var awayEn = lookupEnglishTeam(m.sport, m.away);
       if (!homeEn || !awayEn) return;
       var games = gamesBySport[m.sport] || [];
+      // Si el partido tiene hora, solo se empareja con juegos reales cercanos a esa
+      // hora (y el más cercano): así una doble cartelera o el juego de ayer entre
+      // los mismos equipos nunca le pasa su marcador al partido equivocado.
+      var mT = m.startAt ? Date.parse(m.startAt) : NaN;
+      if (!isNaN(mT)) {
+        games = games.filter(function (x) { var t = x.startTimeUtc ? Date.parse(x.startTimeUtc) : NaN; return isNaN(t) || Math.abs(t - mT) <= 10 * 3600000; })
+          .slice().sort(function (a, b) {
+            var ta = a.startTimeUtc ? Date.parse(a.startTimeUtc) : NaN, tb = b.startTimeUtc ? Date.parse(b.startTimeUtc) : NaN;
+            return (isNaN(ta) ? 9e15 : Math.abs(ta - mT)) - (isNaN(tb) ? 9e15 : Math.abs(tb - mT));
+          });
+      }
       var g, reversed = false;
       if (m.sport === 'nhl') {
         var homeAbbrev = nhlAbbrevFor(m.home), awayAbbrev = nhlAbbrevFor(m.away);
@@ -900,11 +928,40 @@ function extractMatchRefs(desc, matchText) {
 function isBettingClosedServer(m) {
   if (!m) return true;
   if (m.live || m.finished) return true;
-  if (m.startAt) {
-    var t = Date.parse(m.startAt);
-    if (!isNaN(t) && Date.now() >= t) return true;
-  }
+  // Sin hora de inicio no se sabe cuándo cerrar: no se acepta (evita apuestas con el juego ya empezado).
+  var t = m.startAt ? Date.parse(m.startAt) : NaN;
+  if (isNaN(t)) return true;
+  if (Date.now() >= t) return true;
   return false;
+}
+// Índice "Visitante @ Local" -> partido. Si hay dos con los mismos equipos
+// (serie, doble cartelera), gana el que todavía no ha terminado.
+function indexMatches(list) {
+  var byKey = {};
+  (Array.isArray(list) ? list : []).forEach(function (m) {
+    var k = matchKey(m.away, m.home), cur = byKey[k];
+    if (!cur || (cur.finished && !m.finished) || (!!cur.finished === !!m.finished && Date.parse(m.startAt || 0) >= Date.parse(cur.startAt || 0))) byKey[k] = m;
+  });
+  return byKey;
+}
+// Para calificar: el partido al que pertenece una apuesta es el primero con esos
+// equipos que empezó DESPUÉS de hecha la apuesta (nunca uno ya jugado antes).
+function finishedViewFor(createdAt, allByKey) {
+  var bt = createdAt ? new Date(createdAt).getTime() : NaN;
+  var out = {};
+  Object.keys(allByKey).forEach(function (k) {
+    var list = allByKey[k], pick = null;
+    if (list.length === 1 && !list[0].startAt) pick = list[0];
+    else {
+      list.forEach(function (m) {
+        var t = m.startAt ? Date.parse(m.startAt) : NaN;
+        if (isNaN(t) || isNaN(bt) || t < bt - 60000) return;
+        if (!pick || t < Date.parse(pick.startAt)) pick = m;
+      });
+    }
+    if (pick && pick.finished) out[k] = pick;
+  });
+  return out;
 }
 
 // Decide el resultado de una selección de "Ganador" (moneyline).
@@ -1015,6 +1072,8 @@ function gradeParlayBet(matchText, finishedByKey, statsByEventId) {
       var stats = statsByEventId[m.espnEventId];
       if (!stats) return null;
       result = gradePlayerProp(m, pick, stats);
+    } else if (/ — /.test(pick)) {
+      return null; // medio tiempo / primer período: lo califica el admin (nunca se da por perdida sola)
     } else {
       result = gradeSelection(mainType, away, home, pick, finishedByKey);
     }
@@ -1067,6 +1126,9 @@ function gradePitcherProp(pick, statsBySurname) {
   var m = /^(.*) — (Más|Menos) ([\d.]+)$/.exec(String(pick || ''));
   if (!m) return null;
   var playerLabel = m[1], side = m[2] === 'Más' ? 'over' : 'under', line = parseFloat(m[3]);
+  // Solo se califican ponches; otra estadística (hits, carreras…) la decide el admin.
+  var stm = /\(([^()]*)\)\s*$/.exec(playerLabel);
+  if (stm && !/ponche|strikeout|^k$/i.test(stm[1].trim())) return null;
   var surname = normTeam(playerLabel.replace(/\s*\([^)]*\)\s*$/, '').trim().split(/\s+/).pop());
   var k = statsBySurname[surname];
   if (k === undefined) return null;
@@ -1127,13 +1189,15 @@ async function settleBets() {
       try { matches = JSON.parse(matches); } catch (e) { matches = []; }
     }
     if (!Array.isArray(matches)) return;
-    var finishedByKey = {};
+    var finishedByKey = {}, allByKey = {};
     matches.forEach(function (m) {
-      if (m.finished) finishedByKey[matchKey(m.away, m.home)] = m;
+      var k = matchKey(m.away, m.home);
+      (allByKey[k] = allByKey[k] || []).push(m);
+      if (m.finished) finishedByKey[k] = m;
     });
     if (Object.keys(finishedByKey).length === 0) return;
 
-    const pending = await sql`SELECT id, user_id, desc_text, match_text, stake, payout FROM bets WHERE status = 'pending' AND deleted_at IS NULL`;
+    const pending = await sql`SELECT id, user_id, desc_text, match_text, stake, payout, created_at FROM bets WHERE status = 'pending' AND deleted_at IS NULL`;
     var anyPropPending = pending.some(function (b) { return / — (Más|Menos) [\d.]+/.test(b.desc_text || '') || / — (Más|Menos) [\d.]+/.test(b.match_text || ''); });
 
     // Solo pedimos el boxscore (ponches) si hay al menos una apuesta de
@@ -1152,9 +1216,10 @@ async function settleBets() {
 
     for (const b of pending) {
       var isParlay = /^Combinada/i.test(b.desc_text || '');
+      var fk = finishedViewFor(b.created_at, allByKey); // solo el juego que empezó después de la apuesta
       var result = isParlay
-        ? gradeParlayBet(b.match_text, finishedByKey, statsByEventId)
-        : gradeSingleBet(b.desc_text, b.match_text, finishedByKey, statsByEventId);
+        ? gradeParlayBet(b.match_text, fk, statsByEventId)
+        : gradeSingleBet(b.desc_text, b.match_text, fk, statsByEventId);
       if (result === null) continue; // todavía no se puede calificar
 
       // "AND status = 'pending'" evita pagar dos veces si la apuesta ya se cobró (cash out).
@@ -1651,7 +1716,16 @@ function papiList(d) { return Array.isArray(d) ? d : d && (d.data || d.items || 
 async function papiTournamentId(sport) {
   return papiCached('t' + sport, 7 * 864e5, async function () {
     var r = await oddsPapi('tournaments', { sportId: PAPI_SPORT[sport] });
-    var t = papiList(r.data).find(function (x) { return PAPI_TOURN[sport].test(x.tournamentName || '') || PAPI_TOURN[sport].test(x.tournamentSlug || ''); });
+    var cands = papiList(r.data).filter(function (x) { return PAPI_TOURN[sport].test(x.tournamentName || '') || PAPI_TOURN[sport].test(x.tournamentSlug || ''); });
+    if (sport === 'lidom') {
+      // Que no agarre la liga de verano (DSL) ni otras: se prefiere la LIDOM / liga de invierno.
+      cands = cands.filter(function (x) { return !/summer|verano|women|femen|u\d|youth/i.test((x.tournamentName || '') + ' ' + (x.tournamentSlug || '')); });
+      cands.sort(function (a, b) {
+        var sc = function (x) { var n = (x.tournamentName || '') + ' ' + (x.tournamentSlug || ''); return (/lidom/i.test(n) ? 4 : 0) + (/winter|invierno|profesional|professional/i.test(n) ? 2 : 0) + (x.futureFixtures > 0 || x.upcomingFixtures > 0 ? 1 : 0); };
+        return sc(b) - sc(a);
+      });
+    }
+    var t = cands[0];
     return t ? t.tournamentId : null;
   });
 }
@@ -1764,6 +1838,12 @@ async function addPapiOdds(sport, date, games) {
       if (parts) {
         near.some(function (f) {
           var n1 = parts[f.participant1Id], n2 = parts[f.participant2Id];
+          if (sport === 'lidom') {
+            var k1 = lidomKey(n1), k2 = lidomKey(n2), kh = lidomKey(g.home), ka = lidomKey(g.away);
+            if (k1 && k2 && k1 === kh && k2 === ka) { fx = f; p1Home = true; return true; }
+            if (k1 && k2 && k1 === ka && k2 === kh) { fx = f; p1Home = false; return true; }
+            return false;
+          }
           if (teamNamesMatch(n1, g.home) && teamNamesMatch(n2, g.away)) { fx = f; p1Home = true; return true; }
           if (teamNamesMatch(n1, g.away) && teamNamesMatch(n2, g.home)) { fx = f; p1Home = false; return true; }
           return false;
@@ -1827,6 +1907,11 @@ app.get('/api/admin/oddspapi-test', async (c) => {
   var bk = await oddsPapi('bookmakers');
   var bks = Array.isArray(bk.data) ? bk.data : (bk.data && (bk.data.data || bk.data.bookmakers)) || [];
   out.bookmakers = papiShort(bks.filter(function (x) { return /poker|stars/i.test(JSON.stringify(x)); }), 600) || papiShort(bk.data || bk.text, 400);
+  try {
+    var lt = await oddsPapi('tournaments', { sportId: 13 });
+    out.lidom = papiShort(papiList(lt.data).filter(function (x) { return /lidom|dominican|winter|invierno/i.test((x.tournamentName || '') + ' ' + (x.tournamentSlug || '')); }).slice(0, 5), 700) || 'no aparece';
+    out.lidomUsado = await papiTournamentId('lidom');
+  } catch (e) { out.lidom = 'error'; }
   var bb = sports.find(function (x) { return /basket/i.test(JSON.stringify(x)); });
   var bbId = bb && (bb.sportId || bb.id);
   if (bbId) {
@@ -2000,8 +2085,7 @@ app.post('/api/bets', async (c) => {
     try { currentMatches = JSON.parse(currentMatches); } catch (e) { currentMatches = []; }
   }
   if (!Array.isArray(currentMatches)) currentMatches = [];
-  var matchesByKey = {};
-  currentMatches.forEach(function (m) { matchesByKey[matchKey(m.away, m.home)] = m; });
+  var matchesByKey = indexMatches(currentMatches);
   for (const b of bets) {
     var refs = extractMatchRefs(b.desc, b.match);
     if (!refs) return c.json({ error: 'bad_request' }, 400);
@@ -2034,6 +2118,28 @@ app.post('/api/bets', async (c) => {
     if (fair > lim.maxPayout) return c.json({ error: 'max_payout', limit: lim.maxPayout }, 400);
     b.payout = fair;
     b.stake = st;
+    // Cada pata de la combinada se guarda con la cuota del SERVIDOR (no la del
+    // teléfono): esa cuota se usa luego para anular patas y para el cash out.
+    if (/^Combinada/i.test(b.desc || '')) {
+      b.match = String(b.match || '').split(' · ').map(function (leg) {
+        var p = leg.split('@@@'), tm = /^(Ganador|Hándicap|Total) (.*) vs (.*)$/.exec(p[0]);
+        var d = amToDec(priceOf(matchesByKey[matchKey(tm[2], tm[3])], tm[1], p[1]));
+        return p[0] + '@@@' + p[1] + '@@@' + d.toFixed(2);
+      }).join(' · ');
+    }
+  }
+
+  // Tope por jugada: lo que un jugador tenga pendiente en la MISMA jugada (aunque
+  // lo parta en varios tickets) no puede pasar el máximo por apuesta.
+  const prevRows = await sql`SELECT desc_text, match_text, stake FROM bets WHERE user_id = ${user.id} AND status = 'pending' AND deleted_at IS NULL`;
+  function selKey(desc, match) { return String(desc || '').replace(/\s*\([\d.]+\)\s*$/, '') + '||' + String(match || '').replace(/@@@[\d.]+/g, ''); }
+  var expo = {};
+  prevRows.forEach(function (r) { var k = selKey(r.desc_text, r.match_text); expo[k] = (expo[k] || 0) + Number(r.stake); });
+  for (const b of bets) {
+    var k2 = selKey(b.desc, b.match);
+    expo[k2] = (expo[k2] || 0) + Number(b.stake);
+    var cap = hasPlayerProp(b) ? lim.maxPropStake : lim.maxStake;
+    if (expo[k2] > cap + 0.001) return c.json({ error: 'max_selection', limit: cap, left: Math.max(0, Math.round((cap - (expo[k2] - Number(b.stake))) * 100) / 100) }, 400);
   }
 
   stakeSum = bets.reduce(function (a, b) { return a + Number(b.stake); }, 0);
@@ -2061,9 +2167,7 @@ async function loadMatchesByKey() {
   var list = matchRows[0] ? matchRows[0].value : [];
   if (typeof list === 'string') { try { list = JSON.parse(list); } catch (e) { list = []; } }
   if (!Array.isArray(list)) list = [];
-  var byKey = {};
-  list.forEach(function (m) { byKey[matchKey(m.away, m.home)] = m; });
-  return byKey;
+  return indexMatches(list);
 }
 // Cash out:
 // - Sencilla: antes de que empiece el juego, 90% de lo apostado.
