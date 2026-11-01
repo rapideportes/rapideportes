@@ -683,6 +683,9 @@
   .tk-btn { width: 100%; min-height: 40px; margin-top: 8px; border-radius: 999px; border: 1px solid var(--border-strong); background: #fff; color: var(--text); font: inherit; font-weight: 700; font-size: 13.5px; cursor: pointer; }
   .rc-acts { display: grid; grid-template-columns: 1fr 1.4fr; gap: 10px; width: 100%; margin-top: 6px; opacity: 0; transition: opacity .3s; }
   .rc-acts.show { opacity: 1; }
+  .rc-luck { display: inline-flex; align-items: baseline; gap: 8px; flex-wrap: wrap; color: #4ADE80; font-family: var(--font-display); font-style: italic; font-weight: 800; font-size: 22px; text-transform: uppercase; animation: rcLuckPop .5s cubic-bezier(.2,1.4,.4,1); }
+  .rc-luck small { font-family: Inter, sans-serif; font-style: normal; text-transform: none; font-weight: 600; font-size: 13px; color: #E4E7EC; }
+  @keyframes rcLuckPop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
   .rc-acts .btn { margin: 0; }
   @media (prefers-reduced-motion: reduce) { .rc-paper.go { animation: none; transform: none; } }
   .co-left-note { font-size: 12px; color: #067647; background: #ECFDF3; border-radius: 10px; padding: 7px 10px; margin-top: 6px; line-height: 1.35; text-align: center; }
@@ -2550,6 +2553,11 @@
     setTimeout(function () {
       acts.classList.add('show'); if (led) led.classList.add('ok');
       $('rcStatus').innerHTML = '<span class="ok-ic">✓</span> ' + (opt.at ? 'Tu ticket' : '¡Listo! Apuesta confirmada');
+      // Apuesta nueva (no un ticket viejo): después de confirmar, le desea suerte.
+      if (!opt.at) setTimeout(function () {
+        var stEl = $('rcStatus'); if (!stEl || !$('rcptOverlay').classList.contains('open')) return;
+        stEl.innerHTML = '<span class="rc-luck">🍀 ¡Mucha suerte! <small>Que se te dé esa jugada.</small></span>';
+      }, 1400);
     }, 2300);
   }
   function receiptText() {
@@ -3331,7 +3339,7 @@
     ['Ya puedes retirar tus ganancias.', 'You can now withdraw your winnings.'],
     ['¿Necesitas ayuda con tu cuenta, un depósito o una apuesta? Nuestro equipo te atiende todos los días.', 'Need help with your account, a deposit or a bet? Our team is here every day.'],
     ['Lanzamientos de este turno al bate', 'Pitches in this at-bat'],
-    ['Líderes del partido', 'Game leaders'], ['🏏 Bateo', '🏏 Batting'], ['⚾ Pitcheo', '⚾ Pitching'], [' — línea ', ' — line '], ['(Puntos)', '(Points)'], ['Goles', 'Goals'], ['Yardas pase', 'Pass yds'], ['Yardas carrera', 'Rush yds'], ['Yardas recep.', 'Rec yds'], ['(Rebotes)', '(Rebounds)'], ['(Asistencias)', '(Assists)'], ['(Triples)', '(3-pointers)'], ['(Robos)', '(Steals)'], ['(Tapones)', '(Blocks)'], ['Las estadísticas de los jugadores aparecen en unos minutos.', 'Player stats will appear in a few minutes.'],
+    ['Líderes del partido', 'Game leaders'], ['🏏 Bateo', '🏏 Batting'], ['⚾ Pitcheo', '⚾ Pitching'], [' — línea ', ' — line '], ['(Puntos)', '(Points)'], ['Goles', 'Goals'], ['Yardas pase', 'Pass yds'], ['Yardas carrera', 'Rush yds'], ['Yardas recep.', 'Rec yds'], ['(Rebotes)', '(Rebounds)'], ['(Asistencias)', '(Assists)'], ['(Triples)', '(3-pointers)'], ['(Robos)', '(Steals)'], ['(Tapones)', '(Blocks)'], ['🍀 ¡Mucha suerte! ', '🍀 Good luck! '], ['Que se te dé esa jugada.', 'Hope this one hits.'], ['Las estadísticas de los jugadores aparecen en unos minutos.', 'Player stats will appear in a few minutes.'],
     ['Apuesta confirmada por', 'Bet placed for'], ['Combinada confirmada por', 'Parlay placed for'],
     ['Míralas en Mis apuestas.', 'See them in My bets.'], ['Te avisamos cuando se apruebe.', "We'll let you know when it's approved."],
     ['Ya está en tu saldo.', "It's in your balance."], ['ya está en tu saldo', "it's in your balance"],
