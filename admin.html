@@ -718,6 +718,8 @@
   .imp-pr-r input { width: 18px; height: 18px; accent-color: var(--accent); flex: 0 0 auto; }
   .imp-pr-r span { flex: 1; min-width: 0; } .imp-pr-r span b { display: block; font-size: 14px; } .imp-pr-r span small { display: block; font-size: 12px; color: var(--text-dim); }
   .imp-pr-r em { font-style: normal; font-size: 12px; color: var(--text-dim); white-space: nowrap; text-align: right; line-height: 1.5; } .imp-pr-r em b { color: var(--text); display: inline; font-size: 13px; }
+.cut-btn{display:block;width:100%;margin:0 0 10px;padding:9px 12px;border:1.5px dashed var(--accent);border-radius:9px;background:transparent;color:var(--accent);font-weight:700;font-size:13px;cursor:pointer;text-align:left}.cut-btn small{font-weight:500;color:var(--text-faint)}
+.auto-tag{margin:0 0 10px;padding:8px 12px;border-radius:9px;background:#ECFDF3;color:#067647;font-weight:700;font-size:13px}.auto-tag small{display:block;font-weight:500;color:#475467;margin-top:2px}
 </style>
 </head>
 <body>
@@ -1685,7 +1687,7 @@
       Object.keys(d).filter(function (k) { return k !== 'key'; }).map(function (k) { return k.toUpperCase() + ':\n' + d[k]; }).join('\n\n');
     loadPapiUsage();
   });
-  document.getElementById('impMargin').addEventListener('input', function () { if (imp.games.length) impRender(); });
+  document.getElementById('impMargin').addEventListener('input', function () { if (imp.games.length) impRender(); Array.prototype.forEach.call(document.querySelectorAll('.cut-btn'), function (b) { b.firstChild.textContent = '➖ Bajar ' + cutPct() + '% las cuotas de este juego '; }); });
   document.getElementById('impList').addEventListener('change', function (e) {
     var pc = e.target.closest('[data-imp-pr]');
     if (pc) { var pp = pc.dataset.impPr.split('-'), gk = impKey(imp.games[+pp[0]]); imp.props[gk] = imp.props[gk] || {}; if (pc.checked) imp.props[gk][+pp[1]] = true; else delete imp.props[gk][+pp[1]]; if (pc.checked) imp.picked[gk] = true; impRender(); return; }
@@ -1715,6 +1717,7 @@
           startAt: ymd + 'T' + hm + ':00-04:00', home: g.home, away: g.away,
           odds: [{ k: 'Local', v: g.odds ? decimalToAmerican(String(impCut(g.odds.home))) : null }, { k: 'Empate', v: null }, { k: 'Visitante', v: g.odds ? decimalToAmerican(String(impCut(g.odds.away))) : null }] });
         var nm = state.matches[state.matches.length - 1], o = g.odds;
+        if (o) nm.auto = { cut: Math.min(15, Math.max(0, Number(document.getElementById('impMargin').value) || 0)) };
         if (o && o.hcap) nm.handicap = { homeLine: o.hcap.homeLine, homeOdds: decimalToAmerican(String(impCut(o.hcap.homeOdds))), awayLine: o.hcap.awayLine, awayOdds: decimalToAmerican(String(impCut(o.hcap.awayOdds))) };
         if (o && o.total) nm.total = { line: o.total.line, over: decimalToAmerican(String(impCut(o.total.over))), under: decimalToAmerican(String(impCut(o.total.under))) };
         var ps = imp.props[impKey(g)] || {};
@@ -2246,6 +2249,29 @@
     }
     return out;
   }
+  // Baja todas las cuotas de un juego el % de "Bajar las cuotas" (para cuando se copian a mano de PokerStars).
+  function agoText(t) { var mn = Math.round((Date.now() - t) / 60000); return mn < 1 ? 'ahora' : mn < 60 ? 'hace ' + mn + ' min' : 'hace ' + Math.round(mn / 60) + ' h'; }
+  function cutPct() { var el = document.getElementById('impMargin'); return Math.min(15, Math.max(0, Number(el && el.value) || 0)); }
+  function cutAm(v) {
+    if (!v) return v;
+    var d = parseFloat(americanToDecimalStr(v)); if (!(d > 1)) return v;
+    var c = Math.max(1.01, Math.round((1 + (d - 1) * (1 - cutPct() / 100)) * 100) / 100);
+    return decimalToAmerican(c.toFixed(2)) || v;
+  }
+  function cutMatchOdds(mi) {
+    var m = state.matches[mi]; if (!m) return;
+    if (m.auto) return;
+    var pc = cutPct(); if (!pc) { showToast('Pon el % en "Bajar las cuotas" (arriba, en Traer juegos).'); return; }
+    var n = 0;
+    (m.odds || []).forEach(function (o) { if (o && o.v) { o.v = cutAm(o.v); n++; } });
+    if (m.handicap) { if (m.handicap.homeOdds) { m.handicap.homeOdds = cutAm(m.handicap.homeOdds); n++; } if (m.handicap.awayOdds) { m.handicap.awayOdds = cutAm(m.handicap.awayOdds); n++; } }
+    if (m.total) { if (m.total.over) { m.total.over = cutAm(m.total.over); n++; } if (m.total.under) { m.total.under = cutAm(m.total.under); n++; } }
+    (m.props || []).forEach(function (p) { if (p.over) { p.over = cutAm(p.over); n++; } if (p.under) { p.under = cutAm(p.under); n++; } });
+    if (!n) { showToast('Primero escribe las cuotas de PokerStars.'); return; }
+    saveMatches(state.matches);
+    renderAdminList();
+    showToast('✅ Bajé ' + pc + '% a ' + n + ' cuotas de ' + m.away + ' @ ' + m.home + '. Dale una sola vez.');
+  }
   function renderAdminList() {
     var root = document.getElementById('adminMatchList');
     if (state.matches.length === 0) {
@@ -2260,6 +2286,8 @@
       var isDraft = !(m.odds && m.odds[0] && m.odds[0].v && m.odds[2] && m.odds[2].v);
       if (isDraft) html += '<div class="draft-tag">📝 Borrador · no sale en la página hasta que pongas las cuotas de Ganador</div>';
       html += '<div style="font-size:13px; font-weight:600; margin-bottom:8px;">' + m.away + ' @ ' + m.home + '</div>';
+      if (m.auto) html += '<div class="auto-tag">🔄 Cuotas automáticas de PokerStars (−' + (m.auto.cut || 0) + '%)' + (m.auto.at ? ' · revisadas ' + agoText(m.auto.at) : '') + '<small>Si cambias una cuota a mano, este juego deja de cambiarse solo.</small></div>';
+      else html += '<button type="button" class="cut-btn" data-cut="' + mi + '">➖ Bajar ' + cutPct() + '% las cuotas de este juego <small>(después de copiarlas de PokerStars)</small></button>';
       html += '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">';
       m.odds.forEach(function (o, oi) {
         if (oi === 1 && (m.sport === 'beisbol' || m.sport === 'lidom')) return;
@@ -2329,6 +2357,21 @@
       html += '</div></div></div></div>';
     });
     root.innerHTML = html;
+    // Si el admin cambia a mano una cuota o línea de un juego automático, ese juego deja de cambiarse solo.
+    if (!root._autoHook) {
+      root._autoHook = true;
+      root.addEventListener('change', function (e) {
+        var el = e.target; if (!el || !el.attributes) return;
+        for (var i = 0; i < el.attributes.length; i++) {
+          var at = el.attributes[i];
+          if (/^data-(num-match|hcap-|total-|prop-(over|under|line))/.test(at.name)) {
+            var mm = state.matches[parseInt(String(at.value).split('-')[0], 10)];
+            if (mm && mm.auto) { mm.auto = null; setTimeout(renderAdminList, 300); showToast('✋ Este juego ya no cambia sus cuotas solo.'); }
+            return;
+          }
+        }
+      }, true);
+    }
 
     function updateOdds(mi, oi) {
       var numEl = root.querySelector('[data-num-match="' + mi + '"][data-num-idx="' + oi + '"]');
@@ -2486,6 +2529,12 @@
     });
     Array.prototype.forEach.call(root.querySelectorAll('[data-del]'), function (btn) {
       btn.addEventListener('click', function () { askDeleteMatch(parseInt(btn.dataset.del, 10)); });
+    });
+    Array.prototype.forEach.call(root.querySelectorAll('[data-cut]'), function (btn) {
+      btn.addEventListener('click', function () {
+        // Espera un instante para que se guarde la última cuota que se estaba escribiendo.
+        setTimeout(function () { cutMatchOdds(parseInt(btn.dataset.cut, 10)); }, 150);
+      });
     });
   }
 
