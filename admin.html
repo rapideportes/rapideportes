@@ -2074,7 +2074,7 @@
     document.getElementById('pgPending').innerHTML = pend.length ? pend.map(function (w) {
       var rej = pgState.rejecting === w.id;
       return '<div class="pg-card"><div class="pg-top"><span class="pg-email">' + esc(w.email) + '</span><span class="pg-amt">' + pgMoney(w.amount) + '</span></div>' +
-        '<div class="pg-dest">💳 Se envía a: <b>' + esc(w.methodLabel || 'Sin método de depósito') + '</b> <span>(la misma con la que depositó)</span></div>' +
+        '<div class="pg-dest">💳 Se envía a: <b>' + esc(w.methodLabel || 'Sin método de depósito') + '</b> <span>' + (/^(Zelle|PayPal) · /.test(w.methodLabel || '') ? '(la escribió el jugador: envíale el dinero tú y luego aprueba)' : '(la misma con la que depositó)') + '</span></div>' +
         pgAudit(w) +
         '<div class="pg-meta"><span>Pidió: <b>' + esc(pgWhen(w.createdAt)) + '</b></span><span>Saldo actual: <b>' + pgMoney(w.balance) + '</b></span>' +
         '<span>Depositó en total: <b>' + pgMoney(w.depositedTotal) + '</b></span><span>Ganado en apuestas: <b>' + pgMoney(w.wonTotal) + '</b></span>' +
