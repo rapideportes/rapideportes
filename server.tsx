@@ -2377,8 +2377,16 @@ app.post('/api/withdraw', async (c) => {
   if (!amount || amount < 1) return c.json({ error: 'bad_request' }, 400);
   const v = await sql`SELECT verify_status FROM users WHERE id = ${user.id}`;
   if (!v[0] || v[0].verify_status !== 'verified') return c.json({ error: 'not_verified' }, 403);
-  const method = await payoutMethod(user.id);
-  if (!method) return c.json({ error: 'no_deposit_method' }, 400);
+  var method = await payoutMethod(user.id);
+  if (!method) {
+    // Sin depósito con tarjeta (saldo puesto por el admin): el jugador dice a dónde se le paga
+    // y el admin lo paga a mano al aprobar.
+    var pt = body.payTo || {}, ty = pt.type === 'PayPal' ? 'PayPal' : pt.type === 'Zelle' ? 'Zelle' : null;
+    var to = String(pt.to || '').trim().slice(0, 120);
+    var okTo = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(to) || (ty === 'Zelle' && /^\+?[\d\s()-]{10,16}$/.test(to));
+    if (!ty || !okTo) return c.json({ error: 'no_deposit_method' }, 400);
+    method = { ref: 'manual:' + ty + ':' + to, label: ty + ' · ' + to };
+  }
   const upd = await sql`UPDATE users SET balance = balance - ${amount} WHERE id = ${user.id} AND balance >= ${amount} RETURNING balance`;
   if (!upd[0]) return c.json({ error: 'insufficient' }, 400);
   await sql`INSERT INTO withdrawals (user_id, amount, method_ref, method_label) VALUES (${user.id}, ${amount}, ${method.ref}, ${method.label})`;
