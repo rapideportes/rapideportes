@@ -998,7 +998,7 @@ function gradeSingleBet(descText, matchText, finishedByKey, statsByEventId) {
 // TODAS las patas tienen su partido finalizado.
 function gradeParlayBet(matchText, finishedByKey, statsByEventId) {
   var legs = String(matchText || '').split(' · ');
-  var results = [];
+  var results = [], pushDiv = 1;
   for (var i = 0; i < legs.length; i++) {
     var parts = legs[i].split('@@@');
     if (parts.length !== 3) return null;
@@ -1020,9 +1020,13 @@ function gradeParlayBet(matchText, finishedByKey, statsByEventId) {
     }
     if (result === null) return null; // esta pata aún no se puede calificar
     results.push(result);
+    // Jugada anulada (no jugó / empate exacto): su cuota se quita del pago.
+    if (result === 'push') { var od = parseFloat(parts[2]); if (od > 1) pushDiv *= od; }
   }
   if (results.some(function (r) { return r === 'lost'; })) return 'lost';
   if (results.every(function (r) { return r === 'push'; })) return 'push';
+  // Ganó, pero con jugadas anuladas: se le paga sin las cuotas de esas jugadas.
+  if (pushDiv > 1) return { won: true, div: pushDiv };
   return 'won';
 }
 
@@ -1157,9 +1161,11 @@ async function settleBets() {
       if (result === 'push') {
         var vr = await sql`UPDATE bets SET status = 'void' WHERE id = ${b.id} AND status = 'pending' RETURNING id`;
         if (vr[0]) await sql`UPDATE users SET balance = balance + ${Number(b.stake)} WHERE id = ${b.user_id}`;
-      } else if (result === 'won') {
-        var wr = await sql`UPDATE bets SET status = 'won' WHERE id = ${b.id} AND status = 'pending' RETURNING id`;
-        if (wr[0]) await sql`UPDATE users SET balance = balance + ${Number(b.payout)} WHERE id = ${b.user_id}`;
+      } else if (result === 'won' || (result && result.won)) {
+        var pay = Number(b.payout);
+        if (result.div) pay = Math.max(Number(b.stake), Math.round(pay / result.div * 100) / 100);
+        var wr = await sql`UPDATE bets SET status = 'won', payout = ${pay} WHERE id = ${b.id} AND status = 'pending' RETURNING id`;
+        if (wr[0]) await sql`UPDATE users SET balance = balance + ${pay} WHERE id = ${b.user_id}`;
       } else {
         await sql`UPDATE bets SET status = 'lost' WHERE id = ${b.id} AND status = 'pending'`;
       }
