@@ -995,10 +995,11 @@ function gradeHandicap(pick, m, awayScore, homeScore) {
 }
 
 // pick es "Más" o "Menos" (el lado de la apuesta de total).
-function gradeTotal(side, m, awayScore, homeScore) {
-  if (!m.total) return null;
+function gradeTotal(side, m, awayScore, homeScore, pickLine) {
+  // La línea es la que tenía la apuesta cuando se hizo (la del partido puede haber cambiado después).
+  var line = pickLine > 0 ? pickLine : (m.total ? Number(m.total.line) : NaN);
+  if (isNaN(line)) return null;
   var total = awayScore + homeScore;
-  var line = Number(m.total.line);
   if (total === line) return 'push';
   if (side === 'over') return total > line ? 'won' : 'lost';
   if (side === 'under') return total < line ? 'won' : 'lost';
@@ -1019,7 +1020,8 @@ function gradeSelection(mainType, away, home, pick, finishedByKey) {
   if (mainType === 'Total') {
     var side = /^(Más|>)\s/.test(pick) ? 'over' : /^(Menos|<)\s/.test(pick) ? 'under' : null;
     if (!side) return null;
-    return gradeTotal(side, m, awayScore, homeScore);
+    var pl = /([\d.]+)\s*$/.exec(pick);
+    return gradeTotal(side, m, awayScore, homeScore, pl ? parseFloat(pl[1]) : NaN);
   }
   return null;
 }
@@ -1253,6 +1255,95 @@ async function tick() {
 }
 setInterval(tick, 7000);
 tick();
+
+// ---------- Cuotas automáticas (OddsPapi / PokerStars) ----------
+// Los juegos traídos con "Traer juegos" (m.auto) se re-cotizan solos antes de
+// empezar. Las consultas se reparten para no pasarse del plan del mes.
+function decToAm(d) {
+  d = Number(d); if (!(d > 1)) return null;
+  var n = d >= 2 ? Math.round((d - 1) * 100) : Math.round(-100 / (d - 1));
+  return (n > 0 ? '+' : '') + n;
+}
+function cutDec(d, pc) { return Math.max(1.01, Math.round((1 + (Number(d) - 1) * (1 - pc / 100)) * 100) / 100); }
+var autoBusy = false, autoLastCheck = 0;
+const AUTO_RESERVE = 25; // consultas que se guardan para cuando el admin busca juegos
+async function papiUsedThisMonth() {
+  const r = await sql`SELECT value FROM app_state WHERE key = 'papi_usage'`;
+  var v = r[0] ? r[0].value : null; if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
+  return v && v.month === new Date().toISOString().slice(0, 7) ? Number(v.count) || 0 : 0;
+}
+// Aplica las cuotas nuevas de PokerStars (g.odds, en decimal) a un partido. Devuelve true si algo cambió.
+function applyAutoOdds(m, o) {
+  var pc = Math.min(15, Math.max(0, Number(m.auto && m.auto.cut) || 0)), ch = false;
+  var A = function (d) { return decToAm(cutDec(d, pc)); };
+  var set = function (obj, k, v) { if (v !== null && v !== undefined && String(obj[k]) !== String(v)) { obj[k] = v; ch = true; } };
+  if (o.home > 1 && o.away > 1 && m.odds) { if (m.odds[0]) set(m.odds[0], 'v', A(o.home)); if (m.odds[2]) set(m.odds[2], 'v', A(o.away)); }
+  if (o.hcap && m.handicap) { set(m.handicap, 'homeLine', o.hcap.homeLine); set(m.handicap, 'awayLine', o.hcap.awayLine); set(m.handicap, 'homeOdds', A(o.hcap.homeOdds)); set(m.handicap, 'awayOdds', A(o.hcap.awayOdds)); }
+  if (o.total && m.total) { set(m.total, 'line', o.total.line); set(m.total, 'over', A(o.total.over)); set(m.total, 'under', A(o.total.under)); }
+  if (o.props && o.props.length && m.props) {
+    // Si PokerStars quitó a un jugador (lesión, no juega), se quita también aquí para que no le apuesten.
+    var keep = m.props.filter(function (p) {
+      var np = o.props.find(function (x) { return x.player === p.player && x.stat === p.stat; });
+      if (!np) return false;
+      set(p, 'line', np.line); set(p, 'over', A(np.over)); set(p, 'under', A(np.under));
+      return true;
+    });
+    if (keep.length !== m.props.length) { m.props = keep; ch = true; }
+  }
+  return ch;
+}
+async function autoOdds() {
+  if (autoBusy || !Bun.env.ODDSPAPI_KEY || Date.now() - autoLastCheck < 60000) return;
+  autoBusy = true; autoLastCheck = Date.now();
+  try {
+    const rows = await sql`SELECT value FROM app_state WHERE key = 'matches'`;
+    var list = rows[0] ? rows[0].value : []; if (typeof list === 'string') { try { list = JSON.parse(list); } catch (e) { list = []; } }
+    if (!Array.isArray(list)) return;
+    var now = Date.now();
+    var due = list.filter(function (m) {
+      var t = m.startAt ? Date.parse(m.startAt) : NaN;
+      return m.auto && PAPI_SPORT[m.sport] && !m.live && !m.finished && t - now > 5 * 60000 && t - now < 24 * 3600000;
+    });
+    if (!due.length) return;
+    var sports = Array.from(new Set(due.map(function (m) { return m.sport; })));
+    // Presupuesto: lo que queda del mes (menos la reserva) repartido entre los días que faltan.
+    var limit = Number(Bun.env.ODDSPAPI_LIMIT) || 250;
+    var left = limit - (await papiUsedThisMonth()) - AUTO_RESERVE;
+    if (left <= 0) return;
+    var d = new Date(), daysLeft = new Date(d.getUTCFullYear(), d.getUTCMonth() + 1, 0).getDate() - d.getUTCDate() + 1;
+    var perDay = Math.max(1, left / daysLeft);
+    // Cada liga se refresca cada tanto, según cuántas ligas haya hoy (mín. 45 min, máx. 6 h).
+    var every = Math.min(6 * 3600000, Math.max(45 * 60000, (16 * 3600000 * sports.length) / perDay));
+    const lr = await sql`SELECT value FROM app_state WHERE key = 'papi_auto'`;
+    var last = lr[0] ? lr[0].value : {}; if (typeof last === 'string') { try { last = JSON.parse(last); } catch (e) { last = {}; } }
+    last = last || {};
+    var changedById = {};
+    for (const sp of sports) {
+      if (now - (Number(last[sp]) || 0) < every) continue;
+      last[sp] = now;
+      var games = due.filter(function (m) { return m.sport === sp; }).map(function (m) { return { id: m.id, away: m.away, home: m.home, startAt: m.startAt }; });
+      await addPapiOdds(sp, new Date().toISOString().slice(0, 10), games);
+      games.forEach(function (g) { if (g.odds) changedById[g.id] = g.odds; });
+    }
+    await sql`INSERT INTO app_state (key, value) VALUES ('papi_auto', ${JSON.stringify(last)}::jsonb)
+      ON CONFLICT (key) DO UPDATE SET value = ${JSON.stringify(last)}::jsonb`;
+    if (!Object.keys(changedById).length) return;
+    // Se relee la lista justo antes de guardar y solo se tocan las cuotas.
+    const fr = await sql`SELECT value FROM app_state WHERE key = 'matches'`;
+    var fresh = fr[0] ? fr[0].value : []; if (typeof fresh === 'string') { try { fresh = JSON.parse(fresh); } catch (e) { fresh = []; } }
+    var any = false;
+    fresh.forEach(function (m) {
+      var o = changedById[m.id];
+      if (!o || !m.auto || m.live || m.finished) return;
+      if (applyAutoOdds(m, o)) any = true;
+      m.auto.at = now;
+    });
+    await sql`INSERT INTO app_state (key, value) VALUES ('matches', ${JSON.stringify(fresh)}::jsonb)
+      ON CONFLICT (key) DO UPDATE SET value = ${JSON.stringify(fresh)}::jsonb`;
+  } catch (e) {
+  } finally { autoBusy = false; }
+}
+setInterval(autoOdds, 60000);
 (async function () {
   try {
     const r0 = await sql`SELECT value FROM app_state WHERE key = 'matches'`;
@@ -1629,6 +1720,21 @@ app.post('/api/admin/matches', async (c) => {
   let matches;
   try { matches = await c.req.json(); } catch (e) { return c.json({ error: 'bad_request' }, 400); }
   if (!Array.isArray(matches)) return c.json({ error: 'bad_request' }, 400);
+  // El panel puede tener una copia vieja: en los juegos automáticos se conservan
+  // las cuotas más nuevas que puso el servidor (salvo que el admin apagara lo automático).
+  try {
+    const cur = await sql`SELECT value FROM app_state WHERE key = 'matches'`;
+    var curList = cur[0] ? cur[0].value : []; if (typeof curList === 'string') { try { curList = JSON.parse(curList); } catch (e) { curList = []; } }
+    var curById = {}; (Array.isArray(curList) ? curList : []).forEach(function (m) { curById[m.id] = m; });
+    matches.forEach(function (m) {
+      var old = curById[m.id];
+      if (!m || !m.auto || !old || !old.auto) return;
+      if ((Number(old.auto.at) || 0) > (Number(m.auto.at) || 0)) {
+        ['odds', 'handicap', 'total', 'props'].forEach(function (k) { if (old[k] !== undefined) m[k] = old[k]; });
+        m.auto = old.auto;
+      }
+    });
+  } catch (e) {}
   await sql`
     INSERT INTO app_state (key, value) VALUES ('matches', ${JSON.stringify(matches)}::jsonb)
     ON CONFLICT (key) DO UPDATE SET value = ${JSON.stringify(matches)}::jsonb
