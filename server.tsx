@@ -1911,6 +1911,25 @@ app.get('/api/admin/oddspapi-test', async (c) => {
     var lt = await oddsPapi('tournaments', { sportId: 13 });
     out.lidom = papiShort(papiList(lt.data).filter(function (x) { return /lidom|dominican|winter|invierno/i.test((x.tournamentName || '') + ' ' + (x.tournamentSlug || '')); }).slice(0, 5), 700) || 'no aparece';
     out.lidomUsado = await papiTournamentId('lidom');
+    // ¿PokerStars tiene cuotas de LIDOM? (para saber por qué salen sin cuotas)
+    var lid = out.lidomUsado;
+    if (lid) {
+      var lo = await oddsPapi('odds-by-tournaments', { bookmaker: 'pokerstars', tournamentIds: String(lid), oddsFormat: 'decimal' });
+      var lfx = papiList(lo.data);
+      var lparts = await papiParticipants('lidom');
+      out.lidomPokerstars = lfx.length + ' juegos con cuotas' + (lo.status && lo.status !== 200 ? ' (status ' + lo.status + ')' : '') + '\n' +
+        (lfx.slice(0, 4).map(function (f) { return (lparts && lparts[f.participant1Id] || f.participant1Id) + ' vs ' + (lparts && lparts[f.participant2Id] || f.participant2Id) + ' · ' + f.startTime; }).join('\n') || papiShort(lo.data || lo.text, 400));
+      if (!lfx.length) {
+        var fxr = await oddsPapi('fixtures', { tournamentId: String(lid) });
+        var fxs = papiList(fxr.data);
+        var f0 = fxs.find(function (f) { return Date.parse(f.startTime) > Date.now(); }) || fxs[0];
+        if (f0) {
+          var or = await oddsPapi('odds', { fixtureId: f0.fixtureId, oddsFormat: 'decimal' });
+          var bo = or.data && (or.data.bookmakerOdds || (or.data.data && or.data.data.bookmakerOdds));
+          out.lidomCasas = 'Juego ' + f0.fixtureId + ' · ' + f0.startTime + '\nCasas con cuotas: ' + (bo ? Object.keys(bo).join(', ') : papiShort(or.data || or.text, 300));
+        } else out.lidomCasas = papiShort(fxr.data || fxr.text, 300);
+      }
+    }
   } catch (e) { out.lidom = 'error'; }
   var bb = sports.find(function (x) { return /basket/i.test(JSON.stringify(x)); });
   var bbId = bb && (bb.sportId || bb.id);
