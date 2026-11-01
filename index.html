@@ -709,6 +709,61 @@
   .ft-grid .ft-link { min-height: 44px; display: flex; align-items: center; color: var(--text-dim); font-size: 14px; font-weight: 600; padding: 0 2px; text-decoration: none; }
   .ft-grid .ft-link:hover { color: var(--accent); }
   .dr-group .dr-link { display: flex; align-items: center; gap: 14px; padding: 10px 0; font-size: 18px; font-weight: 500; color: var(--text); text-decoration: none; }
+  /* ---------- Ticket tarjeta ---------- */
+  .tk-status { display: flex; align-items: center; gap: 10px; background: #0B1630; color: #fff; border-radius: 999px; padding: 10px 16px; font-size: 14px; font-weight: 700; margin-bottom: 12px; }
+  .tk-status .ok-ic { width: 22px; height: 22px; border-radius: 50%; background: #12B76A; display: grid; place-items: center; font-size: 13px; }
+  .tk-wrap { width: 100%; opacity: 0; transform: translateY(24px) scale(.97); }
+  .tk-wrap.go { animation: tkin .7s cubic-bezier(.2,.9,.25,1.1) forwards; }
+  @keyframes tkin { to { opacity: 1; transform: none; } }
+  .tk2 { position: relative; border-radius: 26px; padding: 18px 16px 18px; overflow: hidden; box-shadow: 0 18px 40px rgba(0,0,0,.35); isolation: isolate; }
+  .tk-shirt { position: absolute; inset: 0; z-index: -2; }
+  .tk2::before { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: radial-gradient(circle at 1px 1px, rgba(255,255,255,.14) 1px, transparent 1.6px) 0 0 / 6px 6px, radial-gradient(130% 60% at 50% 0%, rgba(255,255,255,.28), transparent 60%), linear-gradient(180deg, transparent 55%, rgba(0,0,0,.35)); }
+  .tk-trim { position: absolute; top: 0; bottom: 0; width: 14px; z-index: -1; box-shadow: 0 0 0 4px rgba(255,255,255,.85); }
+  .tk-trim.l { left: 10px; } .tk-trim.r { right: 10px; }
+  .tk-arch { display: block; width: 100%; height: auto; margin: 6px 0 4px; overflow: visible; }
+  .tk-arch text { font-family: var(--font-display); font-weight: 900; font-size: 60px; fill: #FFFFFF; stroke-width: 7px; paint-order: stroke; stroke-linejoin: round; letter-spacing: 1px; filter: drop-shadow(0 3px 0 rgba(0,0,0,.35)); }
+  .tk-ball { width: 22px; height: 22px; fill: none; stroke: #fff; stroke-width: 1.6; margin-right: 10px; flex: 0 0 auto; }
+  .tk-av { width: 56px; height: 56px; border-radius: 50%; display: grid; place-items: center; font-weight: 900; font-size: 15px; color: #fff; flex: 0 0 auto; box-shadow: inset 0 0 0 2.5px #fff, 0 2px 8px rgba(0,0,0,.35); }
+  .tk-card { position: relative; background: rgba(4,7,16,.86); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px); box-shadow: 0 10px 30px rgba(0,0,0,.35); color: #fff; border-radius: 20px; padding: 16px 16px 14px; border: 1px solid rgba(255,255,255,.08); }
+  .tk-top { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 1px dashed rgba(255,255,255,.18); }
+  .tk-lg { font-size: 12.5px; font-weight: 800; letter-spacing: .12em; color: #D0D5DD; white-space: nowrap; display: inline-flex; align-items: center; }
+  .tk-brand { font-family: var(--font-display); font-weight: 800; font-size: 24px; line-height: 1; white-space: nowrap; }
+  .tk-top { gap: 10px; }
+  .tk-top .tk-brand { font-size: 22px; }
+  .tk-lg { letter-spacing: .08em; min-width: 0; overflow: hidden; }
+  .tk-pick.pl b { font-size: 28px; }
+  .tk-brand em { font-style: normal; color: var(--accent); }
+  .tk-game { font-weight: 800; font-size: 15px; margin: 14px 0 10px; }
+  .tk-pick { display: flex; align-items: center; gap: 12px; margin-bottom: 14px; }
+  .tk-badge { width: 52px; height: 52px; font-size: 14px; flex: 0 0 auto; }
+  .tk-pick b { display: block; font-family: var(--font-display); font-weight: 800; font-size: 34px; line-height: 1.02; }
+  .tk-pick small { display: block; color: #E4E7EC; font-weight: 700; font-size: 14px; margin-top: 5px; }
+  .tk-legs { margin: 10px 0 12px; }
+  .tk-leg { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.07); }
+  .tk-leg:last-child { border-bottom: 0; }
+  .tk-dot { width: 12px; height: 12px; border-radius: 50%; flex: 0 0 auto; box-shadow: 0 0 0 2px rgba(255,255,255,.25); }
+  .tk-leg-t { flex: 1; min-width: 0; }
+  .tk-leg-t b { display: block; font-size: 14.5px; font-weight: 800; }
+  .tk-leg-t small { display: block; font-size: 11.5px; color: #98A2B3; margin-top: 1px; }
+  .tk-leg-o { font-weight: 800; font-size: 15px; font-variant-numeric: tabular-nums; }
+  .tk-pl { color: #fff; box-shadow: inset 0 0 0 2.5px #fff, 0 2px 6px rgba(0,0,0,.3); }
+  .tk-stat { color: #FDA4B8 !important; font-size: 15px !important; font-weight: 800 !important; }
+  .tk-res { font-style: normal; width: 22px; height: 22px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 900; background: #475467; color: #fff; flex: 0 0 auto; }
+  .tk-res.won { background: #12B76A; } .tk-res.lost { background: var(--accent); }
+  .tk-tape { margin: 0 -16px; background: rgba(240,20,70,.16); border-top: 1px solid rgba(240,20,70,.35); border-bottom: 1px solid rgba(240,20,70,.35); overflow: hidden; white-space: nowrap; }
+  .tk-tape-in { display: inline-flex; animation: tktape 14s linear infinite; }
+  .tk-tape span { display: inline-flex; gap: 10px; align-items: center; padding: 8px 14px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 12.5px; font-weight: 700; color: #FDA4B8; letter-spacing: .08em; }
+  .tk-tape span b { font-family: var(--font-display); font-size: 17px; letter-spacing: 0; color: #fff; }
+  @keyframes tktape { to { transform: translateX(-50%); } }
+  .tk-nums { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 14px 0 10px; }
+  .tk-nums small { display: block; font-size: 11.5px; font-weight: 800; letter-spacing: .1em; color: #D0D5DD; }
+  .tk-nums small.hl { color: #FDA4B8; }
+  .tk-nums b { display: block; font-family: var(--font-display); font-weight: 900; font-size: 36px; line-height: 1.05; }
+  .tk-nums b.hl { color: #FF5C82; }
+  .tk-foot { display: flex; justify-content: space-between; gap: 10px; font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11.5px; color: #98A2B3; letter-spacing: .08em; }
+  .tk-st.won { color: #32D583; } .tk-st.lost { color: #FF5C82; }
+  @media (prefers-reduced-motion: reduce) { .tk-wrap.go { animation: none; opacity: 1; transform: none; } .tk-tape-in { animation: none; } }
 </style>
 </head>
 <body>
@@ -899,12 +954,8 @@
 
 <div class="overlay rc-ov" id="rcptOverlay">
   <div class="rc-wrap">
-    <div class="rc-printer">
-      <div class="rc-led" id="rcLed"></div>
-      <div class="rc-status" id="rcStatus"><span class="rc-spin"></span> Imprimiendo tu ticket…</div>
-      <div class="rc-slot"></div>
-    </div>
-    <div class="rc-clip"><div class="rc-paper" id="rcPaper"></div></div>
+    <div class="tk-status" id="rcStatus"><span class="rc-spin"></span> Preparando tu ticket…</div>
+    <div class="tk-wrap" id="rcPaper"></div>
     <div class="rc-acts">
       <button type="button" class="btn" id="rcClose">Cerrar</button>
       <button type="button" class="btn primary" id="rcShare">📲 Compartir jugada</button>
@@ -2168,40 +2219,162 @@
   /* ---------- Ticket impreso ---------- */
   var lastReceipt = null;
   function money2(n) { return '$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+  // ---------- Ticket estilo tarjeta: colores del equipo + tarjeta oscura ----------
+  function tkFind(away, home) {
+    return state.matches.filter(function (x) { return x.away === away && x.home === home; })[0] ||
+      (state.results || []).filter(function (x) { return x.away === away && x.home === home; })[0] || null;
+  }
+  function tkNick(name, sport) {
+    var w = String(name || '').split(' ').filter(Boolean);
+    if (!w.length) return '';
+    if (sport === 'lidom') return w[0];
+    if (/trail blazers$/i.test(name)) return 'Blazers';
+    if (/red sox$|white sox$|blue jays$|red wings$|blue jackets$|maple leafs$|golden knights$/i.test(name)) return w.slice(-2).join(' ');
+    return w[w.length - 1];
+  }
+  // Jugadas con su equipo, su color y (si ya terminó el juego) si ganó o perdió.
+  function tkLegs(b) {
+    var raw = [];
+    if (/^Combinada/i.test(b.desc || '')) {
+      String(b.match || '').split(' · ').forEach(function (l) {
+        var p = l.split('@@@'), mm = /^(Ganador|Hándicap|Total)\s+(.*) vs (.*)$/.exec(p[0] || '');
+        if (p.length === 3 && mm) raw.push({ market: mm[1], away: mm[2], home: mm[3], pick: p[1], odds: p[2] });
+      });
+    } else {
+      var d = String(b.desc || ''), om = d.match(/\s\(([\d.]+)\)$/), t = String(b.match || '').split(' @ ');
+      if (t.length === 2) raw.push({ market: '', away: t[0], home: t[1], pick: om ? d.slice(0, om.index) : d, odds: om ? om[1] : '' });
+    }
+    return raw.map(function (r) {
+      var m = tkFind(r.away, r.home), sport = m ? m.sport : '', pick = r.pick, team = null, kind = 'other', line = null, mm, player = null;
+      if (/ — /.test(pick)) {
+        kind = 'other';
+        var left = pick.split(' — ')[0], right = pick.split(' — ').slice(1).join(' — ');
+        var pm = /^(.*?)\s*\(([^)]+)\)$/.exec(left), side = /^(Más|Menos)\s+([\d.]+)/.exec(right);
+        if (side) player = { name: pm ? pm[1] : left, stat: pm ? pm[2] : '', side: side[1], line: side[2] };
+      }
+      else if ((mm = /^(?:>|Más)\s*([\d.]+)/.exec(pick))) { kind = 'over'; line = +mm[1]; }
+      else if ((mm = /^(?:<|Menos)\s*([\d.]+)/.exec(pick))) { kind = 'under'; line = +mm[1]; }
+      else if (r.market === 'Hándicap' || /^Hándicap\s/.test(pick)) {
+        var hp = pick.replace(/^Hándicap\s+/, '');
+        if ((mm = /^(.*\S)\s+([+-]?\d+(?:\.\d+)?)$/.exec(hp))) { team = mm[1]; line = +mm[2]; kind = 'spread'; }
+        else if ((mm = /^([+-]?\d+(?:\.\d+)?)$/.exec(hp)) && m && m.handicap) { line = +mm[1]; team = +m.handicap.awayLine === line ? r.away : +m.handicap.homeLine === line ? r.home : null; kind = team ? 'spread' : 'other'; }
+      } else if (pick === r.away || pick === r.home) { team = pick; kind = 'spread'; line = 0; }
+      var res = '';
+      if (m && m.finished && m.score && kind !== 'other') {
+        var a = +m.score.away, h = +m.score.home, v;
+        if (kind === 'spread') v = (team === r.away ? a - h : h - a) + line;
+        else v = kind === 'over' ? a + h - line : line - (a + h);
+        res = v > 0 ? 'won' : v < 0 ? 'lost' : 'push';
+      }
+      var readable = readBetLegs({ desc: /^Combinada/i.test(b.desc || '') ? 'Combinada' : b.desc, match: /^Combinada/i.test(b.desc || '') ? r.market + ' ' + r.away + ' vs ' + r.home + '@@@' + r.pick + '@@@' + r.odds + ' · x@@@x@@@1' : b.match })[0];
+      return { away: r.away, home: r.home, sport: sport, team: team, player: player, pickText: readable ? readable.pick : pick, odds: r.odds, res: res,
+        color: teamBadge(team || r.home).color, color2: teamBadge(team || r.away).color, badge: teamBadge(team || r.home) };
+    });
+  }
   function showReceipt(bets, ids, opt) {
     opt = opt || {};
-    var parlay = /^Combinada/i.test(bets[0].desc || '');
-    var lines = [], stake = 0, pay = 0;
-    bets.forEach(function (b) {
-      stake += Number(b.stake); pay += Number(b.payout);
-      readBetLegs(b).forEach(function (l) { lines.push({ pick: l.pick, game: l.game, odds: l.odds, stake: parlay || bets.length === 1 ? null : b.stake }); });
-    });
-    var title = parlay ? 'COMBINADA DE ' + lines.length : bets.length > 1 ? bets.length + ' SENCILLAS' : 'APUESTA SENCILLA';
+    var b0 = bets[0], parlay = /^Combinada/i.test(b0.desc || '');
+    var stake = 0, pay = 0;
+    bets.forEach(function (b) { stake += Number(b.stake); pay += Number(b.payout); });
+    var legs = []; bets.forEach(function (b) { legs = legs.concat(tkLegs(b)); });
     var codes = (ids || []).map(function (id) { return 'T-' + String(id).padStart(6, '0'); });
-    var when = new Date(opt.at ? Date.parse(opt.at) : nowMs()).toLocaleString('es-PR', { timeZone: PR_TZ, day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' });
+    var whenMs = opt.at ? Date.parse(opt.at) : nowMs();
+    var when = new Date(whenMs).toLocaleString('es-PR', { timeZone: PR_TZ, day: '2-digit', month: '2-digit', year: '2-digit', hour: 'numeric', minute: '2-digit' }).toUpperCase();
     var st = opt.status && opt.status !== 'pending' ? betStatusMeta({ status: opt.status }) : null;
-    var stLabel = st ? (st.cls === 'won' ? '✓ GANADA · COBRÓ ' + money2(pay) : st.cls === 'lost' ? 'PERDIDA' : st.cls === 'cash' ? 'COBRADA · ' + money2(pay) : 'REEMBOLSADA') : '';
-    lastReceipt = { title: title, when: when, lines: lines, stake: stake, pay: pay, codes: codes, mult: parlay ? pay / stake : 0, stLabel: stLabel, stCls: st ? st.cls : '' };
+    var stTxt = !st ? 'TICKET ABIERTO' : st.cls === 'won' ? 'TICKET GANADO' : st.cls === 'lost' ? 'TICKET PERDIDO' : st.cls === 'cash' ? 'COBRADO' : 'REEMBOLSADO';
+    var title = parlay ? 'COMBINADA ×' + legs.length : bets.length > 1 ? bets.length + ' SENCILLAS' : 'APUESTA SENCILLA';
+    var mult = stake ? pay / stake : 0;
+    lastReceipt = { title: title, when: when, lines: legs.map(function (l) { return { pick: l.pickText, game: l.away + ' vs ' + l.home, odds: l.odds }; }), stake: stake, pay: pay, codes: codes, mult: parlay ? mult : 0, stLabel: st ? stTxt : '', stCls: st ? st.cls : '', legs: legs, parlay: parlay };
+    // ---- Fondo tipo camiseta: color del equipo, tela, ribetes a los lados y el nombre en arco ----
+    var L0 = legs[0] || {};
+    var single = !parlay && legs.length === 1;
+    var shirt, trim, big;
+    if (single && L0.player) {
+      shirt = 'linear-gradient(120deg,' + teamBadge(L0.away).color + ' 0 49.5%,' + teamBadge(L0.home).color + ' 50.5% 100%)';
+      trim = '#0B1630';
+      var pw = L0.player.name.replace(/\./g, '').split(' ').filter(Boolean);
+      big = pw[pw.length - 1] || 'Jugador';
+      if (big.length > 11 && /-/.test(big)) big = big.split('-').pop();
+    } else if (single) {
+      var tb = L0.team ? teamBadge(L0.team) : null;
+      shirt = tb ? tb.color : 'linear-gradient(120deg,' + teamBadge(L0.away).color + ' 0 49.5%,' + teamBadge(L0.home).color + ' 50.5% 100%)';
+      trim = tb && tb.ring && tb.ring.toUpperCase() !== '#FFFFFF' ? tb.ring : '#F01446';
+      big = L0.team ? tkNick(L0.team, L0.sport) : (/^Más|^Menos|^>|^</.test(L0.pickText) ? 'Total' : 'Jugada');
+    } else {
+      shirt = 'linear-gradient(90deg,' + legs.map(function (l, i) { var a = (i / legs.length * 100).toFixed(2), z = ((i + 1) / legs.length * 100).toFixed(2); return l.color + ' ' + a + '% ' + z + '%'; }).join(',') + ')';
+      trim = '#F01446';
+      big = parlay ? 'Combinada' : bets.length + ' jugadas';
+    }
+    big = String(big).toUpperCase();
+    var tl = Math.min(256, Math.max(110, big.length * 32));
+    var arch = '<svg class="tk-arch" viewBox="0 0 340 130" aria-hidden="true"><defs><path id="tkArc" d="M 14 120 Q 170 6 326 120"></path></defs>' +
+      '<text text-anchor="middle" style="stroke:' + trim + '"><textPath href="#tkArc" startOffset="50%" textLength="' + tl + '" lengthAdjust="spacingAndGlyphs">' + esc(big) + '</textPath></text></svg>';
+    // Probabilidad que da la cuota (la de la combinada es la de todas juntas).
+    var prob = function (o) { var d = parseFloat(o); return d > 1 ? Math.round(100 / d) : null; };
+    var probAll = mult > 1 ? Math.max(1, Math.round(100 / mult)) : null;
+    var tape = '';
+    for (var i = 0; i < 8; i++) tape += '<span><b>RapiDeportes</b>' + esc((codes[0] || 'RD').replace('-', '')) + '</span>';
+    var legsHtml = legs.map(function (l) {
+      var mark = l.res === 'won' ? '<i class="tk-res won">✓</i>' : l.res === 'lost' ? '<i class="tk-res lost">✗</i>' : l.res === 'push' ? '<i class="tk-res">=</i>' : '';
+      var dotBg = l.player ? 'linear-gradient(135deg,' + teamBadge(l.away).color + ' 50%,' + teamBadge(l.home).color + ' 50%)' : l.color;
+      return '<div class="tk-leg"><span class="tk-dot" style="background:' + dotBg + '"></span><div class="tk-leg-t"><b>' + esc(l.pickText) + '</b><small>' + esc(teamBadge(l.away).abbr + ' ' + tkNick(l.away, l.sport) + ' vs ' + teamBadge(l.home).abbr + ' ' + tkNick(l.home, l.sport)) + '</small></div>' + mark + '<span class="tk-leg-o">' + esc(l.odds) + '</span></div>';
+    }).join('');
+    var lg = (SPORT_LABELS[L0.sport] || '').toUpperCase();
+    var ball = '<svg class="tk-ball" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20M12 2v20M5 5c4 3 4 11 0 14M19 5c-4 3-4 11 0 14"></path></svg>';
+    var gameTitle = teamBadge(L0.away).abbr + ' ' + tkNick(L0.away, L0.sport) + ' vs ' + teamBadge(L0.home).abbr + ' ' + tkNick(L0.home, L0.sport);
+    var mainName = L0.player ? L0.player.name : L0.team ? teamBadge(L0.team).abbr + ' ' + tkNick(L0.team, L0.sport) : L0.pickText;
+    var mainSub = (L0.player ? (L0.player.stat ? L0.player.stat + ' · ' : '') + L0.player.side + ' de ' + L0.player.line + ' · ' : (!L0.team ? '' : (L0.pickText !== L0.team + ' gana' ? L0.pickText.replace(L0.team, '').trim() + ' · ' : ''))) +
+      (prob(L0.odds) ? prob(L0.odds) + '% de probabilidad · ' : '') + 'Apostó ' + money2(stake);
+    var avatar = L0.player
+      ? '<span class="tk-av" style="background:linear-gradient(135deg,' + teamBadge(L0.away).color + ' 50%,' + teamBadge(L0.home).color + ' 50%)">' + esc(L0.player.name.split(' ').map(function (w) { return w.charAt(0); }).join('').replace(/[^A-Za-zÁÉÍÓÚÑ]/g, '').slice(0, 2).toUpperCase()) + '</span>'
+      : '<span class="tk-av" style="' + badgeStyle(L0.team ? teamBadge(L0.team) : L0.badge) + '">' + esc((L0.team ? teamBadge(L0.team) : L0.badge).abbr) + '</span>';
+    var when2 = (function () {
+      var d = new Date(whenMs), o = {};
+      new Intl.DateTimeFormat('en-US', { timeZone: PR_TZ, month: '2-digit', day: '2-digit', year: '2-digit', hour: 'numeric', minute: '2-digit', hour12: true }).formatToParts(d).forEach(function (x) { o[x.type] = x.value; });
+      return o.month + '.' + o.day + '.' + o.year + ' ' + o.hour + ':' + o.minute + (o.dayPeriod || '').toUpperCase();
+    })();
+    var av = L0.player ? { colors: [teamBadge(L0.away).color, teamBadge(L0.home).color], ink: '#FFFFFF', ring: '#FFFFFF', text: L0.player.name.split(' ').map(function (w) { return w.charAt(0); }).join('').replace(/[^A-Za-zÁÉÍÓÚÑ]/g, '').slice(0, 2).toUpperCase() }
+      : (function () { var bb = L0.team ? teamBadge(L0.team) : L0.badge; return { colors: [bb.color], ink: bb.ink || '#FFFFFF', ring: bb.ring || '#FFFFFF', text: bb.abbr }; })();
+    lastReceipt.model = {
+      single: single, parlay: parlay, trim: trim, big: big, tl: tl,
+      shirt: single ? (L0.player || !L0.team ? { split: [teamBadge(L0.away).color, teamBadge(L0.home).color] } : { solid: teamBadge(L0.team).color }) : { stripes: legs.map(function (l) { return l.color; }) },
+      lg: parlay ? 'COMBINADA ×' + legs.length : lg || 'DEPORTES', game: gameTitle, mainName: mainName, mainSub: mainSub, avatar: av, mainRes: L0.res || '',
+      legs: legs.map(function (l) { return { dot: l.player ? [teamBadge(l.away).color, teamBadge(l.home).color] : [l.color], pick: l.pickText, game: teamBadge(l.away).abbr + ' ' + tkNick(l.away, l.sport) + ' vs ' + teamBadge(l.home).abbr + ' ' + tkNick(l.home, l.sport), odds: l.odds, res: l.res }; }),
+      payLabel: st && (st.cls === 'cash' || st.cls === 'won') ? 'COBRÓ' : 'PAGO SI GANA', pay: money2(pay),
+      rightLabel: single ? 'PROBABILIDAD' : 'CUOTA TOTAL', rightValue: single ? (prob(L0.odds) || '—') + '%' : mult.toFixed(2),
+      when: when2, stTxt: stTxt, stCls: st ? st.cls : '', code: (codes[0] || 'RD').replace('-', '')
+    };
     $('rcPaper').innerHTML =
-      '<div class="rc-brand">Rapi<span>deportes</span></div>' +
-      '<div class="rc-h"><b>' + esc(title) + '</b><small>' + esc(when) + '</small></div><div class="rc-sep"></div>' +
-      lines.map(function (l) {
-        return '<div class="rc-line"><div class="l">' + esc(l.pick) + (l.game ? '<small>' + esc(l.game) + '</small>' : '') + '</div><b>' + esc(l.odds) + (l.stake ? ' · ' + money2(l.stake) : '') + '</b></div>';
-      }).join('') +
-      '<div class="rc-sep"></div><div class="rc-tot"><span>' + (st && st.cls === 'cash' ? 'COBRÓ' : 'SI GANAS') + '</span><b>' + money2(pay) + '</b></div>' +
-      (stLabel ? '<div class="rc-st ' + st.cls + '">' + esc(stLabel) + '</div>' : '') +
-      (codes.length ? '<div class="rc-code">' + esc(codes.join('  ')) + '</div>' : '<div class="rc-sep"></div>') +
-      '<div class="rc-foot">Apostaste ' + money2(stake) + (parlay ? ' · cuota total ' + (pay / stake).toFixed(2) + 'x' : '') + '</div>';
-    var paper = $('rcPaper'), led = $('rcLed'), acts = document.querySelector('.rc-acts');
-    paper.classList.remove('go'); void paper.offsetWidth;
-    led.classList.remove('ok'); acts.classList.remove('show');
-    $('rcStatus').innerHTML = '<span class="rc-spin"></span> Imprimiendo tu ticket…';
+      '<div class="tk2"><div class="tk-shirt" style="background:' + shirt + '"></div><div class="tk-trim l" style="background:' + trim + '"></div><div class="tk-trim r" style="background:' + trim + '"></div>' +
+        arch +
+        '<div class="tk-card">' +
+          '<div class="tk-top"><span class="tk-lg">' + ball + esc(parlay ? 'COMBINADA ×' + legs.length : lg || 'DEPORTES') + '</span><span class="tk-brand">Rapi<em>deportes</em></span></div>' +
+          (single ?
+            '<div class="tk-game">' + esc(gameTitle) + '</div>' +
+            '<div class="tk-pick' + (L0.player ? ' pl' : '') + '">' + avatar + '<div><b>' + esc(mainName) + '</b><small>' + esc(mainSub) + '</small></div>' + (L0.res === 'won' ? '<i class="tk-res won">✓</i>' : L0.res === 'lost' ? '<i class="tk-res lost">✗</i>' : '') + '</div>'
+            : '<div class="tk-legs">' + legsHtml + '</div>') +
+          '<div class="tk-tape"><div class="tk-tape-in">' + tape + tape + '</div></div>' +
+          '<div class="tk-nums"><div><small>' + (st && (st.cls === 'cash' || st.cls === 'won') ? 'COBRÓ' : 'PAGO SI GANA') + '</small><b>' + money2(pay) + '</b></div>' +
+            '<div><small class="hl">' + (single ? 'PROBABILIDAD' : 'CUOTA TOTAL') + '</small><b class="hl">' + (single ? (prob(L0.odds) || '—') + '%' : mult.toFixed(2)) + '</b></div></div>' +
+          '<div class="tk-foot"><span>' + esc(when2) + '</span><span class="tk-st ' + (st ? st.cls : '') + '">' + esc(stTxt) + '</span></div>' +
+        '</div>' +
+      '</div>';
+    var acts = document.querySelector('.rc-acts'), card = $('rcPaper');
+    card.classList.remove('go'); void card.offsetWidth; acts.classList.remove('show');
+    // El nombre grande se achica hasta que quepa en una línea.
+    var fitBig = function () {
+      var el = card.querySelector('.tk-big'); if (!el) return;
+      var size = 92; el.style.fontSize = size + 'px';
+      while (el.scrollWidth > el.clientWidth + 1 && size > 26) { size -= 4; el.style.fontSize = size + 'px'; }
+    };
+    $('rcStatus').innerHTML = '<span class="rc-spin"></span> Preparando tu ticket…';
     openOv('rcptOverlay');
-    paper.classList.add('go');
+    fitBig(); if (document.fonts && document.fonts.ready) document.fonts.ready.then(fitBig);
+    card.classList.add('go');
     setTimeout(function () {
-      led.classList.add('ok'); acts.classList.add('show');
+      acts.classList.add('show');
       $('rcStatus').innerHTML = '<span class="ok-ic">✓</span> ' + (opt.at ? 'Tu ticket' : '¡Listo! Apuesta confirmada');
-    }, 1700);
+    }, 900);
   }
   function receiptText() {
     var r = lastReceipt; if (!r) return '';
@@ -2211,73 +2384,126 @@
       (r.codes.length ? '\nTicket: ' + r.codes.join(', ') : '') + '\n\nJuega en www.rapideportes.com';
   }
   // Dibuja el ticket como imagen (PNG) para compartirlo igualito.
+  // Dibuja el ticket (estilo camiseta) como imagen PNG para compartirlo igualito.
   async function ticketImage() {
-    var r = lastReceipt; if (!r) return null;
-    try { await Promise.all([document.fonts.load('800 30px "JetBrains Mono"'), document.fonts.load('500 24px "JetBrains Mono"'), document.fonts.load('800 40px "Big Shoulders Display"')]); } catch (e) {}
-    var S = 2, W = 360, PAD = 22, PW = W - 2 * 30, X0 = 30, MONO = '"JetBrains Mono", ui-monospace, Menlo, monospace';
+    var r = lastReceipt, M = r && r.model; if (!M) return null;
+    try { await Promise.all([document.fonts.load('900 60px "Big Shoulders Display"'), document.fonts.load('800 30px "Big Shoulders Display"'), document.fonts.load('800 16px Inter'), document.fonts.load('700 14px Inter'), document.fonts.load('600 12px "JetBrains Mono"')]); } catch (e) {}
+    var S = 3, W = 380, PADX = 16, CW = W - PADX * 2, IN = 18;
+    var DISP = '"Big Shoulders Display", Impact, sans-serif', SANS = 'Inter, system-ui, sans-serif', MONO = '"JetBrains Mono", ui-monospace, Menlo, monospace';
     var cv = document.createElement('canvas'), ctx = cv.getContext('2d');
-    function wrap(text, font, maxW) {
-      ctx.font = font; var words = String(text).split(' '), out = [], cur = '';
-      words.forEach(function (w) { var t = cur ? cur + ' ' + w : w; if (ctx.measureText(t).width > maxW && cur) { out.push(cur); cur = w; } else cur = t; });
+    function wrap(t, font, maxW) {
+      ctx.font = font; var ws = String(t).replace(/-/g, '- ').split(' ').filter(Boolean), out = [], cur = '';
+      ws.forEach(function (w) { var x = cur ? cur + (/-$/.test(cur) ? '' : ' ') + w : w; if (ctx.measureText(x).width > maxW && cur) { out.push(cur); cur = w; } else cur = x; });
       if (cur) out.push(cur); return out;
     }
-    var F = { brand: '800 26px "Big Shoulders Display", sans-serif', title: '800 16px ' + MONO, small: '500 11px ' + MONO, pick: '500 13px ' + MONO, odd: '800 13px ' + MONO, gsm: '500 10px ' + MONO, tot: '800 16px ' + MONO, totv: '800 19px ' + MONO, code: '800 17px ' + MONO, st: '800 12px ' + MONO };
-    var inner = PW - 2 * PAD;
-    // medir altura
-    var rows = r.lines.map(function (l) {
-      ctx.font = F.odd; var ow = ctx.measureText(l.odds || '').width + 10;
-      return { pick: wrap(l.pick, F.pick, inner - ow), game: l.game ? wrap(l.game, F.gsm, inner - ow) : [], odds: l.odds };
-    });
-    var h = 40 + 32 + 22 + 18 + 22;
-    rows.forEach(function (rw) { h += rw.pick.length * 17 + rw.game.length * 13 + 10; });
-    h += 22 + 30 + (r.stLabel ? 30 : 0) + (r.codes.length ? 60 : 10) + 22 + 22 + 14;
-    var H = h + 60;
+    function rr(x, y, w, h, rad) { ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(x, y, w, h, rad); else ctx.rect(x, y, w, h); }
+    function spaced(txt, x, y, sp) { if (ctx.letterSpacing !== undefined) { ctx.letterSpacing = sp + 'px'; ctx.fillText(txt, x, y); ctx.letterSpacing = '0px'; } else ctx.fillText(txt, x, y); }
+    // ---- medidas ----
+    var F = { name: '800 ' + (M.avatar && M.mainName.length > 16 ? 28 : 34) + 'px ' + DISP, sub: '700 14px ' + SANS, game: '800 15px ' + SANS, pick: '800 14.5px ' + SANS, lgame: '500 11.5px ' + SANS, odds: '800 15px ' + SANS };
+    var textW = CW - IN * 2;
+    var nameLines = M.single ? wrap(M.mainName, F.name, textW - 70) : [];
+    var subLines = M.single ? wrap(M.mainSub, F.sub, textW - 70) : [];
+    var legRows = M.single ? [] : M.legs.map(function (l) { return { p: wrap(l.pick, F.pick, textW - 90), g: wrap(l.game, F.lgame, textW - 90), l: l }; });
+    var archH = Math.round(CW * 130 / 340) + 6;
+    var cardH = 16 + 34 + 1;
+    if (M.single) cardH += 14 + 22 + Math.max(56, nameLines.length * 33 + subLines.length * 19 + 6) + 14;
+    else { cardH += 10; legRows.forEach(function (rw) { cardH += Math.max(30, rw.p.length * 18 + rw.g.length * 14) + 16; }); cardH += 2; }
+    cardH += 36 + 78 + 26;
+    var H = 18 + archH + 4 + cardH + 18;
     cv.width = W * S; cv.height = H * S; ctx.scale(S, S);
-    // fondo
-    var g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#16213F'); g.addColorStop(1, '#0B1630');
-    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-    // papel con borde de sierra abajo
-    var top = 26, bot = top + h, tooth = 10;
-    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.35)'; ctx.shadowBlur = 18; ctx.shadowOffsetY = 6;
-    ctx.beginPath(); ctx.moveTo(X0, top); ctx.lineTo(X0 + PW, top); ctx.lineTo(X0 + PW, bot);
-    for (var x = X0 + PW; x > X0; x -= tooth) { ctx.lineTo(x - tooth / 2, bot - 7); ctx.lineTo(Math.max(X0, x - tooth), bot); }
-    ctx.closePath(); ctx.fillStyle = '#fff'; ctx.fill(); ctx.restore();
-    var y = top + 40, L = X0 + PAD, R = X0 + PW - PAD, C = X0 + PW / 2;
-    ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-    ctx.font = F.brand; var w1 = ctx.measureText('Rapi').width, w2 = ctx.measureText('deportes').width;
-    ctx.textAlign = 'left'; ctx.fillStyle = '#101828'; ctx.fillText('Rapi', C - (w1 + w2) / 2, y); ctx.fillStyle = '#F01446'; ctx.fillText('deportes', C - (w1 + w2) / 2 + w1, y);
-    ctx.textAlign = 'center'; y += 30; ctx.fillStyle = '#101828'; ctx.font = F.title;
-    if (ctx.letterSpacing !== undefined) ctx.letterSpacing = '3px';
-    ctx.fillText(r.title, C, y); if (ctx.letterSpacing !== undefined) ctx.letterSpacing = '0px';
-    y += 20; ctx.font = F.small; ctx.fillStyle = '#667085'; ctx.fillText(r.when, C, y);
-    function dash(yy) { ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = '#D0D5DD'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(R, yy); ctx.stroke(); ctx.restore(); }
-    y += 16; dash(y); y += 22;
-    rows.forEach(function (rw) {
-      ctx.textAlign = 'right'; ctx.font = F.odd; ctx.fillStyle = '#101828'; ctx.fillText(rw.odds || '', R, y);
-      ctx.textAlign = 'left'; ctx.font = F.pick; rw.pick.forEach(function (t, i) { ctx.fillText(t, L, y + i * 17); });
-      var yy = y + (rw.pick.length - 1) * 17 + 14; ctx.font = F.gsm; ctx.fillStyle = '#98A2B3';
-      rw.game.forEach(function (t, i) { ctx.fillText(t, L, yy + i * 13); });
-      y += rw.pick.length * 17 + rw.game.length * 13 + 10;
+    // ---- camiseta ----
+    ctx.save(); rr(0, 0, W, H, 26); ctx.clip();
+    var sh = M.shirt;
+    if (sh.solid) { ctx.fillStyle = sh.solid; ctx.fillRect(0, 0, W, H); }
+    else if (sh.split) { ctx.fillStyle = sh.split[0]; ctx.fillRect(0, 0, W, H); ctx.fillStyle = sh.split[1]; ctx.beginPath(); ctx.moveTo(W * 0.62, 0); ctx.lineTo(W, 0); ctx.lineTo(W, H); ctx.lineTo(W * 0.62 - H * 0.6, H); ctx.closePath(); ctx.fill(); }
+    else { var n = sh.stripes.length; sh.stripes.forEach(function (c, i) { ctx.fillStyle = c; ctx.fillRect(Math.floor(W * i / n), 0, Math.ceil(W / n) + 1, H); }); }
+    ctx.fillStyle = 'rgba(255,255,255,.14)';
+    for (var yy = 1; yy < H; yy += 6) for (var xx = 1; xx < W; xx += 6) { ctx.beginPath(); ctx.arc(xx, yy, 0.9, 0, 6.283); ctx.fill(); }
+    var g1 = ctx.createRadialGradient(W / 2, 0, 10, W / 2, 0, W * 0.9); g1.addColorStop(0, 'rgba(255,255,255,.28)'); g1.addColorStop(1, 'rgba(255,255,255,0)'); ctx.fillStyle = g1; ctx.fillRect(0, 0, W, H);
+    var g2 = ctx.createLinearGradient(0, H * 0.55, 0, H); g2.addColorStop(0, 'rgba(0,0,0,0)'); g2.addColorStop(1, 'rgba(0,0,0,.35)'); ctx.fillStyle = g2; ctx.fillRect(0, 0, W, H);
+    [10, W - 24].forEach(function (x) { ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.fillRect(x - 4, 0, 22, H); ctx.fillStyle = M.trim; ctx.fillRect(x, 0, 14, H); });
+    // ---- nombre en arco ----
+    var ax = PADX, ay = 18, k = CW / 340;
+    var P0 = [ax + 14 * k, ay + 120 * k], P1 = [ax + 170 * k, ay + 6 * k], P2 = [ax + 326 * k, ay + 120 * k];
+    var pts = [], lens = [0];
+    for (var i = 0; i <= 200; i++) { var t = i / 200, u = 1 - t; pts.push([u * u * P0[0] + 2 * u * t * P1[0] + t * t * P2[0], u * u * P0[1] + 2 * u * t * P1[1] + t * t * P2[1]]); if (i) lens.push(lens[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); }
+    var total = lens[200];
+    function at(sv) { var j = 1; while (j < 200 && lens[j] < sv) j++; var a = pts[j - 1], bq = pts[j], f = (sv - lens[j - 1]) / ((lens[j] - lens[j - 1]) || 1); return { x: a[0] + (bq[0] - a[0]) * f, y: a[1] + (bq[1] - a[1]) * f, ang: Math.atan2(bq[1] - a[1], bq[0] - a[0]) }; }
+    var fs = 60 * k; ctx.font = '900 ' + fs + 'px ' + DISP;
+    var chars = M.big.split(''), widths = chars.map(function (c) { return ctx.measureText(c).width; }), tw = widths.reduce(function (a, bq) { return a + bq; }, 0);
+    var target = M.tl * k, sx = target / tw, s0 = total / 2 - target / 2;
+    ctx.lineJoin = 'round';
+    [0, 1].forEach(function (pass) {
+      var acc = s0;
+      chars.forEach(function (c, ci) {
+        var cw = widths[ci] * sx, pnt = at(acc + cw / 2); acc += cw;
+        ctx.save(); ctx.translate(pnt.x, pnt.y); ctx.rotate(pnt.ang); ctx.scale(sx, 1); ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+        if (pass === 0) { ctx.fillStyle = 'rgba(0,0,0,.35)'; ctx.fillText(c, 0, 3 * k); ctx.strokeStyle = M.trim; ctx.lineWidth = 7 * k / sx; ctx.strokeText(c, 0, 0); }
+        else { ctx.fillStyle = '#FFFFFF'; ctx.fillText(c, 0, 0); }
+        ctx.restore();
+      });
     });
-    y += 0; dash(y); y += 30;
-    ctx.textAlign = 'left'; ctx.font = F.tot; ctx.fillStyle = '#101828'; ctx.fillText(/^COBRADA/.test(r.stLabel) ? 'COBRÓ' : 'SI GANAS', L, y);
-    ctx.textAlign = 'right'; ctx.font = F.totv; ctx.fillStyle = '#F01446'; ctx.fillText(money2(r.pay), R, y);
-    if (r.stLabel) {
-      y += 28; ctx.textAlign = 'center'; ctx.font = F.st;
-      ctx.fillStyle = r.stCls === 'won' ? '#067647' : r.stCls === 'lost' ? '#B42318' : '#475467'; ctx.fillText(r.stLabel, C, y);
+    // ---- tarjeta oscura ----
+    var cx = PADX, cy = 18 + archH + 4;
+    ctx.save(); ctx.shadowColor = 'rgba(0,0,0,.4)'; ctx.shadowBlur = 24; ctx.shadowOffsetY = 8; rr(cx, cy, CW, cardH, 20); ctx.fillStyle = 'rgba(4,7,16,.9)'; ctx.fill(); ctx.restore();
+    ctx.save(); rr(cx, cy, CW, cardH, 20); ctx.clip();
+    var L = cx + IN, R = cx + CW - IN, y = cy + 16;
+    // encabezado
+    ctx.strokeStyle = '#FFFFFF'; ctx.lineWidth = 1.6; ctx.beginPath(); ctx.arc(L + 11, y + 13, 10, 0, 6.283); ctx.moveTo(L + 1, y + 13); ctx.lineTo(L + 21, y + 13); ctx.moveTo(L + 11, y + 3); ctx.lineTo(L + 11, y + 23); ctx.stroke();
+    ctx.fillStyle = '#D0D5DD'; ctx.font = '800 12.5px ' + SANS; ctx.textBaseline = 'middle'; ctx.textAlign = 'left'; spaced(M.lg, L + 30, y + 13, 1.2);
+    ctx.font = '800 22px ' + DISP; ctx.textAlign = 'right'; var wD = ctx.measureText('deportes').width; ctx.fillStyle = '#F01446'; ctx.fillText('deportes', R, y + 13); ctx.fillStyle = '#FFFFFF'; ctx.fillText('Rapi', R - wD, y + 13);
+    y += 34; ctx.save(); ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(255,255,255,.2)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(R, y); ctx.stroke(); ctx.restore(); y += 1;
+    ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+    function resMark(res, x, yc) {
+      if (!res) return;
+      ctx.fillStyle = res === 'won' ? '#12B76A' : res === 'lost' ? '#F01446' : '#475467'; ctx.beginPath(); ctx.arc(x, yc, 11, 0, 6.283); ctx.fill();
+      ctx.fillStyle = '#FFFFFF'; ctx.font = '900 12px ' + SANS; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(res === 'won' ? '✓' : res === 'lost' ? '✗' : '=', x, yc + 1); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
     }
-    if (r.codes.length) {
-      y += 16; ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = '#98A2B3'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); if (ctx.roundRect) ctx.roundRect(L, y, R - L, 40, 6); else ctx.rect(L, y, R - L, 40); ctx.stroke(); ctx.restore();
-      ctx.textAlign = 'center'; ctx.font = F.code; ctx.fillStyle = '#101828';
-      if (ctx.letterSpacing !== undefined) ctx.letterSpacing = '3px';
-      ctx.fillText(r.codes.join('  '), C, y + 26); if (ctx.letterSpacing !== undefined) ctx.letterSpacing = '0px';
-      y += 44;
-    } else y += 10;
-    y += 20; ctx.textAlign = 'center'; ctx.font = F.small; ctx.fillStyle = '#667085';
-    ctx.fillText('Apostaste ' + money2(r.stake) + (r.mult ? ' · cuota total ' + r.mult.toFixed(2) + 'x' : ''), C, y);
-    y += 20; ctx.font = '800 11px ' + MONO; ctx.fillStyle = '#F01446'; ctx.fillText('www.rapideportes.com', C, y);
-    return await new Promise(function (res) { cv.toBlob(function (b) { res(b); }, 'image/png'); });
+    if (M.single) {
+      y += 14 + 15; ctx.fillStyle = '#FFFFFF'; ctx.font = F.game; ctx.fillText(M.game, L, y); y += 7;
+      var blockH = Math.max(56, nameLines.length * 33 + subLines.length * 19 + 6), avY = y + blockH / 2 + 4;
+      ctx.save(); ctx.beginPath(); ctx.arc(L + 28, avY, 28, 0, 6.283); ctx.clip();
+      if (M.avatar.colors.length > 1) { ctx.fillStyle = M.avatar.colors[0]; ctx.fillRect(L, avY - 28, 56, 56); ctx.fillStyle = M.avatar.colors[1]; ctx.beginPath(); ctx.moveTo(L + 56, avY - 28); ctx.lineTo(L + 56, avY + 28); ctx.lineTo(L, avY + 28); ctx.closePath(); ctx.fill(); }
+      else { ctx.fillStyle = M.avatar.colors[0]; ctx.fillRect(L, avY - 28, 56, 56); }
+      ctx.restore(); ctx.strokeStyle = M.avatar.ring; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(L + 28, avY, 26.5, 0, 6.283); ctx.stroke();
+      ctx.fillStyle = M.avatar.ink; ctx.font = '900 15px ' + SANS; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(M.avatar.text, L + 28, avY + 1); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+      var tx = L + 70, ty = y + 4 + 30;
+      ctx.fillStyle = '#FFFFFF'; ctx.font = F.name; nameLines.forEach(function (t) { ctx.fillText(t, tx, ty); ty += 33; });
+      ty -= 33 - 22; ctx.fillStyle = '#E4E7EC'; ctx.font = F.sub; subLines.forEach(function (t) { ctx.fillText(t, tx, ty); ty += 19; });
+      resMark(M.mainRes, R - 11, avY);
+      y += blockH + 14;
+    } else {
+      y += 10;
+      legRows.forEach(function (rw, ri) {
+        var h = Math.max(30, rw.p.length * 18 + rw.g.length * 14), mid = y + 8 + h / 2;
+        if (rw.l.dot.length > 1) { ctx.save(); ctx.beginPath(); ctx.arc(L + 6, mid, 6, 0, 6.283); ctx.clip(); ctx.fillStyle = rw.l.dot[0]; ctx.fillRect(L, mid - 6, 12, 12); ctx.fillStyle = rw.l.dot[1]; ctx.beginPath(); ctx.moveTo(L + 12, mid - 6); ctx.lineTo(L + 12, mid + 6); ctx.lineTo(L, mid + 6); ctx.closePath(); ctx.fill(); ctx.restore(); }
+        else { ctx.fillStyle = rw.l.dot[0]; ctx.beginPath(); ctx.arc(L + 6, mid, 6, 0, 6.283); ctx.fill(); }
+        ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(L + 6, mid, 7, 0, 6.283); ctx.stroke();
+        var ty2 = y + 8 + 14; ctx.fillStyle = '#FFFFFF'; ctx.font = F.pick; rw.p.forEach(function (t) { ctx.fillText(t, L + 24, ty2); ty2 += 18; });
+        ty2 -= 3; ctx.fillStyle = '#98A2B3'; ctx.font = F.lgame; rw.g.forEach(function (t) { ctx.fillText(t, L + 24, ty2); ty2 += 14; });
+        ctx.fillStyle = '#FFFFFF'; ctx.font = F.odds; ctx.textAlign = 'right'; ctx.fillText(rw.l.odds || '', R, mid + 5); ctx.textAlign = 'left';
+        resMark(rw.l.res, R - 54, mid);
+        y += h + 16;
+        if (ri < legRows.length - 1) { ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fillRect(L, y - 1, R - L, 1); }
+      });
+      y += 2;
+    }
+    // franja con el código
+    ctx.fillStyle = 'rgba(240,20,70,.16)'; ctx.fillRect(cx, y, CW, 36); ctx.fillStyle = 'rgba(240,20,70,.35)'; ctx.fillRect(cx, y, CW, 1); ctx.fillRect(cx, y + 35, CW, 1);
+    var bx = cx + 14; ctx.textBaseline = 'middle';
+    for (var q = 0; q < 4 && bx < cx + CW; q++) {
+      ctx.fillStyle = '#FFFFFF'; ctx.font = '800 17px ' + DISP; ctx.fillText('RapiDeportes', bx, y + 18); bx += ctx.measureText('RapiDeportes').width + 10;
+      ctx.fillStyle = '#FDA4B8'; ctx.font = '700 12.5px ' + MONO; spaced(M.code, bx, y + 18, 1); bx += ctx.measureText(M.code).width + 26;
+    }
+    ctx.textBaseline = 'alphabetic'; y += 36;
+    // números
+    var mx = cx + CW / 2 + 4; y += 26;
+    ctx.font = '800 11.5px ' + SANS; ctx.fillStyle = '#D0D5DD'; spaced(M.payLabel, L, y, 1.2); ctx.fillStyle = '#FDA4B8'; spaced(M.rightLabel, mx, y, 1.2);
+    y += 38; ctx.font = '900 36px ' + DISP; ctx.fillStyle = '#FFFFFF'; ctx.fillText(M.pay, L, y); ctx.fillStyle = '#FF5C82'; ctx.fillText(M.rightValue, mx, y);
+    y += 14 + 12; ctx.font = '500 11.5px ' + MONO; ctx.fillStyle = '#98A2B3'; spaced(M.when, L, y, 0.8);
+    ctx.textAlign = 'right'; ctx.fillStyle = M.stCls === 'won' ? '#32D583' : M.stCls === 'lost' ? '#FF5C82' : '#98A2B3'; spaced(M.stTxt, R, y, 0.8); ctx.textAlign = 'left';
+    ctx.restore(); ctx.restore();
+    return await new Promise(function (res) { cv.toBlob(function (bl) { res(bl); }, 'image/png'); });
   }
   $('rcClose').addEventListener('click', function () { closeOv('rcptOverlay'); });
   $('rcShare').addEventListener('click', async function () {
