@@ -668,6 +668,11 @@
   .jp-pw-new span { display: block; font-size: 12px; color: var(--text-faint); margin-top: 8px; }
   .jp-pw-acts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
   .jp-pw-acts .btn { white-space: normal !important; }
+  .lim-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+  .lim-f span { display: block; font-size: 12.5px; font-weight: 700; color: var(--text-dim); margin-bottom: 6px; }
+  .lim-in { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-strong); border-radius: 12px; padding: 0 12px; background: #fff; }
+  .lim-in b { color: var(--text-faint); }
+  .lim-in input { border: 0; outline: 0; font: inherit; font-size: 18px; font-weight: 800; padding: 11px 0; width: 100%; background: transparent; }
 </style>
 </head>
 <body>
@@ -861,6 +866,21 @@
     </div>
 
     <div id="tabFinanciero" hidden>
+    <div class="amc" style="margin-top:18px;">
+      <div class="amc-header">
+        <span class="amc-icon">🛡️</span>
+        <div>
+          <h3>Límites de apuesta</h3>
+          <p class="amc-sub">Protegen a la casa: nadie puede apostar ni cobrar más de esto en un solo ticket.</p>
+        </div>
+      </div>
+      <div class="lim-grid">
+        <label class="lim-f"><span>Máximo por apuesta</span><div class="lim-in"><b>$</b><input type="number" inputmode="decimal" min="1" step="1" id="limMaxStake"></div></label>
+        <label class="lim-f"><span>Pago máximo por ticket</span><div class="lim-in"><b>$</b><input type="number" inputmode="decimal" min="1" step="1" id="limMaxPayout"></div></label>
+      </div>
+      <button type="button" class="btn primary" id="limSave" style="width:100%; margin-top:12px;">Guardar límites</button>
+      <p class="amc-sub" id="limNow" style="margin-top:8px; text-align:center;"></p>
+    </div>
     <div class="amc" style="margin-top:18px;">
       <div class="amc-header">
         <span class="amc-icon">💰</span>
@@ -1514,10 +1534,27 @@
     document.getElementById('tabBtnLineas').classList.toggle('primary', tab === 'lineas');
     document.getElementById('tabBtnFinanciero').classList.toggle('primary', tab === 'financiero');
     document.getElementById('tabBtnPagos').classList.toggle('primary', tab === 'pagos');
-    if (tab === 'financiero') refreshFinanceAndTickets();
+    if (tab === 'financiero') { refreshFinanceAndTickets(); loadLimits(); }
     if (tab === 'pagos') loadPayments();
   }
   document.getElementById('tabBtnPagos').addEventListener('click', function () { setAdminTab('pagos'); });
+
+  // ---- Límites de apuesta ----
+  function limMoney(n) { return '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
+  function showLimits(v) {
+    document.getElementById('limMaxStake').value = v.maxStake;
+    document.getElementById('limMaxPayout').value = v.maxPayout;
+    document.getElementById('limNow').textContent = 'Ahora: máximo ' + limMoney(v.maxStake) + ' por apuesta y ' + limMoney(v.maxPayout) + ' de pago por ticket.';
+  }
+  async function loadLimits() { var v = await apiGet('/api/admin/bet-limits'); if (v) showLimits(v); }
+  document.getElementById('limSave').addEventListener('click', async function () {
+    var ms = Number(document.getElementById('limMaxStake').value), mp = Number(document.getElementById('limMaxPayout').value);
+    if (!(ms >= 1)) { showToast('Pon un máximo por apuesta de al menos $1.'); return; }
+    if (!(mp >= ms)) { showToast('El pago máximo tiene que ser igual o mayor que el máximo por apuesta.'); return; }
+    var r = await apiPost('/api/admin/bet-limits', { maxStake: ms, maxPayout: mp });
+    if (!r.ok) { if (r.status === 401) { adminSaveFailed(); return; } showToast('No se pudieron guardar los límites.'); return; }
+    showLimits(r.data); showToast('✅ Límites guardados.');
+  });
   document.getElementById('tabBtnJugadores').addEventListener('click', function () { setAdminTab('jugadores'); });
 
   /* =========================================================
