@@ -396,19 +396,38 @@ function todayISO() {
 
 // Líderes del partido de un equipo (puntos, rebotes, asistencias) tal como
 // los publica ESPN en su scoreboard. Si ESPN no los manda, devuelve null.
+function espnLeaderVal(top) {
+  var dv = top.displayValue !== undefined ? String(top.displayValue) : '';
+  // NFL trae textos largos ("22/31, 287 YDS, 2 TD"): se muestra solo el número de yardas.
+  var v = dv.length > 6 && top.value !== undefined ? String(Math.round(Number(top.value))) : (dv || String(top.value !== undefined ? top.value : ''));
+  return { name: String(top.athlete.shortName || top.athlete.displayName || ''), value: v };
+}
+// NFL: ESPN pone los líderes del juego en la competencia (uno por categoría, con su equipo).
+function espnCompLeaders(comp, homeId, awayId) {
+  var out = { home: {}, away: {} };
+  (comp.leaders || []).forEach(function (cat) {
+    var key = cat.name || cat.abbreviation;
+    if (['passingYards', 'rushingYards', 'receivingYards', 'goals', 'assists', 'points'].indexOf(key) < 0) return;
+    (cat.leaders || []).forEach(function (top) {
+      if (!top || !top.athlete) return;
+      var tid = String((top.team && top.team.id) || (top.athlete.team && top.athlete.team.id) || '');
+      var side = tid && tid === String(homeId) ? 'home' : tid && tid === String(awayId) ? 'away' : null;
+      if (side && !out[side][key]) out[side][key] = espnLeaderVal(top);
+    });
+  });
+  return { home: Object.keys(out.home).length ? out.home : null, away: Object.keys(out.away).length ? out.away : null };
+}
 function espnLeaders(c) {
   var out = {};
   var cats = (c && c.leaders) || [];
   for (var i = 0; i < cats.length; i++) {
     var cat = cats[i] || {};
     var key = cat.name || cat.abbreviation;
-    if (key !== 'points' && key !== 'rebounds' && key !== 'assists') continue;
+    // NBA: puntos/rebotes/asistencias · NHL: goles/asistencias/puntos · NFL: yardas de pase/carrera/recepción.
+    if (['points', 'rebounds', 'assists', 'goals', 'passingYards', 'rushingYards', 'receivingYards'].indexOf(key) < 0) continue;
     var top = cat.leaders && cat.leaders[0];
     if (!top || !top.athlete) continue;
-    out[key] = {
-      name: String(top.athlete.shortName || top.athlete.displayName || ''),
-      value: String(top.displayValue !== undefined ? top.displayValue : (top.value !== undefined ? top.value : ''))
-    };
+    out[key] = espnLeaderVal(top);
   }
   return Object.keys(out).length ? out : null;
 }
@@ -494,7 +513,14 @@ async function fetchEspnGames(espnPath) {
         startTimeUtc: ev.date || null,
         period: comp.status ? comp.status.period : undefined,
         clock: comp.status ? comp.status.displayClock : '',
-        leaders: { home: espnLeaders(home), away: espnLeaders(away) }
+        leaders: (function () {
+          var L = { home: espnLeaders(home), away: espnLeaders(away) };
+          if (!L.home || !L.away) {
+            var C = espnCompLeaders(comp, home.team && home.team.id, away.team && away.team.id);
+            L.home = L.home || C.home; L.away = L.away || C.away;
+          }
+          return L;
+        })()
       });
     }
     return games;
@@ -666,6 +692,20 @@ function nhlTeamFullName(team) {
   var common = team.commonName && team.commonName.default ? team.commonName.default : (team.name && team.name.default ? team.name.default : '');
   return (place + ' ' + common).trim();
 }
+// NHL: el marcador y el reloj salen de la API oficial de la NHL; los líderes
+// (goles, asistencias, puntos) se toman de ESPN solo si hay un juego en vivo.
+async function nhlWithLeaders() {
+  var games = await fetchNhlGamesFromStatsApi();
+  if (!games.some(function (g) { return g.state === 'in' || g.state === 'post'; })) return games;
+  try {
+    var es = await fetchEspnGames(SPORT_ESPN_PATH.nhl);
+    games.forEach(function (g) {
+      var e = es.find(function (x) { return teamNamesMatch(x.home, g.home) && teamNamesMatch(x.away, g.away); });
+      if (e && e.leaders && (e.leaders.home || e.leaders.away)) g.leaders = e.leaders;
+    });
+  } catch (e) {}
+  return games;
+}
 async function fetchNhlGamesFromStatsApi() {
   var games = [];
   try {
@@ -743,7 +783,7 @@ async function updateLiveScores() {
       var sport = sportsList[i];
       gamesBySport[sport] = sport === 'beisbol' ? await fetchMlbGamesFromStatsApi()
         : sport === 'lidom' ? await fetchMlbGamesFromStatsApi(17)
-        : sport === 'nhl' ? await fetchNhlGamesFromStatsApi()
+        : sport === 'nhl' ? await nhlWithLeaders()
         : sport === 'baloncesto' ? await overlayNbaOfficial(await fetchEspnGames(SPORT_ESPN_PATH[sport]))
         : await fetchEspnGames(SPORT_ESPN_PATH[sport]);
     }
@@ -797,9 +837,12 @@ async function updateLiveScores() {
       if ((m.sport === 'beisbol' || m.sport === 'lidom') && g.sportDetail) {
         sportDetail = g.sportDetail;
       } else if (m.sport === 'nhl' && g.sportDetail) {
-        sportDetail = g.sportDetail;
+        var hl2 = g.leaders || {};
+        sportDetail = Object.assign({}, g.sportDetail, { leaders: (hl2.home || hl2.away) ? (reversed ? { home: hl2.away || null, away: hl2.home || null } : { home: hl2.home || null, away: hl2.away || null }) : null });
       } else if (m.sport === 'nfl') {
-        sportDetail = { quarter: g.period || null, quarterLabel: g.period ? (g.period > 4 ? 'Tiempo extra' : g.period + ['', 'er', 'do', 'er', 'to'][g.period] + ' cuarto') : null, clock: g.clock || null };
+        var nl = g.leaders || {};
+        sportDetail = { quarter: g.period || null, quarterLabel: g.period ? (g.period > 4 ? 'Tiempo extra' : g.period + ['', 'er', 'do', 'er', 'to'][g.period] + ' cuarto') : null, clock: g.clock || null,
+          leaders: (nl.home || nl.away) ? (reversed ? { home: nl.away || null, away: nl.home || null } : { home: nl.home || null, away: nl.away || null }) : null };
       } else if (m.sport === 'baloncesto') {
         var quarterLabel = g.period ? (g.period > 4 ? 'Tiempo extra' : g.period + ['', 'er', 'do', 'er', 'to'][g.period] + ' cuarto') : null;
         var gl = g.leaders || {};
