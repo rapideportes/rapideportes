@@ -823,6 +823,7 @@
   .mp-sec-t { font-size: 13px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em; margin: 0 2px 8px; }
   .mp-sec .mcard .mc-head, .mp-sec .mcard > .mc-time { display: none; }
   .mp-box { background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: 4px 12px 12px; box-shadow: var(--shadow-sm); }
+.wd-type{grid-template-columns:repeat(2,1fr)}.wd-in input{width:100%;font-size:16px}
 </style>
 </head>
 <body>
@@ -1926,15 +1927,17 @@
     if (p === 'withdraw' && state.verify.status !== 'verified') {
       html += '<div class="cj-panel"><h3>Retirar fondos</h3><p>' + 'Antes de tu primer retiro confirma tu fecha de nacimiento.' + '</p>' +
         '<button type="button" class="btn primary block" data-cash="verify">Verificar mi edad</button></div>';
-    } else if (p === 'withdraw' && !state.payoutLabel) {
-      html += '<div class="cj-panel"><h3>Retirar fondos</h3><p>Para cuidar tu dinero, los retiros se envían a la misma tarjeta o cuenta con la que depositaste. Haz tu primer depósito y luego podrás retirar ahí.</p><button type="button" class="btn primary block" data-cash="deposit">Depositar</button></div>';
     } else if (p === 'deposit' || p === 'withdraw') {
       var dep = p === 'deposit';
       var amts = dep ? [25, 50, 100, 250] : [25, 50, 100, 'Todo'];
       html += '<div class="cj-panel"><h3>' + (dep ? 'Depositar' : 'Retirar fondos') + '</h3>' +
         '<p>' + (dep ? (state.limits.amount ? 'Puedes depositar hasta $' + money(limitLeft()) + ' ' + PERIOD_SHORT[state.limits.period] + ' por tu límite.' : 'Escoge cuánto quieres añadir a tu saldo.') : 'Puedes retirar hasta $' + money(bal) + '.') + '</p>' +
         '<div class="cj-amts">' + amts.map(function (a) { var v = a === 'Todo' ? Math.floor(bal) : a; return '<button type="button" data-amt="' + v + '" class="' + (Number(state.cashAmt) === v ? 'on' : '') + '">' + (a === 'Todo' ? 'Todo' : '$' + a) + '</button>'; }).join('') + '</div>' +
-        (dep ? '' : '<div class="pm" style="margin-bottom:12px;"><div class="pm-ic"><svg viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 9.5h19M6 15h4"/></svg></div><div class="pm-body"><div class="pm-meta" style="margin:0;">Se enviará a</div><div class="pm-name">' + esc(state.payoutLabel) + '</div><div class="pm-meta">La misma con la que depositaste</div></div></div>') +
+        (dep || state.payoutLabel ? '' : '<div class="wd-to"><div class="pm-meta" style="margin:0 0 6px;">¿A dónde te enviamos el dinero?</div>' +
+          '<div class="cj-amts wd-type">' + ['Zelle', 'PayPal'].map(function (t) { return '<button type="button" data-wdtype="' + t + '" class="' + ((state.wdType || 'Zelle') === t ? 'on' : '') + '">' + t + '</button>'; }).join('') + '</div>' +
+          '<label class="cj-input wd-in" for="wdTo"><input id="wdTo" type="text" autocomplete="off" placeholder="' + ((state.wdType || 'Zelle') === 'PayPal' ? 'Correo de tu PayPal' : 'Correo o teléfono de tu Zelle') + '" value="' + esc(state.wdTo || '') + '"></label>' +
+          '<div class="pm-meta" style="margin:-4px 0 12px;">Tiene que estar a tu nombre. Revisa bien: el dinero se envía ahí.</div></div>') +
+        (dep || !state.payoutLabel ? '' : '<div class="pm" style="margin-bottom:12px;"><div class="pm-ic"><svg viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 9.5h19M6 15h4"/></svg></div><div class="pm-body"><div class="pm-meta" style="margin:0;">Se enviará a</div><div class="pm-name">' + esc(state.payoutLabel) + '</div><div class="pm-meta">La misma con la que depositaste</div></div></div>') +
         '<label class="cj-input" for="cashAmt"><span>$</span><input id="cashAmt" type="number" inputmode="decimal" min="1" step="1" value="' + esc(state.cashAmt) + '"></label>' +
         '<button type="button" class="btn primary block" data-cash-go="' + p + '">' + (dep ? 'Continuar al pago' : 'Solicitar retiro') + '</button>' +
         '<div class="cj-note">' + (dep ? 'El pago se procesa de forma segura.' : 'Revisamos cada retiro antes de enviarlo. Normalmente toma menos de 24 horas.') + '</div></div>';
@@ -2750,6 +2753,7 @@
       if (ck === 'withdraw') state.cashAmt = Math.min(Number(state.cashAmt) || 0, Math.floor(state.balance)) || 0;
       renderView(); return;
     }
+    var wdt = t.closest('[data-wdtype]'); if (wdt) { state.wdType = wdt.dataset.wdtype; renderView(); return; }
     var amt = t.closest('[data-amt]'); if (amt) { state.cashAmt = Number(amt.dataset.amt); renderView(); return; }
     var lp = t.closest('[data-lp]'); if (lp) { state.limitDraft.period = lp.dataset.lp; renderView(); return; }
     var ls = t.closest('[data-lim-save]');
@@ -2785,11 +2789,18 @@
       if (cgo.dataset.cashGo === 'withdraw' && n > state.balance) { showToast('No tienes suficiente saldo para retirar esa cantidad.'); return; }
       if (cgo.dataset.cashGo === 'deposit' && n > limitLeft()) { showToast('Ese monto pasa tu límite. Puedes depositar hasta $' + Math.floor(limitLeft()) + '.'); return; }
       if (cgo.dataset.cashGo === 'deposit') { showToast('Los pagos con Stride se conectarán pronto.'); return; }
+      var payTo = null;
+      if (!state.payoutLabel) {
+        var wto = String(state.wdTo || '').trim(), wty = state.wdType || 'Zelle';
+        var okTo = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(wto) || (wty === 'Zelle' && /^\+?[\d\s()-]{10,16}$/.test(wto));
+        if (!okTo) { showToast(wty === 'PayPal' ? 'Escribe el correo de tu PayPal.' : 'Escribe el correo o teléfono de tu Zelle.'); return; }
+        payTo = { type: wty, to: wto };
+      }
       cgo.disabled = true;
-      apiPost('/api/withdraw', { amount: n }).then(async function (r) {
+      apiPost('/api/withdraw', { amount: n, payTo: payTo }).then(async function (r) {
         if (!r.ok) {
           var e = r.data && r.data.error;
-          showToast(e === 'not_verified' ? 'Verifica tu edad antes de retirar.' : e === 'no_deposit_method' ? 'Haz un depósito primero para poder retirar.' : e === 'insufficient' ? 'No tienes suficiente saldo para retirar esa cantidad.' : 'No se pudo pedir el retiro.');
+          showToast(e === 'not_verified' ? 'Verifica tu edad antes de retirar.' : e === 'no_deposit_method' ? 'Escribe a dónde te enviamos el dinero.' : e === 'insufficient' ? 'No tienes suficiente saldo para retirar esa cantidad.' : 'No se pudo pedir el retiro.');
           cgo.disabled = false; return;
         }
         state.balance = r.data.balance; updateHeader();
@@ -2851,6 +2862,7 @@
     if (e.target.id === 'searchInput') { state.searchQuery = e.target.value; updateSearchResults(); }
     if (e.target.id === 'limitAmt' && state.limitDraft) state.limitDraft.amount = e.target.value;
     if (e.target.id === 'vfDob') state.vfDraft.dob = e.target.value;
+    if (e.target.id === 'wdTo') { state.wdTo = e.target.value; return; }
     if (e.target.id === 'cashAmt') {
       state.cashAmt = parseFloat(e.target.value) || 0;
       Array.prototype.forEach.call(document.querySelectorAll('.cj-amts button'), function (b) { b.classList.toggle('on', Number(b.dataset.amt) === state.cashAmt); });
