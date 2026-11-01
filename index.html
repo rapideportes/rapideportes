@@ -1448,7 +1448,7 @@
   // Líderes del partido (NBA): puntos, rebotes y asistencias de cada equipo,
   // tal como los publica ESPN. Solo se muestran si el servidor los mandó.
   var LEADER_CATS = {
-    baloncesto: [['points', 'Puntos'], ['rebounds', 'Rebotes'], ['assists', 'Asistencias']],
+    baloncesto: [['points', 'Puntos'], ['rebounds', 'Rebotes'], ['assists', 'Asistencias'], ['threes', 'Triples']],
     nhl: [['goals', 'Goles'], ['assists', 'Asistencias'], ['points', 'Puntos']],
     nfl: [['passingYards', 'Yardas pase'], ['rushingYards', 'Yardas carrera'], ['receivingYards', 'Yardas recep.']]
   };
@@ -2498,7 +2498,7 @@
     var gameTitle = teamBadge(L0.away).abbr + ' ' + tkNick(L0.away, L0.sport) + ' vs ' + teamBadge(L0.home).abbr + ' ' + tkNick(L0.home, L0.sport);
     var mainName = L0.player ? L0.player.name : L0.team ? teamBadge(L0.team).abbr + ' ' + tkNick(L0.team, L0.sport) : L0.pickText;
     var mainSub = (L0.player ? (L0.player.stat ? L0.player.stat + ' · ' : '') + L0.player.side + ' de ' + L0.player.line + ' · ' : (!L0.team ? '' : (L0.pickText !== L0.team + ' gana' ? L0.pickText.replace(L0.team, '').trim() + ' · ' : ''))) +
-      (prob(L0.odds) ? prob(L0.odds) + '% de probabilidad · ' : '') + 'Apostó ' + money2(stake);
+      'Cuota ' + mult.toFixed(2);
     var avatar = L0.player
       ? '<span class="tk-av" style="background:linear-gradient(135deg,' + teamBadge(L0.away).color + ' 50%,' + teamBadge(L0.home).color + ' 50%)">' + esc(L0.player.name.split(' ').map(function (w) { return w.charAt(0); }).join('').replace(/[^A-Za-zÁÉÍÓÚÑ]/g, '').slice(0, 2).toUpperCase()) + '</span>'
       : '<span class="tk-av" style="' + badgeStyle(L0.team ? teamBadge(L0.team) : L0.badge) + '">' + esc((L0.team ? teamBadge(L0.team) : L0.badge).abbr) + '</span>';
@@ -2515,8 +2515,8 @@
       lg: parlay ? 'COMBINADA ×' + legs.length : lg || 'DEPORTES', game: gameTitle, mainName: mainName, mainSub: mainSub, avatar: av, mainRes: L0.res || '',
       legs: legs.map(function (l) { return { dot: l.player ? [teamBadge(l.away).color, teamBadge(l.home).color] : [l.color], pick: l.pickText, game: teamBadge(l.away).abbr + ' ' + tkNick(l.away, l.sport) + ' vs ' + teamBadge(l.home).abbr + ' ' + tkNick(l.home, l.sport), odds: l.odds, res: l.res }; }),
       stake: money2(stake), payLabel: st && (st.cls === 'cash' || st.cls === 'won') ? 'COBRÓ' : 'PAGO SI GANA', pay: money2(pay),
-      rightLabel: 'PROBABILIDAD', rightValue: ((single ? prob(L0.odds) : probAll) || '—') + '%',
-      sum: (probAll ? probAll + '% de probabilidad · ' : '') + 'Cuota ' + mult.toFixed(2) + ' · Apostó ' + money2(stake),
+      rightLabel: 'APOSTÓ', rightValue: money2(stake),
+      sum: 'Cuota ' + mult.toFixed(2),
       when: when2, stTxt: stTxt, stCls: st ? st.cls : '', code: (codes[0] || 'RD').replace('-', '')
     };
     $('rcPaper').innerHTML =
@@ -2527,10 +2527,10 @@
           (single ?
             '<div class="tk-game">' + esc(gameTitle) + '</div>' +
             '<div class="tk-pick' + (L0.player ? ' pl' : '') + '">' + avatar + '<div><b>' + esc(mainName) + '</b><small>' + esc(mainSub) + '</small></div>' + (L0.res === 'won' ? '<i class="tk-res won">✓</i>' : L0.res === 'lost' ? '<i class="tk-res lost">✗</i>' : '') + '</div>'
-            : '<div class="tk-legs">' + legsHtml + '</div><div class="tk-sum">' + (probAll ? probAll + '% de probabilidad · ' : '') + 'Cuota ' + mult.toFixed(2) + ' · Apostó ' + money2(stake) + '</div>') +
+            : '<div class="tk-legs">' + legsHtml + '</div><div class="tk-sum">Cuota ' + mult.toFixed(2) + '</div>') +
           '<div class="tk-tape"><div class="tk-tape-in">' + tape + tape + '</div></div>' +
           '<div class="tk-nums"><div><small>' + (st && (st.cls === 'cash' || st.cls === 'won') ? 'COBRÓ' : 'PAGO SI GANA') + '</small><b>' + money2(pay) + '</b></div>' +
-            '<div><small class="hl">PROBABILIDAD</small><b class="hl">' + ((single ? prob(L0.odds) : probAll) || '—') + '%</b></div></div>' +
+            '<div><small class="hl">APOSTÓ</small><b class="hl">' + money2(stake) + '</b></div></div>' +
           '<div class="tk-foot"><span>' + esc(when2) + '</span><span class="tk-st ' + (st ? st.cls : '') + '">' + esc(stTxt) + '</span></div>' +
         '</div>' +
       '</div>';
@@ -3339,7 +3339,7 @@
     ['Ya puedes retirar tus ganancias.', 'You can now withdraw your winnings.'],
     ['¿Necesitas ayuda con tu cuenta, un depósito o una apuesta? Nuestro equipo te atiende todos los días.', 'Need help with your account, a deposit or a bet? Our team is here every day.'],
     ['Lanzamientos de este turno al bate', 'Pitches in this at-bat'],
-    ['Líderes del partido', 'Game leaders'], ['🏏 Bateo', '🏏 Batting'], ['⚾ Pitcheo', '⚾ Pitching'], [' — línea ', ' — line '], ['(Puntos)', '(Points)'], ['Goles', 'Goals'], ['Yardas pase', 'Pass yds'], ['Yardas carrera', 'Rush yds'], ['Yardas recep.', 'Rec yds'], ['(Rebotes)', '(Rebounds)'], ['(Asistencias)', '(Assists)'], ['(Triples)', '(3-pointers)'], ['(Robos)', '(Steals)'], ['(Tapones)', '(Blocks)'], ['🍀 ¡Mucha suerte! ', '🍀 Good luck! '], ['Que se te dé esa jugada.', 'Hope this one hits.'], ['Las estadísticas de los jugadores aparecen en unos minutos.', 'Player stats will appear in a few minutes.'],
+    ['Líderes del partido', 'Game leaders'], ['🏏 Bateo', '🏏 Batting'], ['⚾ Pitcheo', '⚾ Pitching'], [' — línea ', ' — line '], ['(Puntos)', '(Points)'], ['Goles', 'Goals'], ['Triples', '3-pointers'], ['Yardas pase', 'Pass yds'], ['Yardas carrera', 'Rush yds'], ['Yardas recep.', 'Rec yds'], ['(Rebotes)', '(Rebounds)'], ['(Asistencias)', '(Assists)'], ['(Triples)', '(3-pointers)'], ['(Robos)', '(Steals)'], ['(Tapones)', '(Blocks)'], ['🍀 ¡Mucha suerte! ', '🍀 Good luck! '], ['Que se te dé esa jugada.', 'Hope this one hits.'], ['Las estadísticas de los jugadores aparecen en unos minutos.', 'Player stats will appear in a few minutes.'],
     ['Apuesta confirmada por', 'Bet placed for'], ['Combinada confirmada por', 'Parlay placed for'],
     ['Míralas en Mis apuestas.', 'See them in My bets.'], ['Te avisamos cuando se apruebe.', "We'll let you know when it's approved."],
     ['Ya está en tu saldo.', "It's in your balance."], ['ya está en tu saldo', "it's in your balance"],
