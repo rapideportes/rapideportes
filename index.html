@@ -782,6 +782,21 @@
   .eh-live .eh-go { color: #FF5C82; }
   .eh-dot { width: 12px; height: 12px; border-radius: 50%; background: var(--live); box-shadow: 0 0 0 4px rgba(240,20,70,.25); animation: copulse 1.2s ease-in-out infinite; flex: 0 0 auto; }
   @keyframes copulse { 50% { opacity: .35; } }
+  /* ---------- Jugadores estilo pestañas ---------- */
+  .pt-tabs { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 8px; margin: 0 0 4px; scrollbar-width: none; }
+  .pt-tabs::-webkit-scrollbar { display: none; }
+  .pt-tab { flex: 0 0 auto; border: 1px solid var(--border); background: #fff; color: var(--text-dim); border-radius: 999px; padding: 8px 14px; font: inherit; font-size: 13px; font-weight: 800; cursor: pointer; }
+  .pt-tab i { font-style: normal; font-size: 11px; opacity: .7; }
+  .pt-tab.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .pt-panel { display: none; border: 1px solid var(--border); border-radius: 14px; overflow: hidden; }
+  .pt-panel.on { display: block; }
+  .pt-head { display: grid; grid-template-columns: minmax(0, 1fr) 84px 84px; gap: 6px; background: #0B1630; color: #fff; padding: 9px 10px; font-size: 12px; font-weight: 800; }
+  .pt-head span:not(:first-child) { text-align: center; color: #D0D5DD; }
+  .pt-row { display: grid; grid-template-columns: minmax(0, 1fr) 84px 84px; gap: 6px; align-items: center; padding: 7px 10px; border-top: 1px solid var(--border); }
+  .pt-row.extra { display: none; } .pt-panel.all .pt-row.extra { display: grid; }
+  .pt-name { font-size: 13.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .pt-row .odd { min-height: 46px; padding: 4px 6px; }
+  .pt-more { width: 100%; border: 0; border-top: 1px solid var(--border); background: var(--surface); color: var(--accent); font: inherit; font-weight: 800; font-size: 13px; padding: 10px; cursor: pointer; }
 </style>
 </head>
 <body>
@@ -1276,6 +1291,32 @@
         oddBtn(m.id + '-ht-home', htLabel + ' — ' + m.home, m.halftime.home, m, m.home) + '</div>';
     }
     if (m.props && m.props.length) {
+      // Estilo casa grande: una pestaña por estadística y una tabla de jugadores con Más / Menos.
+      var ORD = ['Puntos', 'Rebotes', 'Asistencias', 'Triples', 'Robos', 'Tapones'];
+      var groups = {};
+      m.props.forEach(function (p, pi) { var st = p.stat || 'Jugadores'; (groups[st] = groups[st] || []).push({ p: p, pi: pi }); });
+      var stats = Object.keys(groups).sort(function (a, b) { return (ORD.indexOf(a) + 99 * (ORD.indexOf(a) < 0)) - (ORD.indexOf(b) + 99 * (ORD.indexOf(b) < 0)); });
+      var cur = (state.propTab && state.propTab[m.id]) || stats[0];
+      if (stats.indexOf(cur) < 0) cur = stats[0];
+      var isBb = m.sport === 'beisbol' || m.sport === 'lidom';
+      html += '<div class="mx-title">' + (isBb ? 'Lanzadores' : 'Jugadores') + '</div><div class="pt-tabs" role="tablist">' + stats.map(function (st) {
+        return '<button type="button" role="tab" class="pt-tab' + (st === cur ? ' on' : '') + '" data-ptab="' + esc(m.id) + '|' + esc(st) + '" aria-selected="' + (st === cur) + '">' + esc(st) + ' <i>' + groups[st].length + '</i></button>';
+      }).join('') + '</div>';
+      stats.forEach(function (st) {
+        var rows = groups[st];
+        html += '<div class="pt-panel' + (st === cur ? ' on' : '') + '" data-ppanel="' + esc(m.id) + '|' + esc(st) + '">' +
+          '<div class="pt-head"><span>' + esc(st) + '</span><span>Más</span><span>Menos</span></div>' +
+          rows.map(function (r, ri) {
+            // En la NBA la estadística va dentro del texto de la apuesta (así se califica); en los demás, solo el nombre.
+            var p = r.p, who = m.sport === 'baloncesto' ? p.player + ' (' + p.stat + ')' : p.player;
+            return '<div class="pt-row' + (ri >= 5 ? ' extra' : '') + '"><span class="pt-name">' + esc(p.player) + '</span>' +
+              oddBtn(m.id + '-prop-' + r.pi + '-over', who + ' — Más ' + p.line, p.over, m, '> ' + p.line) +
+              oddBtn(m.id + '-prop-' + r.pi + '-under', who + ' — Menos ' + p.line, p.under, m, '< ' + p.line) + '</div>';
+          }).join('') +
+          (rows.length > 5 ? '<button type="button" class="pt-more" data-pmore="1">Ver más (' + (rows.length - 5) + ')</button>' : '') +
+        '</div>';
+      });
+    } else if (m.props && m.props.length) {
       var isMlb = m.sport === 'beisbol' || m.sport === 'lidom';
       html += '<div class="mx-title">' + (isMlb ? 'Lanzadores' : 'Jugadores') + '</div>';
       m.props.forEach(function (p, pi) {
@@ -2691,6 +2732,16 @@
       renderView();
       return;
     }
+    var ptab = t.closest('[data-ptab]');
+    if (ptab) {
+      var pk = ptab.dataset.ptab, pm = pk.split('|')[0], box = ptab.closest('.mc-extra') || document;
+      state.propTab = state.propTab || {}; state.propTab[pm] = pk.split('|').slice(1).join('|');
+      Array.prototype.forEach.call(box.querySelectorAll('[data-ptab]'), function (b) { var on = b.dataset.ptab === pk; b.classList.toggle('on', on); b.setAttribute('aria-selected', on); });
+      Array.prototype.forEach.call(box.querySelectorAll('[data-ppanel]'), function (pp) { pp.classList.toggle('on', pp.dataset.ppanel === pk); });
+      return;
+    }
+    var pmore = t.closest('[data-pmore]');
+    if (pmore) { var panel = pmore.closest('.pt-panel'); panel.classList.toggle('all'); pmore.textContent = panel.classList.contains('all') ? 'Ver menos' : 'Ver más (' + panel.querySelectorAll('.pt-row.extra').length + ')'; return; }
     var more = t.closest('[data-more]');
     if (more) {
       var id = more.dataset.more;
@@ -3205,7 +3256,7 @@
     ['Apuesta', 'Bet'], ['paga', 'pays'], ['Final ·', 'Final ·'], ['Promociones', 'Promotions'], ['Resultados', 'Results'],
     ['En vivo', 'Live'], ['Ganador', 'Winner'], ['Hándicap', 'Handicap'], ['carreras', 'runs'], ['puntos', 'points'], ['goles', 'goals'],
     ['Imprimiendo tu ticket…', 'Printing your ticket…'], ['¡Listo! Apuesta confirmada', 'Done! Bet confirmed'], ['📲 Compartir jugada', '📲 Share bet'],
-    ['SI GANAS', 'IF YOU WIN'], ['Estamos preparando las líneas de los próximos juegos. Vuelve pronto.', 'We are preparing the lines for the next games. Check back soon.'], ['Mira el marcador al momento', 'Watch the live score'], ['Mira cómo van', 'See how they are going'], ['Resultados recientes', 'Recent results'], ['Las cuotas cambiaron. Revisa tu boleto y confirma otra vez.', 'The odds changed. Check your slip and confirm again.'], ['Ver todos los resultados', 'See all results'], ['Ayer', 'Yesterday'], ['Partidos terminados con su marcador final, por día.', 'Finished games with their final score, by day.'], ['🧾 Ver ticket y compartir', '🧾 View ticket & share'], ['Tu ticket', 'Your ticket'], ['Se guardó la foto del ticket. Mándala por WhatsApp o donde quieras.', 'The ticket image was saved. Send it on WhatsApp or anywhere.'], ['APUESTA SENCILLA', 'SINGLE BET'], ['Apostaste', 'You bet'], ['cuota total', 'total odds'],
+    ['SI GANAS', 'IF YOU WIN'], ['Puntos', 'Points'], ['Rebotes', 'Rebounds'], ['Asistencias', 'Assists'], ['Ver menos', 'Show less'], ['Estamos preparando las líneas de los próximos juegos. Vuelve pronto.', 'We are preparing the lines for the next games. Check back soon.'], ['Mira el marcador al momento', 'Watch the live score'], ['Mira cómo van', 'See how they are going'], ['Resultados recientes', 'Recent results'], ['Las cuotas cambiaron. Revisa tu boleto y confirma otra vez.', 'The odds changed. Check your slip and confirm again.'], ['Ver todos los resultados', 'See all results'], ['Ayer', 'Yesterday'], ['Partidos terminados con su marcador final, por día.', 'Finished games with their final score, by day.'], ['🧾 Ver ticket y compartir', '🧾 View ticket & share'], ['Tu ticket', 'Your ticket'], ['Se guardó la foto del ticket. Mándala por WhatsApp o donde quieras.', 'The ticket image was saved. Send it on WhatsApp or anywhere.'], ['APUESTA SENCILLA', 'SINGLE BET'], ['Apostaste', 'You bet'], ['cuota total', 'total odds'],
     ['Más ', 'Over '], ['Menos ', 'Under '], ['Cerrar', 'Close'], ['Hoy ', 'Today '], ['Mañana ', 'Tomorrow ']
   ];
   PHRASES.sort(function (a, b) { return b[0].length - a[0].length; });
