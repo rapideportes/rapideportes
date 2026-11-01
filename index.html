@@ -797,6 +797,27 @@
   .pt-name { font-size: 13.5px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .pt-row .odd { min-height: 46px; padding: 4px 6px; }
   .pt-more { width: 100%; border: 0; border-top: 1px solid var(--border); background: var(--surface); color: var(--accent); font: inherit; font-weight: 800; font-size: 13px; padding: 10px; cursor: pointer; }
+  /* ---------- Página de un partido ---------- */
+  .mp-back { border: 0; background: none; font: inherit; font-weight: 800; color: var(--accent); font-size: 15px; padding: 8px 0; cursor: pointer; }
+  .mp-hero { background: #0B1630; color: #fff; border-radius: 20px; padding: 16px; margin: 4px 0 12px; }
+  .mp-league { font-size: 12.5px; font-weight: 800; letter-spacing: .08em; color: #D0D5DD; text-transform: uppercase; }
+  .mp-teams { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 8px; margin-top: 12px; }
+  .mp-t { display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; min-width: 0; }
+  .mp-t b { font-size: 14.5px; line-height: 1.2; }
+  .mp-badge { width: 54px; height: 54px; font-size: 14px; }
+  .mp-mid { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .mp-at { font-family: var(--font-display); font-size: 30px; font-weight: 800; color: #98A2B3; }
+  .mp-score { font-family: var(--font-display); font-size: 40px; font-weight: 900; }
+  .mp-mid small { font-size: 12px; color: #D0D5DD; font-weight: 700; display: flex; align-items: center; gap: 5px; white-space: nowrap; }
+  .mp-mid small i { width: 7px; height: 7px; border-radius: 50%; background: var(--live); display: inline-block; }
+  .mp-tabs { display: flex; gap: 6px; overflow-x: auto; margin: 0 0 12px; padding-bottom: 2px; scrollbar-width: none; }
+  .mp-tabs::-webkit-scrollbar { display: none; }
+  .mp-tab { flex: 0 0 auto; border: 0; border-bottom: 3px solid transparent; background: none; font: inherit; font-weight: 800; font-size: 14.5px; color: var(--text-dim); padding: 10px 12px; cursor: pointer; }
+  .mp-tab.on { color: var(--text); border-bottom-color: var(--accent); }
+  .mp-sec { margin-bottom: 14px; }
+  .mp-sec-t { font-size: 13px; font-weight: 800; color: var(--text-dim); text-transform: uppercase; letter-spacing: .06em; margin: 0 2px 8px; }
+  .mp-sec .mcard .mc-head, .mp-sec .mcard > .mc-time { display: none; }
+  .mp-box { background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: 4px 12px 12px; box-shadow: var(--shadow-sm); }
 </style>
 </head>
 <body>
@@ -1490,7 +1511,7 @@
     html += '<div style="text-align:center; font-size:11px; color:var(--text-faint);">Lanzamientos de este turno al bate (' + pitches.length + ')</div>';
     return html;
   }
-  function matchCard(m) {
+  function matchCard(m, page) {
     var odds = m.odds || [];
     var away = odds[2] || {}, draw = odds[1] || {}, home = odds[0] || {};
     var unit = TOTAL_UNIT[m.sport] || 'total';
@@ -1556,11 +1577,54 @@
     html += '</div>';
     if (m.total) html += '<p class="gl-note">Total: <b>&gt;</b> más de · <b>&lt;</b> menos de ' + esc(m.total.line) + ' ' + esc(unit) + ' entre los dos equipos</p>';
     var open = !!state.expanded[m.id];
-    html += '<button type="button" class="mc-more" data-more="' + esc(m.id) + '">' + (open ? 'Ocultar mercados ▴' : 'Ver mercados ▾') + '</button>';
-    html += '<div class="mc-extra' + (open ? ' open' : '') + '" id="ex-' + esc(m.id) + '">' + extraHTML(m) + '</div>';
+    if (!page) {
+      // Cuántas apuestas más tiene el juego (jugadores, medio tiempo…): se abren en su propia página.
+      var nMore = (m.props ? m.props.length * 2 : 0) + (m.halftime ? 2 : 0);
+      html += '<button type="button" class="mc-more" data-open-match="' + esc(m.id) + '">' + (nMore ? 'Ver todas las apuestas · +' + nMore + ' ›' : 'Ver el partido ›') + '</button>';
+    }
     html += '</article>';
     return html;
   }
+  // ---------- Página de un partido (como en las casas grandes) ----------
+  function matchPageHTML() {
+    var m = state.matches.filter(function (x) { return String(x.id) === String(state.matchId); })[0];
+    var back = '<button type="button" class="mp-back" data-mp-back="1">‹ ' + esc(m ? (SPORT_LABELS[m.sport] || 'Volver') : 'Volver') + '</button>';
+    if (!m) return back + emptyHTML('🔎', 'Este partido ya no está disponible.');
+    var b1 = teamBadge(m.away), b2 = teamBadge(m.home);
+    var sc = (m.live || m.finished) && m.score;
+    var html = back + '<div class="mp-hero">' +
+      '<div class="mp-league">' + (SPORT_ICON[m.sport] || '') + ' ' + esc(SPORT_LABELS[m.sport] || '') + '</div>' +
+      '<div class="mp-teams"><div class="mp-t"><span class="mc-badge mp-badge" style="' + badgeStyle(b1) + '">' + esc(b1.abbr) + '</span><b>' + esc(m.away) + '</b></div>' +
+      '<div class="mp-mid">' + (sc ? '<span class="mp-score">' + esc(m.score.away) + ' – ' + esc(m.score.home) + '</span><small>' + (m.finished ? 'Final' : '<i></i>En vivo' + (m.score.period ? ' · ' + esc(m.score.period) : '')) + '</small>' : '<span class="mp-at">@</span><small>' + esc(m.time || '') + '</small>') + '</div>' +
+      '<div class="mp-t"><span class="mc-badge mp-badge" style="' + badgeStyle(b2) + '">' + esc(b2.abbr) + '</span><b>' + esc(m.home) + '</b></div></div></div>';
+    var hasProps = m.props && m.props.length, hasHt = !!m.halftime;
+    var open = !m.finished && !isBettingClosed(m);
+    var tab = state.mpTab || 'todas';
+    if (open && (hasProps || hasHt)) {
+      var tabs = [['todas', 'Todas'], ['principales', 'Principales']];
+      if (hasProps) tabs.push(['jugadores', (m.sport === 'beisbol' || m.sport === 'lidom') ? 'Lanzadores' : 'Jugadores']);
+      if (hasHt) tabs.push(['medio', HALFTIME_LABEL[m.sport] || 'Medio tiempo']);
+      if (!tabs.some(function (t) { return t[0] === tab; })) tab = 'todas';
+      html += '<div class="mp-tabs">' + tabs.map(function (t) { return '<button type="button" class="mp-tab' + (t[0] === tab ? ' on' : '') + '" data-mp-tab="' + t[0] + '">' + esc(t[1]) + '</button>'; }).join('') + '</div>';
+    } else tab = 'todas';
+    if (tab === 'todas' || tab === 'principales') html += '<div class="mp-sec">' + (open ? '<div class="mp-sec-t">Principales</div>' : '') + matchCard(m, true) + '</div>';
+    if (open && hasHt && (tab === 'todas' || tab === 'medio')) html += '<div class="mp-sec mp-box">' + extraHTML({ id: m.id, sport: m.sport, away: m.away, home: m.home, halftime: m.halftime }) + '</div>';
+    if (open && hasProps && (tab === 'todas' || tab === 'jugadores')) html += '<div class="mp-sec mp-box">' + extraHTML({ id: m.id, sport: m.sport, away: m.away, home: m.home, props: m.props }) + '</div>';
+    return html;
+  }
+  function openMatch(id) {
+    state.prevView = state.view === 'match' ? state.prevView : state.view;
+    state.prevScroll = window.scrollY;
+    state.matchId = id; state.mpTab = 'todas';
+    try { history.pushState({ rdMatch: id }, '', '#partido-' + id); } catch (e) {}
+    setView('match');
+  }
+  function closeMatch(fromPop) {
+    var y = state.prevScroll || 0;
+    state.view = state.prevView || 'home'; renderView(); window.scrollTo(0, y);
+    if (!fromPop) { try { if (history.state && history.state.rdMatch) history.back(); } catch (e) {} }
+  }
+  window.addEventListener('popstate', function () { if (state.view === 'match') closeMatch(true); });
   function chipsHTML() {
     var items = [['all', 'Todos'], ['beisbol', 'MLB'], ['lidom', 'LIDOM'], ['baloncesto', 'NBA'], ['nfl', 'NFL'], ['nhl', 'NHL']];
     return '<div class="chips">' + items.map(function (c) {
@@ -1974,6 +2038,7 @@
     else if (v === 'cashier') app.innerHTML = cashierHTML();
     else if (v === 'results') app.innerHTML = chipsHTML() + resultsHTML();
     else if (v === 'search') { app.innerHTML = searchShell(); updateSearchResults(); }
+    else if (v === 'match') app.innerHTML = matchPageHTML();
     syncNav();
   }
   function setView(v, focusSearch) {
@@ -2732,6 +2797,9 @@
       renderView();
       return;
     }
+    var om = t.closest('[data-open-match]'); if (om) { openMatch(om.dataset.openMatch); return; }
+    if (t.closest('[data-mp-back]')) { closeMatch(); return; }
+    var mpt = t.closest('[data-mp-tab]'); if (mpt) { state.mpTab = mpt.dataset.mpTab; renderView(); return; }
     var ptab = t.closest('[data-ptab]');
     if (ptab) {
       var pk = ptab.dataset.ptab, pm = pk.split('|')[0], box = ptab.closest('.mc-extra') || document;
@@ -3256,7 +3324,7 @@
     ['Apuesta', 'Bet'], ['paga', 'pays'], ['Final ·', 'Final ·'], ['Promociones', 'Promotions'], ['Resultados', 'Results'],
     ['En vivo', 'Live'], ['Ganador', 'Winner'], ['Hándicap', 'Handicap'], ['carreras', 'runs'], ['puntos', 'points'], ['goles', 'goals'],
     ['Imprimiendo tu ticket…', 'Printing your ticket…'], ['¡Listo! Apuesta confirmada', 'Done! Bet confirmed'], ['📲 Compartir jugada', '📲 Share bet'],
-    ['SI GANAS', 'IF YOU WIN'], ['Puntos', 'Points'], ['Rebotes', 'Rebounds'], ['Asistencias', 'Assists'], ['Ver menos', 'Show less'], ['Estamos preparando las líneas de los próximos juegos. Vuelve pronto.', 'We are preparing the lines for the next games. Check back soon.'], ['Mira el marcador al momento', 'Watch the live score'], ['Mira cómo van', 'See how they are going'], ['Resultados recientes', 'Recent results'], ['Las cuotas cambiaron. Revisa tu boleto y confirma otra vez.', 'The odds changed. Check your slip and confirm again.'], ['Ver todos los resultados', 'See all results'], ['Ayer', 'Yesterday'], ['Partidos terminados con su marcador final, por día.', 'Finished games with their final score, by day.'], ['🧾 Ver ticket y compartir', '🧾 View ticket & share'], ['Tu ticket', 'Your ticket'], ['Se guardó la foto del ticket. Mándala por WhatsApp o donde quieras.', 'The ticket image was saved. Send it on WhatsApp or anywhere.'], ['APUESTA SENCILLA', 'SINGLE BET'], ['Apostaste', 'You bet'], ['cuota total', 'total odds'],
+    ['SI GANAS', 'IF YOU WIN'], ['Todas', 'All'], ['Principales', 'Main'], ['Jugadores', 'Players'], ['Lanzadores', 'Pitchers'], ['Ver el partido ›', 'View game ›'], ['Este partido ya no está disponible.', 'This game is no longer available.'], ['Puntos', 'Points'], ['Rebotes', 'Rebounds'], ['Asistencias', 'Assists'], ['Ver menos', 'Show less'], ['Estamos preparando las líneas de los próximos juegos. Vuelve pronto.', 'We are preparing the lines for the next games. Check back soon.'], ['Mira el marcador al momento', 'Watch the live score'], ['Mira cómo van', 'See how they are going'], ['Resultados recientes', 'Recent results'], ['Las cuotas cambiaron. Revisa tu boleto y confirma otra vez.', 'The odds changed. Check your slip and confirm again.'], ['Ver todos los resultados', 'See all results'], ['Ayer', 'Yesterday'], ['Partidos terminados con su marcador final, por día.', 'Finished games with their final score, by day.'], ['🧾 Ver ticket y compartir', '🧾 View ticket & share'], ['Tu ticket', 'Your ticket'], ['Se guardó la foto del ticket. Mándala por WhatsApp o donde quieras.', 'The ticket image was saved. Send it on WhatsApp or anywhere.'], ['APUESTA SENCILLA', 'SINGLE BET'], ['Apostaste', 'You bet'], ['cuota total', 'total odds'],
     ['Más ', 'Over '], ['Menos ', 'Under '], ['Cerrar', 'Close'], ['Hoy ', 'Today '], ['Mañana ', 'Tomorrow ']
   ];
   PHRASES.sort(function (a, b) { return b[0].length - a[0].length; });
