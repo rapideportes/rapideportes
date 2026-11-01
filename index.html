@@ -705,6 +705,10 @@
   .lv-tabs button span { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--live); color: #fff; font-size: 11.5px; display: inline-grid; place-items: center; }
   .lv-tabs button.on span { background: #fff; color: var(--accent); }
   .sl-limits { text-align: center; font-size: 11.5px; color: var(--text-faint); margin-top: 8px; }
+  .ft-legal { font-size: 12.5px; line-height: 1.5; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 10px 12px; margin: 14px 0 8px; }
+  .ft-grid .ft-link { min-height: 44px; display: flex; align-items: center; color: var(--text-dim); font-size: 14px; font-weight: 600; padding: 0 2px; text-decoration: none; }
+  .ft-grid .ft-link:hover { color: var(--accent); }
+  .dr-group .dr-link { display: flex; align-items: center; gap: 14px; padding: 10px 0; font-size: 18px; font-weight: 500; color: var(--text); text-decoration: none; }
 </style>
 </head>
 <body>
@@ -747,7 +751,7 @@
     <button type="button" data-act="account">Mi cuenta</button>
     <button type="button" data-info="pagos">Métodos de pago</button>
     <button type="button" data-info="reglas">Reglas de apuestas</button>
-    <button type="button" data-info="terminos">Términos y condiciones</button>
+    <a class="dr-link" href="/terms-en" target="_blank" rel="noopener">Términos y condiciones</a>
   </div>
   <p class="dr-note dr-pad">Prohibido para menores de 18 años. Apuesta con responsabilidad.</p>
 </nav>
@@ -758,14 +762,16 @@
   <div class="ft-brand">RAPIDEPORTES</div>
   <div class="ft-grid">
     <button data-info="soporte">Soporte</button>
-    <button data-info="terminos">Términos y condiciones</button>
+    <a class="ft-link" href="/terms-en" target="_blank" rel="noopener">Términos y condiciones</a>
     <button data-info="privacidad">Privacidad</button>
     <button data-info="pagos">Métodos de pago</button>
     <button data-info="reglas">Reglas de apuestas</button>
     <button data-info="responsable">Juego responsable</button>
     <button data-info="contacto">Contacto</button>
   </div>
+  <p class="ft-legal">⚖️ Las apuestas solo están disponibles en los lugares donde las apuestas deportivas en línea son legales. Es responsabilidad de cada jugador cumplir con las leyes del lugar donde se encuentra al apostar.</p>
   <p class="ft-note">Apuesta con responsabilidad. Prohibido para menores de 18 años. Si el juego ha dejado de ser un entretenimiento, busca ayuda en tu junta local de juego responsable.</p>
+  <p class="ft-note">RapiDeportes es operado por JJT GLOBAL LLC.</p>
 </footer>
 
 <button id="slipBar" type="button"><span>🎟️ Mi boleto (<b id="slipCount">0</b>) — Ver boleto</span></button>
@@ -2802,6 +2808,8 @@
   /* Frases (también dentro de textos más largos). */
   var PHRASES = [
     ['Prohibido para menores de 18 años. Apuesta con responsabilidad.', 'Under 18s prohibited. Bet responsibly.'],
+    ['⚖️ Las apuestas solo están disponibles en los lugares donde las apuestas deportivas en línea son legales. Es responsabilidad de cada jugador cumplir con las leyes del lugar donde se encuentra al apostar.', '⚖️ Betting is only available where online sports betting is legal. Each player is responsible for complying with the laws of the place where they are when betting.'],
+    ['RapiDeportes es operado por JJT GLOBAL LLC.', 'RapiDeportes is operated by JJT GLOBAL LLC.'],
     ['Apuesta con responsabilidad. Prohibido para menores de 18 años. Si el juego ha dejado de ser un entretenimiento, busca ayuda en tu junta local de juego responsable.', 'Bet responsibly. Under 18s prohibited. If gambling has stopped being fun, seek help from your local responsible gaming board.'],
     ['Al usar RapiDeportes aceptas cumplir con estas condiciones. Solo pueden jugar personas mayores de 18 años.', 'By using RapiDeportes you agree to these conditions. Only people over 18 may play.'],
     ['Antes de escribirnos, revisa la sección “Mis apuestas” para ver el estado de tus jugadas.', 'Before contacting us, check the “My bets” section to see the status of your bets.'],
