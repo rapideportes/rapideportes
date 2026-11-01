@@ -704,6 +704,7 @@
   .lv-tabs button.on { background: var(--accent); color: #fff; box-shadow: var(--shadow-red); }
   .lv-tabs button span { min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; background: var(--live); color: #fff; font-size: 11.5px; display: inline-grid; place-items: center; }
   .lv-tabs button.on span { background: #fff; color: var(--accent); }
+  .sl-limits { text-align: center; font-size: 11.5px; color: var(--text-faint); margin-top: 8px; }
 </style>
 </head>
 <body>
@@ -797,6 +798,7 @@
       <div class="sl-tot"><span>Posible ganancia</span><b id="slipProfitTotal">$0</b></div>
       <div class="sl-tot big"><span>Total a cobrar</span><b id="slipPayoutTotal">$0</b></div>
       <button class="btn primary block" id="slipPlace" type="button" style="margin-top:12px;">Confirmar apuesta</button>
+      <div class="sl-limits" id="slipLimits"></div>
     </div>
   </div>
 </div>
@@ -2084,9 +2086,22 @@
     body.innerHTML = html;
     foot.style.display = (state.slipMode === 'parlay' && keys.length < 2) ? 'none' : 'block';
     $('slipPlace').disabled = clash.length > 0;
+    var L = state.betLimits; $('slipLimits').textContent = L ? 'Máximo ' + fmtMoney(L.maxStake) + ' por apuesta · pago máximo ' + fmtMoney(L.maxPayout) + ' por ticket' : '';
     refreshTotals();
   }
 
+  // Si una cuota cambió, pone en el boleto las cuotas nuevas (y quita lo que ya no existe).
+  async function resyncSlipOdds() {
+    state.matches = await loadMatches();
+    var box = document.createElement('div');
+    box.innerHTML = state.matches.map(function (m) { return matchCard(m) + extraHTML(m); }).join('');
+    slipKeys().forEach(function (k) {
+      var b = box.querySelector('[data-selid="' + k.replace(/"/g, '') + '"]');
+      if (!b) { delete state.slip[k]; return; }
+      state.slip[k].odds = b.dataset.odds; state.slip[k].key = b.dataset.key;
+    });
+    pruneSlip(); autoSlipMode(); syncSelected(); renderSlip(); renderView();
+  }
   async function placeBet() {
     if (!state.user) { closeOv('slipOverlay'); openAuth('login'); showToast('Entra a tu cuenta para confirmar la apuesta.'); return; }
     var keys = slipKeys();
@@ -2118,9 +2133,20 @@
       });
       if (totalStake > state.balance) { showToast('Saldo insuficiente: tienes ' + fmtMoney(state.balance) + ' y la apuesta es de ' + fmtMoney(totalStake) + '.'); return; }
     }
+    var lim = state.betLimits;
+    if (lim) {
+      var big = betsToSend.filter(function (b) { return b.stake > lim.maxStake; })[0];
+      if (big) { showToast('El máximo por apuesta es ' + fmtMoney(lim.maxStake) + '.'); return; }
+      var huge = betsToSend.filter(function (b) { return b.payout > lim.maxPayout + 0.01; })[0];
+      if (huge) { showToast('El pago máximo por ticket es ' + fmtMoney(lim.maxPayout) + '. Baja el monto.'); return; }
+    }
     var res = await apiPost('/api/bets', { bets: betsToSend });
     if (!res.ok) {
       var errCode = res.data && res.data.error;
+      if (errCode === 'odds_changed') { await resyncSlipOdds(); showToast('Las cuotas cambiaron. Revisa tu boleto y confirma otra vez.'); return; }
+      if (errCode === 'max_stake') { showToast('El máximo por apuesta es ' + fmtMoney(res.data.limit) + '.'); return; }
+      if (errCode === 'max_payout') { showToast('El pago máximo por ticket es ' + fmtMoney(res.data.limit) + '. Baja el monto.'); return; }
+      if (errCode === 'min_stake') { showToast('El mínimo por apuesta es ' + fmtMoney(res.data.limit) + '.'); return; }
       showToast(errCode === 'insufficient' ? 'Saldo insuficiente para esta apuesta.' : errCode === 'closed' ? 'APUESTAS CERRADAS — PARTIDO EN JUEGO' : errCode === 'same_game' ? 'Ganador y hándicap del mismo partido no se pueden combinar.' : 'No se pudo confirmar la apuesta.');
       return;
     }
@@ -2720,6 +2746,7 @@
   (async function bootstrap() {
     state.matches = await loadMatches(); pruneSlip();
     await loadResults(true);
+    state.betLimits = await apiGet('/api/bet-limits');
     var me = await apiGet('/api/me');
     if (me) {
       state.user = { email: me.email };
@@ -2886,7 +2913,7 @@
     ['Apuesta', 'Bet'], ['paga', 'pays'], ['Final ·', 'Final ·'], ['Promociones', 'Promotions'], ['Resultados', 'Results'],
     ['En vivo', 'Live'], ['Ganador', 'Winner'], ['Hándicap', 'Handicap'], ['carreras', 'runs'], ['puntos', 'points'], ['goles', 'goals'],
     ['Imprimiendo tu ticket…', 'Printing your ticket…'], ['¡Listo! Apuesta confirmada', 'Done! Bet confirmed'], ['📲 Compartir jugada', '📲 Share bet'],
-    ['SI GANAS', 'IF YOU WIN'], ['Ver todos los resultados', 'See all results'], ['Ayer', 'Yesterday'], ['Partidos terminados con su marcador final, por día.', 'Finished games with their final score, by day.'], ['🧾 Ver ticket y compartir', '🧾 View ticket & share'], ['Tu ticket', 'Your ticket'], ['Se guardó la foto del ticket. Mándala por WhatsApp o donde quieras.', 'The ticket image was saved. Send it on WhatsApp or anywhere.'], ['APUESTA SENCILLA', 'SINGLE BET'], ['Apostaste', 'You bet'], ['cuota total', 'total odds'],
+    ['SI GANAS', 'IF YOU WIN'], ['Las cuotas cambiaron. Revisa tu boleto y confirma otra vez.', 'The odds changed. Check your slip and confirm again.'], ['Ver todos los resultados', 'See all results'], ['Ayer', 'Yesterday'], ['Partidos terminados con su marcador final, por día.', 'Finished games with their final score, by day.'], ['🧾 Ver ticket y compartir', '🧾 View ticket & share'], ['Tu ticket', 'Your ticket'], ['Se guardó la foto del ticket. Mándala por WhatsApp o donde quieras.', 'The ticket image was saved. Send it on WhatsApp or anywhere.'], ['APUESTA SENCILLA', 'SINGLE BET'], ['Apostaste', 'You bet'], ['cuota total', 'total odds'],
     ['Más ', 'Over '], ['Menos ', 'Under '], ['Cerrar', 'Close'], ['Hoy ', 'Today '], ['Mañana ', 'Tomorrow ']
   ];
   PHRASES.sort(function (a, b) { return b[0].length - a[0].length; });
