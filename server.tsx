@@ -1625,8 +1625,121 @@ app.get('/api/admin/schedule', async (c) => {
   var sport = String(c.req.query('sport') || '');
   var date = String(c.req.query('date') || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !(sport in SPORT_ESPN_PATH)) return c.json({ error: 'bad_request' }, 400);
-  return c.json({ games: await fetchSchedule(sport, date) });
+  var games = await fetchSchedule(sport, date);
+  return c.json({ games: await addPapiOdds(sport, date, games) });
 });
+
+// ---------- OddsPapi: cuotas de PokerStars para "Traer juegos" ----------
+// Deportes de OddsPapi: 11 baloncesto, 13 béisbol, 14 fútbol americano, 15 hockey.
+const PAPI_SPORT = { baloncesto: 11, beisbol: 13, lidom: 13, nfl: 14, nhl: 15 };
+const PAPI_TOURN = { baloncesto: /^nba$/i, beisbol: /^mlb$/i, lidom: /lidom|dominican/i, nfl: /^nfl$/i, nhl: /^nhl$/i };
+const papiCache = {};
+async function papiCached(key, ms, fn) {
+  var c = papiCache[key];
+  if (c && Date.now() - c.at < ms) return c.val;
+  var val = await fn();
+  if (val) papiCache[key] = { at: Date.now(), val: val };
+  return val;
+}
+function papiList(d) { return Array.isArray(d) ? d : d && (d.data || d.items || d.results) || []; }
+async function papiTournamentId(sport) {
+  return papiCached('t' + sport, 7 * 864e5, async function () {
+    var r = await oddsPapi('tournaments', { sportId: PAPI_SPORT[sport] });
+    var t = papiList(r.data).find(function (x) { return PAPI_TOURN[sport].test(x.tournamentName || '') || PAPI_TOURN[sport].test(x.tournamentSlug || ''); });
+    return t ? t.tournamentId : null;
+  });
+}
+// marketId → { type, handicap, period, names: { outcomeId: '1'|'2'|'X'|'Over'|'Under' } }
+async function papiMarkets(sport) {
+  return papiCached('m' + PAPI_SPORT[sport], 7 * 864e5, async function () {
+    var r = await oddsPapi('markets', { sportId: PAPI_SPORT[sport] });
+    var map = {};
+    papiList(r.data).forEach(function (m) {
+      if (m.playerProp) return;
+      var names = {}; (m.outcomes || []).forEach(function (o) { names[o.outcomeId] = String(o.outcomeName); });
+      map[m.marketId] = { type: String(m.marketType || ''), handicap: Number(m.handicap) || 0, period: String(m.period || ''), names: names };
+    });
+    return Object.keys(map).length ? map : null;
+  });
+}
+// participantId → nombre (si OddsPapi lo da).
+async function papiParticipants(sport) {
+  return papiCached('p' + PAPI_SPORT[sport], 7 * 864e5, async function () {
+    var r = await oddsPapi('participants', { sportId: PAPI_SPORT[sport] });
+    var d = r.data, map = {};
+    if (d && !Array.isArray(d) && typeof d === 'object' && !d.data) { Object.keys(d).forEach(function (k) { var v = d[k]; map[k] = typeof v === 'string' ? v : v && (v.participantName || v.name); }); }
+    papiList(d).forEach(function (x) { var id = x.participantId || x.id, nm = x.participantName || x.name || x.participantNameEn; if (id != null && nm) map[id] = nm; });
+    return Object.keys(map).length ? map : null;
+  });
+}
+// Saca Ganador, hándicap principal y total principal de un partido.
+function papiLines(fx, markets) {
+  var bk = fx.bookmakerOdds && fx.bookmakerOdds.pokerstars;
+  if (!bk || !bk.markets) return null;
+  var ml = null, spreads = [], totals = [];
+  Object.keys(bk.markets).forEach(function (mid) {
+    var def = markets[mid]; if (!def) return;
+    var outs = bk.markets[mid].outcomes || {}, pr = {}, main = false;
+    Object.keys(outs).forEach(function (oid) {
+      var pl = outs[oid].players && outs[oid].players['0'];
+      if (!pl || pl.active === false || !(pl.price > 1)) return;
+      pr[def.names[oid]] = Number(pl.price); if (pl.mainLine) main = true;
+    });
+    var full = def.period === 'result' || def.period === 'fulltime' || def.period === '';
+    if (!full) return;
+    if (/total/i.test(def.type) && pr.Over && pr.Under) totals.push({ line: def.handicap, over: pr.Over, under: pr.Under, main: main, period: def.period });
+    else if (pr['1'] && pr['2'] && !pr.X) {
+      if (!def.handicap && !/handicap|spread/i.test(def.type)) { if (!ml || def.period === 'result') ml = { p1: pr['1'], p2: pr['2'] }; }
+      else if (def.handicap) spreads.push({ h1: def.handicap, p1: pr['1'], p2: pr['2'], main: main, period: def.period });
+    }
+  });
+  function best(list, a, b) {
+    if (!list.length) return null;
+    var res = list.filter(function (x) { return x.period === 'result'; }); if (res.length) list = res;
+    return list.find(function (x) { return x.main; }) || list.slice().sort(function (x, y) { return Math.abs(x[a] - x[b]) - Math.abs(y[a] - y[b]); })[0];
+  }
+  if (!ml) return null;
+  var sp = best(spreads, 'p1', 'p2');
+  // El favorito (cuota más baja) siempre da puntos: si el signo sale al revés, se voltea.
+  if (sp && ((ml.p1 < ml.p2 && sp.h1 > 0) || (ml.p1 > ml.p2 && sp.h1 < 0))) sp = { h1: -sp.h1, p1: sp.p1, p2: sp.p2, main: sp.main, period: sp.period };
+  return { ml: ml, spread: sp, total: best(totals, 'over', 'under') };
+}
+async function addPapiOdds(sport, date, games) {
+  if (!Bun.env.ODDSPAPI_KEY || !PAPI_SPORT[sport] || !games.length) return games;
+  try {
+    var tid = await papiTournamentId(sport); if (!tid) return games;
+    var markets = await papiMarkets(sport); if (!markets) return games;
+    var parts = await papiParticipants(sport);
+    var r = await papiCached('o' + tid + date, 10 * 60e3, async function () {
+      var x = await oddsPapi('odds-by-tournaments', { bookmaker: 'pokerstars', tournamentIds: String(tid), oddsFormat: 'decimal' });
+      return papiList(x.data).length ? x : null;
+    });
+    var fixtures = r ? papiList(r.data) : [];
+    games.forEach(function (g) {
+      var t = Date.parse(g.startAt);
+      var near = fixtures.filter(function (f) { return Math.abs(Date.parse(f.startTime) - t) < 3 * 3600e3; });
+      var fx = null, p1Home = true;
+      if (parts) {
+        near.some(function (f) {
+          var n1 = parts[f.participant1Id], n2 = parts[f.participant2Id];
+          if (teamNamesMatch(n1, g.home) && teamNamesMatch(n2, g.away)) { fx = f; p1Home = true; return true; }
+          if (teamNamesMatch(n1, g.away) && teamNamesMatch(n2, g.home)) { fx = f; p1Home = false; return true; }
+          return false;
+        });
+      }
+      // Sin nombres: solo si es el único partido a esa hora exacta.
+      if (!fx) { var same = fixtures.filter(function (f) { return Math.abs(Date.parse(f.startTime) - t) < 60e3; }); var sameG = games.filter(function (x) { return Math.abs(Date.parse(x.startAt) - t) < 60e3; }); if (same.length === 1 && sameG.length === 1) fx = same[0]; }
+      if (!fx) return;
+      var L = papiLines(fx, markets); if (!L) return;
+      // En deportes de EE. UU. el "1" de OddsPapi es el local.
+      var H = function (a, b) { return p1Home ? a : b; };
+      g.odds = { home: H(L.ml.p1, L.ml.p2), away: H(L.ml.p2, L.ml.p1) };
+      if (L.spread) { var hl = p1Home ? L.spread.h1 : -L.spread.h1; g.odds.hcap = { homeLine: hl, homeOdds: H(L.spread.p1, L.spread.p2), awayLine: -hl, awayOdds: H(L.spread.p2, L.spread.p1) }; }
+      if (L.total) g.odds.total = { line: L.total.line, over: L.total.over, under: L.total.under };
+    });
+  } catch (e) {}
+  return games;
+}
 
 // ---------- OddsPapi: prueba de conexión ----------
 // Trae una muestra de lo que devuelve OddsPapi (deportes, casas, ligas y mercados)
@@ -1663,7 +1776,9 @@ app.get('/api/admin/oddspapi-test', async (c) => {
     out.nba = papiShort(tns.filter(function (x) { return /nba/i.test(JSON.stringify(x)); }).slice(0, 3), 600) || papiShort(tn.data || tn.text, 400);
     var mk = await oddsPapi('markets', { sportId: bbId });
     var mks = Array.isArray(mk.data) ? mk.data : [];
-    out.markets = papiShort(mks.slice(0, 12), 2000) || papiShort(mk.data || mk.text, 600);
+    out.markets = papiShort(mks.filter(function (m) { return !m.playerProp && !/total/i.test(m.marketType || ''); }).slice(0, 8), 1500) || papiShort(mk.data || mk.text, 600);
+    var pp = await oddsPapi('participants', { sportId: bbId });
+    out.participants = papiShort(Array.isArray(pp.data) ? pp.data.slice(0, 3) : pp.data, 500) || pp.text;
     var nbaT = tns.find(function (x) { return /^nba$/i.test(x.tournamentName || '') || /nba/i.test(x.tournamentSlug || ''); });
     if (nbaT) {
       var bkSlug = (bks.find(function (x) { return /pokerstars/i.test(JSON.stringify(x)); }) || {}).slug || 'pokerstars';
