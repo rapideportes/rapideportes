@@ -673,6 +673,34 @@
   .lim-in { display: flex; align-items: center; gap: 6px; border: 1px solid var(--border-strong); border-radius: 12px; padding: 0 12px; background: #fff; }
   .lim-in b { color: var(--text-faint); }
   .lim-in input { border: 0; outline: 0; font: inherit; font-size: 18px; font-weight: 800; padding: 11px 0; width: 100%; background: transparent; }
+  .imp-card { margin-bottom: 16px; }
+  .imp-row { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
+  .imp-f span { display: block; font-size: 12px; font-weight: 700; color: var(--text-dim); margin-bottom: 5px; }
+  .imp-f select { width: 100%; }
+  .imp-row .btn { padding: 11px 18px; margin: 0; }
+  .imp-empty { text-align: center; color: var(--text-dim); font-size: 13.5px; margin: 14px 0 4px; }
+  .imp-head { display: flex; justify-content: space-between; align-items: center; margin: 14px 0 6px; font-size: 13px; font-weight: 700; color: var(--text-dim); }
+  .imp-all { border: 0; background: none; color: var(--accent); font: inherit; font-weight: 800; cursor: pointer; padding: 6px 0; }
+  .imp-g { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--border); border-radius: 12px; margin-bottom: 6px; background: #fff; cursor: pointer; }
+  .imp-g input { width: 20px; height: 20px; accent-color: var(--accent); flex: 0 0 auto; }
+  .imp-g.ex { opacity: .55; cursor: default; }
+  .imp-t b { display: block; font-size: 14px; }
+  .imp-t small { display: block; font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .draft-tag { display: inline-block; background: #FEF0C7; color: #93370D; border-radius: 8px; padding: 4px 9px; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
+  @media (max-width: 520px) { .imp-row { grid-template-columns: 1fr 1fr; } .imp-row .btn { grid-column: 1 / -1; } }
+  .imp-od { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin-top: 8px; }
+  .imp-od.none { display: block; font-size: 12px; color: #93370D; background: #FEF0C7; border-radius: 8px; padding: 5px 8px; }
+  .imp-c { display: flex; align-items: baseline; gap: 6px; background: var(--surface); border-radius: 8px; padding: 5px 8px; }
+  .imp-c small { flex: 1; font-size: 11px; color: var(--text-dim); font-weight: 700; }
+  .imp-c b { font-size: 14px; }
+  .imp-c i { font-style: normal; font-size: 11px; color: var(--text-faint); text-decoration: line-through; }
+  .imp-mg { display: flex; align-items: center; gap: 12px; background: #ECFDF3; border: 1px solid #ABEFC6; border-radius: 12px; padding: 10px 12px; margin-top: 12px; }
+  .imp-mg label { flex: 1; } .imp-mg b { display: block; font-size: 14px; } .imp-mg small { display: block; font-size: 12px; color: var(--text-dim); margin-top: 2px; }
+  .imp-mg-in { display: flex; align-items: center; gap: 4px; font-weight: 800; }
+  .imp-mg-in input { width: 64px; padding: 8px; border: 1px solid var(--border-strong); border-radius: 10px; font: inherit; font-weight: 800; font-size: 16px; text-align: center; }
+  .imp-legend { font-size: 12px; color: var(--text-dim); text-align: center; margin: 8px 0 0; }
+  .imp-test { display: block; width: 100%; margin-top: 12px; border: 1px dashed var(--border-strong); background: transparent; border-radius: 12px; padding: 10px; font: inherit; font-weight: 700; color: var(--text-dim); cursor: pointer; }
+  .papi-out { white-space: pre-wrap; word-break: break-all; font-size: 11px; line-height: 1.4; background: #0B1630; color: #D0D5DD; border-radius: 12px; padding: 12px; margin-top: 10px; max-height: 520px; overflow: auto; }
 </style>
 </head>
 <body>
@@ -714,6 +742,27 @@
     <h2>Controlar la línea</h2>
     <p class="sub">Edita cuotas, marca partidos en vivo o agrega nuevos.</p>
     <div id="orphanBox"></div>
+    <div class="amc imp-card">
+      <div class="amc-header">
+        <span class="amc-icon">📥</span>
+        <div>
+          <h3>Traer juegos</h3>
+          <p class="amc-sub">Busca los partidos de una liga y un día. Entran como <b>borrador</b>: no salen en la página hasta que les pongas las cuotas de Ganador.</p>
+        </div>
+      </div>
+      <div class="imp-row">
+        <label class="imp-f"><span>Liga</span><select class="amc-select" id="impSport"><option value="baloncesto">NBA</option><option value="lidom">LIDOM</option><option value="beisbol">MLB</option><option value="nfl">NFL</option><option value="nhl">NHL</option></select></label>
+        <label class="imp-f"><span>Día</span><select class="amc-select" id="impDay"></select></label>
+        <button type="button" class="btn primary" id="impFind">Buscar</button>
+      </div>
+      <div class="imp-mg" id="impMg" hidden>
+        <label for="impMargin"><b>Bajar las cuotas</b><small>Tus cuotas salen un poco más bajas que las de PokerStars, para que la casa gane más.</small></label>
+        <div class="imp-mg-in"><input type="number" id="impMargin" min="0" max="15" step="0.5" value="3"><span>%</span></div>
+      </div>
+      <div id="impList"></div>
+      <button type="button" class="imp-test" id="papiTest">🔌 Probar conexión con OddsPapi</button>
+      <pre class="papi-out" id="papiOut" hidden></pre>
+    </div>
     <div id="adminMatchList"></div>
     <div class="amc">
       <div class="amc-header">
@@ -1083,7 +1132,9 @@
   var state = { matches: [], isAdmin: false };
 
   async function loadMatches() {
-    var data = await apiGet('/api/matches');
+    // Con la sesión del admin se traen también los borradores (juegos sin cuotas).
+    var data = await apiGet('/api/admin/matches');
+    if (!data) data = await apiGet('/api/matches');
     return data || [];
   }
   var saveQueue = Promise.resolve();
@@ -1538,6 +1589,90 @@
     if (tab === 'pagos') loadPayments();
   }
   document.getElementById('tabBtnPagos').addEventListener('click', function () { setAdminTab('pagos'); });
+
+  // ---- Traer juegos del calendario ----
+  var imp = { games: [], picked: {} };
+  (function fillDays() {
+    var sel = document.getElementById('impDay'), html = '';
+    for (var i = 0; i < 7; i++) {
+      var ms = nowMs() + i * 86400000;
+      var ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Puerto_Rico', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(ms));
+      var lbl = i === 0 ? 'Hoy' : i === 1 ? 'Mañana' : new Date(ms).toLocaleDateString('es-DO', { timeZone: 'America/Puerto_Rico', weekday: 'long', day: 'numeric', month: 'short' });
+      html += '<option value="' + ymd + '"' + (i === 1 ? ' selected' : '') + '>' + lbl + '</option>';
+    }
+    sel.innerHTML = html;
+  })();
+  function impKey(g) { return g.away + '|' + g.home + '|' + String(g.startAt).slice(0, 10); }
+  function impExists(g) { return state.matches.some(function (m) { return m.away === g.away && m.home === g.home && m.startAt && Math.abs(Date.parse(m.startAt) - Date.parse(g.startAt)) < 12 * 3600000; }); }
+  function impCut(d) { var pc = Math.min(15, Math.max(0, Number(document.getElementById('impMargin').value) || 0)); var v = 1 + (d - 1) * (1 - pc / 100); return Math.max(1.01, Math.round(v * 100) / 100); }
+  function impOddsHTML(g) {
+    var o = g.odds; if (!o) return '<div class="imp-od none">Sin cuotas: se agrega como borrador</div>';
+    function cell(lbl, d) { return '<span class="imp-c"><small>' + lbl + '</small><b>' + impCut(d).toFixed(2) + '</b><i>' + Number(d).toFixed(2) + '</i></span>'; }
+    var h = '<div class="imp-od">' + cell('Gana visit.', o.away) + cell('Gana local', o.home);
+    if (o.hcap) h += cell((o.hcap.awayLine > 0 ? '+' : '') + o.hcap.awayLine, o.hcap.awayOdds) + cell((o.hcap.homeLine > 0 ? '+' : '') + o.hcap.homeLine, o.hcap.homeOdds);
+    if (o.total) h += cell('Más ' + o.total.line, o.total.over) + cell('Menos ' + o.total.line, o.total.under);
+    return h + '</div>';
+  }
+  function impRender() {
+    var box = document.getElementById('impList');
+    document.getElementById('impMg').hidden = !imp.games.some(function (g) { return g.odds; });
+    if (!imp.games.length) { box.innerHTML = '<p class="imp-empty">No se encontraron juegos para ese día.</p>'; return; }
+    var nNew = imp.games.filter(function (g) { return !impExists(g); }).length, nPick = Object.keys(imp.picked).length;
+    box.innerHTML = '<div class="imp-head"><span>' + imp.games.length + ' juegos · ' + nNew + ' nuevos</span><button type="button" class="imp-all" id="impAll">' + (nPick === nNew && nNew ? 'Quitar todos' : 'Marcar todos') + '</button></div>' +
+      imp.games.map(function (g, i) {
+        var ex = impExists(g), on = !!imp.picked[impKey(g)];
+        return '<label class="imp-g' + (ex ? ' ex' : '') + '"><input type="checkbox" data-imp="' + i + '"' + (on ? ' checked' : '') + (ex ? ' disabled' : '') + '>' +
+          '<span class="imp-t"><b>' + g.away + ' @ ' + g.home + '</b><small>' + prLabel(g.startAt) + (ex ? ' · ya está en tu lista' : '') + '</small>' + (ex ? '' : impOddsHTML(g)) + '</span></label>';
+      }).join('') +
+      '<p class="imp-legend">' + (imp.games.some(function (g) { return g.odds; }) ? 'En grande, tu cuota; en gris, la de PokerStars.' : '') + '</p><button type="button" class="btn primary" id="impAdd" style="width:100%; margin-top:6px;"' + (nPick ? '' : ' disabled') + '>Agregar ' + nPick + (nPick === 1 ? ' juego' : ' juegos') + '</button>';
+  }
+  document.getElementById('impFind').addEventListener('click', async function () {
+    var b = this, box = document.getElementById('impList');
+    b.disabled = true; box.innerHTML = '<p class="imp-empty">Buscando juegos…</p>';
+    var d = await apiGet('/api/admin/schedule?sport=' + document.getElementById('impSport').value + '&date=' + document.getElementById('impDay').value);
+    b.disabled = false;
+    if (!d) { box.innerHTML = '<p class="imp-empty">No se pudo buscar. Intenta otra vez.</p>'; return; }
+    imp.games = d.games || []; imp.sport = document.getElementById('impSport').value; imp.picked = {};
+    imp.games.forEach(function (g) { if (!impExists(g)) imp.picked[impKey(g)] = true; });
+    impRender();
+  });
+  document.getElementById('papiTest').addEventListener('click', async function () {
+    var o = document.getElementById('papiOut'); o.hidden = false; o.textContent = 'Probando conexión…';
+    var d = await apiGet('/api/admin/oddspapi-test');
+    if (!d) { o.textContent = 'No se pudo probar. ¿Sigues con la sesión abierta?'; return; }
+    if (!d.key) { o.textContent = '⚠️ No encontré la clave. En Railway → Variables pon ODDSPAPI_KEY con tu clave y espera a que se reinicie.'; return; }
+    o.textContent = '✅ Clave encontrada. Mándale una foto de esto a Claude:\n\n' +
+      Object.keys(d).filter(function (k) { return k !== 'key'; }).map(function (k) { return k.toUpperCase() + ':\n' + d[k]; }).join('\n\n');
+  });
+  document.getElementById('impMargin').addEventListener('input', function () { if (imp.games.length) impRender(); });
+  document.getElementById('impList').addEventListener('change', function (e) {
+    var cb = e.target.closest('[data-imp]'); if (!cb) return;
+    var g = imp.games[Number(cb.dataset.imp)]; if (cb.checked) imp.picked[impKey(g)] = true; else delete imp.picked[impKey(g)];
+    impRender();
+  });
+  document.getElementById('impList').addEventListener('click', function (e) {
+    if (e.target.closest('#impAll')) {
+      var nNew = imp.games.filter(function (g) { return !impExists(g); });
+      if (Object.keys(imp.picked).length === nNew.length) imp.picked = {}; else nNew.forEach(function (g) { imp.picked[impKey(g)] = true; });
+      impRender(); return;
+    }
+    if (e.target.closest('#impAdd')) {
+      var add = imp.games.filter(function (g) { return imp.picked[impKey(g)] && !impExists(g); });
+      add.forEach(function (g, i) {
+        var hm = new Intl.DateTimeFormat('en-GB', { timeZone: 'America/Puerto_Rico', hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(g.startAt));
+        var ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Puerto_Rico', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(g.startAt));
+        state.matches.push({ id: 'm' + Date.now() + i, sport: imp.sport, sportLabel: SPORT_LABELS[imp.sport], time: formatMatchTime(ymd, hm), live: false,
+          startAt: ymd + 'T' + hm + ':00-04:00', home: g.home, away: g.away,
+          odds: [{ k: 'Local', v: g.odds ? decimalToAmerican(String(impCut(g.odds.home))) : null }, { k: 'Empate', v: null }, { k: 'Visitante', v: g.odds ? decimalToAmerican(String(impCut(g.odds.away))) : null }] });
+        var nm = state.matches[state.matches.length - 1], o = g.odds;
+        if (o && o.hcap) nm.handicap = { homeLine: o.hcap.homeLine, homeOdds: decimalToAmerican(String(impCut(o.hcap.homeOdds))), awayLine: o.hcap.awayLine, awayOdds: decimalToAmerican(String(impCut(o.hcap.awayOdds))) };
+        if (o && o.total) nm.total = { line: o.total.line, over: decimalToAmerican(String(impCut(o.total.over))), under: decimalToAmerican(String(impCut(o.total.under))) };
+      });
+      saveMatches(state.matches); renderAdminList(); imp.picked = {}; impRender();
+      var withOdds = add.filter(function (g) { return g.odds; }).length;
+      showToast(withOdds === add.length ? '✅ ' + add.length + (add.length === 1 ? ' juego agregado' : ' juegos agregados') + ' con sus cuotas. Ya salen en la página.' : '📝 ' + add.length + (add.length === 1 ? ' juego agregado' : ' juegos agregados') + '. Los que no traían cuotas quedaron como borrador.');
+    }
+  });
 
   // ---- Límites de apuesta ----
   function limMoney(n) { return '$' + Number(n).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
@@ -2029,6 +2164,32 @@
     return (n > 0 ? '+' : '') + n;
   }
 
+  // ---- Líneas sugeridas: el admin solo pone las cuotas ----
+  // Run line / puck line siempre ±1.5 (el favorito da −1.5). En NBA y NFL el hándicap
+  // se calcula de las cuotas de Ganador. El total arranca en un número típico de la liga.
+  var TOTAL_DEFAULT = { beisbol: 8.5, lidom: 7.5, nhl: 6.5, baloncesto: 224.5, nfl: 44.5 };
+  var SPREAD_SD = { baloncesto: 12, nfl: 13.5 };
+  function amDec(v) { var n = parseInt(v, 10); return !n ? null : n > 0 ? 1 + n / 100 : 1 + 100 / Math.abs(n); }
+  function invNorm(p) {
+    p = Math.min(0.99, Math.max(0.01, p));
+    var a = [-39.69683028665376, 220.9460984245205, -275.9285104469687, 138.357751867269, -30.66479806614716, 2.506628277459239];
+    var b = [-54.47609879822406, 161.5858368580409, -155.6989798598866, 66.80131188771542, -13.28068155288572];
+    var q = p - 0.5, r = q * q;
+    return (((((a[0] * r + a[1]) * r + a[2]) * r + a[3]) * r + a[4]) * r + a[5]) * q / (((((b[0] * r + b[1]) * r + b[2]) * r + b[3]) * r + b[4]) * r + 1);
+  }
+  function suggestLines(m) {
+    var out = { home: '', away: '', total: TOTAL_DEFAULT[m.sport] || '' };
+    var dh = amDec(m.odds && m.odds[0] && m.odds[0].v), da = amDec(m.odds && m.odds[2] && m.odds[2].v);
+    var homeFav = dh && da ? dh <= da : true;
+    if (m.sport === 'beisbol' || m.sport === 'lidom' || m.sport === 'nhl') { out.home = homeFav ? -1.5 : 1.5; out.away = -out.home; }
+    else if (SPREAD_SD[m.sport] && dh && da) {
+      var ph = (1 / dh) / (1 / dh + 1 / da), margin = SPREAD_SD[m.sport] * invNorm(ph);
+      var line = Math.max(0.5, Math.round(Math.abs(margin) * 2) / 2);
+      if (line % 1 === 0) line += 0.5;
+      out.home = margin >= 0 ? -line : line; out.away = -out.home;
+    }
+    return out;
+  }
   function renderAdminList() {
     var root = document.getElementById('adminMatchList');
     if (state.matches.length === 0) {
@@ -2040,6 +2201,8 @@
       html += '<div class="match-card" style="margin-bottom:12px;">';
       html += '<div class="match-top"><span class="match-time">' + SPORT_LABELS[m.sport] + ' · ' + (m.startAt ? (prLabel(m.startAt) || m.time) : m.time) + '</span>';
       html += '<button class="slip-remove" data-del="' + mi + '" aria-label="Eliminar" style="font-size:18px;">&times;</button></div>';
+      var isDraft = !(m.odds && m.odds[0] && m.odds[0].v && m.odds[2] && m.odds[2].v);
+      if (isDraft) html += '<div class="draft-tag">📝 Borrador · no sale en la página hasta que pongas las cuotas de Ganador</div>';
       html += '<div style="font-size:13px; font-weight:600; margin-bottom:8px;">' + m.away + ' @ ' + m.home + '</div>';
       html += '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">';
       m.odds.forEach(function (o, oi) {
@@ -2061,20 +2224,21 @@
         html += '<div style="display:flex; flex-direction:column; gap:3px; flex:1; min-width:120px;"><label style="font-size:10px; color:var(--text-faint);">Entrada / período (ej. Entrada 6)</label><input type="text" class="odds-num-input" style="width:100%; padding:6px 8px; font-size:13px;" data-score-period="' + mi + '" value="' + scP + '"></div>';
         html += '</div>';
       }
-      var hcLine = m.handicap ? m.handicap.homeLine : '', hcAwayLine = m.handicap ? m.handicap.awayLine : '';
+      var sug = suggestLines(m);
+      var hcLine = m.handicap ? m.handicap.homeLine : sug.home, hcAwayLine = m.handicap ? m.handicap.awayLine : sug.away;
       var hcHomeDec = m.handicap && m.handicap.homeOdds ? americanToDecimalStr(m.handicap.homeOdds) : '';
       var hcAwayDec = m.handicap && m.handicap.awayOdds ? americanToDecimalStr(m.handicap.awayOdds) : '';
       html += '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">';
-      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Hándicap local (línea)</label><input type="number" step="0.5" class="odds-num-input" style="width:64px;" data-hcap-home-line="' + mi + '" value="' + hcLine + '" placeholder="-4.5"></div>';
+      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Hándicap local (línea)</label><input type="number" step="0.5" class="odds-num-input" style="width:78px;" data-hcap-home-line="' + mi + '" value="' + hcLine + '" placeholder="-4.5"></div>';
       html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota local</label><input type="number" step="0.01" class="odds-num-input" style="width:70px;" data-hcap-home-num="' + mi + '" value="' + hcHomeDec + '" placeholder="1.91"></div>';
-      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Hándicap visitante (línea)</label><input type="number" step="0.5" class="odds-num-input" style="width:64px;" data-hcap-away-line="' + mi + '" value="' + hcAwayLine + '" placeholder="4.5"></div>';
+      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Hándicap visitante (línea)</label><input type="number" step="0.5" class="odds-num-input" style="width:78px;" data-hcap-away-line="' + mi + '" value="' + hcAwayLine + '" placeholder="4.5"></div>';
       html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota visitante</label><input type="number" step="0.01" class="odds-num-input" style="width:70px;" data-hcap-away-num="' + mi + '" value="' + hcAwayDec + '" placeholder="1.91"></div>';
       html += '</div>';
-      var tLine = m.total ? m.total.line : '';
+      var tLine = m.total ? m.total.line : sug.total;
       var tOverDec = m.total && m.total.over ? americanToDecimalStr(m.total.over) : '';
       var tUnderDec = m.total && m.total.under ? americanToDecimalStr(m.total.under) : '';
       html += '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">';
-      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Línea (más/menos ' + (TOTAL_UNIT[m.sport] || 'total') + ')</label><input type="number" step="0.5" class="odds-num-input" style="width:64px; padding:6px 8px; font-size:13px;" data-total-line="' + mi + '" value="' + tLine + '" placeholder="8.5"></div>';
+      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Línea (más/menos ' + (TOTAL_UNIT[m.sport] || 'total') + ')</label><input type="number" step="0.5" class="odds-num-input" style="width:84px; padding:6px 8px; font-size:13px;" data-total-line="' + mi + '" value="' + tLine + '" placeholder="8.5"></div>';
       html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota Más</label><input type="number" step="0.01" class="odds-num-input" style="width:70px; padding:6px 8px; font-size:13px;" data-total-over-num="' + mi + '" value="' + tOverDec + '" placeholder="1.91"></div>';
       html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota Menos</label><input type="number" step="0.01" class="odds-num-input" style="width:70px; padding:6px 8px; font-size:13px;" data-total-under-num="' + mi + '" value="' + tUnderDec + '" placeholder="1.91"></div>';
       html += '</div>';
@@ -2116,6 +2280,14 @@
       state.matches[mi].odds[oi].v = num === '' ? null : decimalToAmerican(num);
       saveMatches(state.matches);
       showToast('Línea actualizada.');
+      var mm0 = state.matches[mi].odds;
+      if (mm0[0] && mm0[0].v && mm0[2] && mm0[2].v) { var tg = numEl.closest('.match-card').querySelector('.draft-tag'); if (tg) { tg.remove(); showToast('✅ Listo: este juego ya sale en la página.'); } }
+      // Si todavía no tiene hándicap guardado, se vuelve a sugerir con las cuotas nuevas.
+      if (!state.matches[mi].handicap) {
+        var sg = suggestLines(state.matches[mi]);
+        var hEl = root.querySelector('[data-hcap-home-line="' + mi + '"]'), aEl = root.querySelector('[data-hcap-away-line="' + mi + '"]');
+        if (hEl && aEl && sg.home !== '') { hEl.value = sg.home; aEl.value = sg.away; }
+      }
     }
     Array.prototype.forEach.call(root.querySelectorAll('[data-num-match]'), function (inp) {
       inp.addEventListener('change', function () { updateOdds(parseInt(inp.dataset.numMatch, 10), parseInt(inp.dataset.numIdx, 10)); });
