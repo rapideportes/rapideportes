@@ -2181,7 +2181,7 @@
     body.innerHTML = html;
     foot.style.display = (state.slipMode === 'parlay' && keys.length < 2) ? 'none' : 'block';
     $('slipPlace').disabled = clash.length > 0;
-    var L = state.betLimits; $('slipLimits').textContent = L ? 'Máximo ' + fmtMoney(L.maxStake) + ' por apuesta · pago máximo ' + fmtMoney(L.maxPayout) + ' por ticket' : '';
+    var L = state.betLimits; $('slipLimits').textContent = L ? 'Máximo ' + fmtMoney(L.maxStake) + ' por apuesta' + (L.maxPropStake && slipKeys().some(function (k) { return /-prop-/.test(k); }) ? ' (' + fmtMoney(L.maxPropStake) + ' con jugadores)' : '') + ' · pago máximo ' + fmtMoney(L.maxPayout) + ' por ticket' : '';
     refreshTotals();
   }
 
@@ -2232,6 +2232,12 @@
     if (lim) {
       var big = betsToSend.filter(function (b) { return b.stake > lim.maxStake; })[0];
       if (big) { showToast('El máximo por apuesta es ' + fmtMoney(lim.maxStake) + '.'); return; }
+      var propRe = / — (Más|Menos) [\d.]+\s*$/;
+      var bigProp = lim.maxPropStake && betsToSend.filter(function (b) {
+        var isP = /^Combinada/i.test(b.desc) ? b.match.split(' · ').some(function (l) { return propRe.test(l.split('@@@')[1] || ''); }) : propRe.test(b.desc.replace(/\s*\([\d.]+\)\s*$/, ''));
+        return isP && b.stake > lim.maxPropStake;
+      })[0];
+      if (bigProp) { showToast('En apuestas con jugadores el máximo es ' + fmtMoney(lim.maxPropStake) + '.'); return; }
       var huge = betsToSend.filter(function (b) { return b.payout > lim.maxPayout + 0.01; })[0];
       if (huge) { showToast('El pago máximo por ticket es ' + fmtMoney(lim.maxPayout) + '. Baja el monto.'); return; }
     }
@@ -2239,6 +2245,7 @@
     if (!res.ok) {
       var errCode = res.data && res.data.error;
       if (errCode === 'odds_changed') { await resyncSlipOdds(); showToast('Las cuotas cambiaron. Revisa tu boleto y confirma otra vez.'); return; }
+      if (errCode === 'max_prop_stake') { showToast('En apuestas con jugadores el máximo es ' + fmtMoney(res.data.limit) + '.'); return; }
       if (errCode === 'max_stake') { showToast('El máximo por apuesta es ' + fmtMoney(res.data.limit) + '.'); return; }
       if (errCode === 'max_payout') { showToast('El pago máximo por ticket es ' + fmtMoney(res.data.limit) + '. Baja el monto.'); return; }
       if (errCode === 'min_stake') { showToast('El mínimo por apuesta es ' + fmtMoney(res.data.limit) + '.'); return; }
