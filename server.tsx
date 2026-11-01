@@ -1655,9 +1655,8 @@ async function papiMarkets(sport) {
     var r = await oddsPapi('markets', { sportId: PAPI_SPORT[sport] });
     var map = {};
     papiList(r.data).forEach(function (m) {
-      if (m.playerProp) return;
       var names = {}; (m.outcomes || []).forEach(function (o) { names[o.outcomeId] = String(o.outcomeName); });
-      map[m.marketId] = { type: String(m.marketType || ''), handicap: Number(m.handicap) || 0, period: String(m.period || ''), names: names };
+      map[m.marketId] = { type: String(m.marketType || ''), handicap: Number(m.handicap) || 0, period: String(m.period || ''), names: names, prop: !!m.playerProp };
     });
     return Object.keys(map).length ? map : null;
   });
@@ -1673,12 +1672,41 @@ async function papiParticipants(sport) {
   });
 }
 // Saca Ganador, hándicap principal y total principal de un partido.
+const PAPI_PROP_STAT = [[/points/i, 'Puntos'], [/rebounds/i, 'Rebotes'], [/assists/i, 'Asistencias'], [/three|3pt|3-point/i, 'Triples'], [/steals/i, 'Robos'], [/blocks/i, 'Tapones']];
+// "Walsh, Jordan" → "J. Walsh" (igual que la lista de jugadores del panel).
+function papiPlayerName(n) {
+  var m = /^([^,]+),\s*(.+)$/.exec(String(n || '').trim());
+  if (m) return m[2].charAt(0).toUpperCase() + '. ' + m[1].trim();
+  var w = String(n || '').trim().split(/\s+/); return w.length > 1 ? w[0].charAt(0).toUpperCase() + '. ' + w.slice(1).join(' ') : String(n || '');
+}
 function papiLines(fx, markets) {
   var bk = fx.bookmakerOdds && fx.bookmakerOdds.pokerstars;
   if (!bk || !bk.markets) return null;
   var ml = null, spreads = [], totals = [];
+  var props = {};
   Object.keys(bk.markets).forEach(function (mid) {
     var def = markets[mid]; if (!def) return;
+    if (def.prop) {
+      // Jugadores (NBA): solo las estadísticas que la página sabe calificar sola.
+      var stat = PAPI_PROP_STAT.find(function (x) { return x[0].test(def.type); });
+      if (!stat || (def.period && def.period !== 'result' && def.period !== 'fulltime')) return;
+      var po = bk.markets[mid].outcomes || {}, byPl = {};
+      Object.keys(po).forEach(function (oid) {
+        var side = def.names[oid], pls = po[oid].players || {};
+        Object.keys(pls).forEach(function (pid) {
+          var pl = pls[pid]; if (!pl || pl.active === false || !(pl.price > 1) || !pl.playerName) return;
+          var e = byPl[pid] = byPl[pid] || { name: pl.playerName, main: false };
+          if (side === 'Over') e.over = Number(pl.price); else if (side === 'Under') e.under = Number(pl.price);
+          if (pl.mainLine) e.main = true;
+        });
+      });
+      Object.keys(byPl).forEach(function (pid) {
+        var e = byPl[pid]; if (!e.over || !e.under) return;
+        var k = pid + '|' + stat[1];
+        (props[k] = props[k] || []).push({ player: e.name, stat: stat[1], line: def.handicap, over: e.over, under: e.under, main: e.main });
+      });
+      return;
+    }
     var outs = bk.markets[mid].outcomes || {}, pr = {}, main = false;
     Object.keys(outs).forEach(function (oid) {
       var pl = outs[oid].players && outs[oid].players['0'];
@@ -1702,7 +1730,13 @@ function papiLines(fx, markets) {
   var sp = best(spreads, 'p1', 'p2');
   // El favorito (cuota más baja) siempre da puntos: si el signo sale al revés, se voltea.
   if (sp && ((ml.p1 < ml.p2 && sp.h1 > 0) || (ml.p1 > ml.p2 && sp.h1 < 0))) sp = { h1: -sp.h1, p1: sp.p1, p2: sp.p2, main: sp.main, period: sp.period };
-  return { ml: ml, spread: sp, total: best(totals, 'over', 'under') };
+  var propList = Object.keys(props).map(function (k) {
+    var l = props[k];
+    return l.find(function (x) { return x.main; }) || l.slice().sort(function (x, y) { return Math.abs(x.over - x.under) - Math.abs(y.over - y.under); })[0];
+  }).filter(function (x) { return x.line > 0.4; });
+  var ORDER = { Puntos: 0, Rebotes: 1, Asistencias: 2, Triples: 3, Robos: 4, Tapones: 5 };
+  propList.sort(function (a, b) { return (ORDER[a.stat] - ORDER[b.stat]) || (b.line - a.line); });
+  return { ml: ml, spread: sp, total: best(totals, 'over', 'under'), props: propList };
 }
 async function addPapiOdds(sport, date, games) {
   if (!Bun.env.ODDSPAPI_KEY || !PAPI_SPORT[sport] || !games.length) return games;
@@ -1736,6 +1770,7 @@ async function addPapiOdds(sport, date, games) {
       g.odds = { home: H(L.ml.p1, L.ml.p2), away: H(L.ml.p2, L.ml.p1) };
       if (L.spread) { var hl = p1Home ? L.spread.h1 : -L.spread.h1; g.odds.hcap = { homeLine: hl, homeOdds: H(L.spread.p1, L.spread.p2), awayLine: -hl, awayOdds: H(L.spread.p2, L.spread.p1) }; }
       if (L.total) g.odds.total = { line: L.total.line, over: L.total.over, under: L.total.under };
+      if (sport === 'baloncesto' && L.props && L.props.length) g.odds.props = L.props.map(function (x) { return { player: papiPlayerName(x.player), stat: x.stat, line: x.line, over: x.over, under: x.under }; });
     });
   } catch (e) {}
   return games;
@@ -1898,7 +1933,13 @@ function priceBet(b, byKey) {
   return d1 ? Math.round(stake * d1 * 100) / 100 : null;
 }
 // Límites de apuesta (el admin los cambia en el panel).
-const DEFAULT_LIMITS = { maxStake: Number(Bun.env.MAX_STAKE) || 500, maxPayout: Number(Bun.env.MAX_PAYOUT) || 5000, minStake: 1 };
+const DEFAULT_LIMITS = { maxStake: Number(Bun.env.MAX_STAKE) || 500, maxPayout: Number(Bun.env.MAX_PAYOUT) || 5000, maxPropStake: 100, minStake: 1 };
+// ¿La apuesta tiene alguna jugada de jugador? ("Nombre (Puntos) — Más 24.5")
+function hasPlayerProp(b) {
+  var re = / — (Más|Menos) [\d.]+\s*$/;
+  if (/^Combinada/i.test(b.desc || '')) return String(b.match || '').split(' · ').some(function (l) { var p = l.split('@@@'); return re.test(p[1] || ''); });
+  return re.test(String(b.desc || '').replace(/\s*\([\d.]+\)\s*$/, ''));
+}
 async function betLimits() {
   const r = await sql`SELECT value FROM app_state WHERE key = 'bet_limits'`;
   var v = r[0] ? r[0].value : null;
@@ -1914,8 +1955,10 @@ app.post('/api/admin/bet-limits', async (c) => {
   if (!isAdminReq(c)) return c.json({ error: 'unauthorized' }, 401);
   let body = {}; try { body = await c.req.json(); } catch (e) { return c.json({ error: 'bad_request' }, 400); }
   var maxStake = Math.round(Number(body.maxStake) * 100) / 100, maxPayout = Math.round(Number(body.maxPayout) * 100) / 100;
+  var maxPropStake = Math.round(Number(body.maxPropStake) * 100) / 100;
   if (!(maxStake >= 1) || !(maxPayout >= maxStake)) return c.json({ error: 'bad_request' }, 400);
-  var v = { maxStake: maxStake, maxPayout: maxPayout, minStake: 1 };
+  if (!(maxPropStake >= 1)) maxPropStake = Math.min(100, maxStake);
+  var v = { maxStake: maxStake, maxPayout: maxPayout, maxPropStake: Math.min(maxPropStake, maxStake), minStake: 1 };
   await sql`INSERT INTO app_state (key, value) VALUES ('bet_limits', ${JSON.stringify(v)}::jsonb)
     ON CONFLICT (key) DO UPDATE SET value = ${JSON.stringify(v)}::jsonb`;
   return c.json(v);
@@ -1970,6 +2013,7 @@ app.post('/api/bets', async (c) => {
     var st = Math.round(Number(b.stake) * 100) / 100;
     if (st < lim.minStake) return c.json({ error: 'min_stake', limit: lim.minStake }, 400);
     if (st > lim.maxStake) return c.json({ error: 'max_stake', limit: lim.maxStake }, 400);
+    if (hasPlayerProp(b) && st > lim.maxPropStake) return c.json({ error: 'max_prop_stake', limit: lim.maxPropStake }, 400);
     var fair = priceBet(b, matchesByKey);
     if (fair === null) return c.json({ error: 'odds_changed' }, 409);
     // Lo que vio el jugador debe coincidir (con un margen de 1 centavo por redondeo).
