@@ -1422,6 +1422,8 @@ app.get('/api/matches', async (c) => {
   if (typeof val === 'string') {
     try { val = JSON.parse(val); } catch (e) { val = []; }
   }
+  // Un juego sin las cuotas de Ganador es un borrador: solo lo ve el admin.
+  if (Array.isArray(val)) val = val.filter(function (m) { var o = m.odds || []; return (o[0] && o[0].v) && (o[2] && o[2].v); });
   return c.json(val);
 });
 
@@ -1542,6 +1544,15 @@ app.post('/api/admin/bets/:id/delete', async (c) => {
   return c.json({ ok: true, refunded: 0 });
 });
 
+// El admin ve todos los juegos, también los borradores sin cuotas.
+app.get('/api/admin/matches', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'unauthorized' }, 401);
+  const rows = await sql`SELECT value FROM app_state WHERE key = 'matches'`;
+  var val = rows[0] ? rows[0].value : [];
+  if (typeof val === 'string') { try { val = JSON.parse(val); } catch (e) { val = []; } }
+  return c.json(Array.isArray(val) ? val : []);
+});
+
 app.post('/api/admin/matches', async (c) => {
   if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
   let matches;
@@ -1553,6 +1564,116 @@ app.post('/api/admin/matches', async (c) => {
   `;
   await saveResults(matches);
   return c.json({ ok: true });
+});
+
+// ---------- Traer juegos del calendario (para que el admin no los escriba a mano) ----------
+// Devuelve los juegos de una liga en una fecha, con los nombres como los usa el panel.
+function canonTeam(sport, name, abbrev) {
+  if (sport === 'nhl' && abbrev) { var k = Object.keys(NHL_TEAM_ABBREV).find(function (x) { return NHL_TEAM_ABBREV[x] === abbrev; }); if (k) return k; }
+  var map = TEAM_ES_TO_EN[sport] || {};
+  var keys = Object.keys(map);
+  if (sport === 'lidom') {
+    var t = normTeam(name);
+    var hit = keys.find(function (k) { var v = normTeam(map[k]); return t === v || t.endsWith(' ' + v); });
+    return hit || name;
+  }
+  var exact = keys.find(function (k) { return normTeam(map[k]) === normTeam(name) || normTeam(k) === normTeam(name); });
+  if (exact) return exact;
+  var loose = keys.find(function (k) { return teamNamesMatch(map[k], name); });
+  return loose || name;
+}
+async function fetchSchedule(sport, date) {
+  const UA = { 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36' };
+  var out = [];
+  try {
+    if (sport === 'beisbol' || sport === 'lidom') {
+      var sid = sport === 'lidom' ? 17 : 1;
+      var r = await fetch('https://statsapi.mlb.com/api/v1/schedule?sportId=' + sid + '&date=' + date, { headers: UA });
+      if (!r.ok) return out;
+      var d = await r.json();
+      (d.dates || []).forEach(function (dd) { (dd.games || []).forEach(function (g) {
+        var h = g.teams && g.teams.home && g.teams.home.team, a = g.teams && g.teams.away && g.teams.away.team;
+        if (!h || !a) return;
+        if (sport === 'lidom' && !(isLidomTeamName(h.name) && isLidomTeamName(a.name))) return;
+        out.push({ away: canonTeam(sport, a.name), home: canonTeam(sport, h.name), startAt: g.gameDate, done: g.status && g.status.abstractGameState !== 'Preview' });
+      }); });
+    } else if (sport === 'nhl') {
+      var rn = await fetch('https://api-web.nhle.com/v1/schedule/' + date, { headers: UA });
+      if (!rn.ok) return out;
+      var dn = await rn.json();
+      var day = (dn.gameWeek || []).find(function (w) { return w.date === date; });
+      ((day && day.games) || []).forEach(function (g) {
+        out.push({ away: canonTeam('nhl', nhlTeamFullName(g.awayTeam), g.awayTeam && g.awayTeam.abbrev), home: canonTeam('nhl', nhlTeamFullName(g.homeTeam), g.homeTeam && g.homeTeam.abbrev), startAt: g.startTimeUTC, done: g.gameState && g.gameState !== 'FUT' && g.gameState !== 'PRE' });
+      });
+    } else if (SPORT_ESPN_PATH[sport]) {
+      var re = await fetch('https://site.api.espn.com/apis/site/v2/sports/' + SPORT_ESPN_PATH[sport] + '/scoreboard?dates=' + date.replace(/-/g, ''), { headers: UA });
+      if (!re.ok) return out;
+      var de = await re.json();
+      (de.events || []).forEach(function (ev) {
+        var comp = ev.competitions && ev.competitions[0], cs = (comp && comp.competitors) || [];
+        var h = cs.find(function (x) { return x.homeAway === 'home'; }), a = cs.find(function (x) { return x.homeAway === 'away'; });
+        if (!h || !a || !h.team || !a.team) return;
+        var stt = comp.status && comp.status.type ? comp.status.type.state : 'pre';
+        out.push({ away: canonTeam(sport, a.team.displayName), home: canonTeam(sport, h.team.displayName), startAt: ev.date, done: stt !== 'pre' });
+      });
+    }
+  } catch (e) {}
+  return out.filter(function (g) { return g.startAt && !g.done; }).sort(function (x, y) { return Date.parse(x.startAt) - Date.parse(y.startAt); });
+}
+app.get('/api/admin/schedule', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'unauthorized' }, 401);
+  var sport = String(c.req.query('sport') || '');
+  var date = String(c.req.query('date') || '');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !(sport in SPORT_ESPN_PATH)) return c.json({ error: 'bad_request' }, 400);
+  return c.json({ games: await fetchSchedule(sport, date) });
+});
+
+// ---------- OddsPapi: prueba de conexión ----------
+// Trae una muestra de lo que devuelve OddsPapi (deportes, casas, ligas y mercados)
+// para terminar de conectar las cuotas. Gasta unas 5 consultas del plan.
+async function oddsPapi(path, params) {
+  var key = Bun.env.ODDSPAPI_KEY;
+  if (!key) return { error: 'no_key' };
+  var qs = new URLSearchParams(Object.assign({}, params || {}, { apiKey: key })).toString();
+  try {
+    var r = await fetch('https://api.oddspapi.io/v4/' + path + '?' + qs, { headers: { 'Accept': 'application/json' } });
+    var text = await r.text();
+    var data = null; try { data = JSON.parse(text); } catch (e) {}
+    return { status: r.status, data: data, text: data ? null : text.slice(0, 300) };
+  } catch (e) { return { error: String(e && e.message || e) }; }
+}
+function papiShort(x, n) { var t = JSON.stringify(x); return t && t.length > (n || 1500) ? t.slice(0, n || 1500) + '…' : t; }
+app.get('/api/admin/oddspapi-test', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'unauthorized' }, 401);
+  if (!Bun.env.ODDSPAPI_KEY) return c.json({ key: false });
+  var out = { key: true };
+  var sp = await oddsPapi('sports');
+  out.sportsStatus = sp.status || sp.error;
+  var sports = Array.isArray(sp.data) ? sp.data : (sp.data && (sp.data.data || sp.data.sports)) || [];
+  var want = /basket|baseball|hockey|american/i;
+  out.sports = papiShort(sports.filter(function (x) { return want.test(JSON.stringify(x)); }), 800) || papiShort(sp.data || sp.text, 600);
+  var bk = await oddsPapi('bookmakers');
+  var bks = Array.isArray(bk.data) ? bk.data : (bk.data && (bk.data.data || bk.data.bookmakers)) || [];
+  out.bookmakers = papiShort(bks.filter(function (x) { return /poker|stars/i.test(JSON.stringify(x)); }), 600) || papiShort(bk.data || bk.text, 400);
+  var bb = sports.find(function (x) { return /basket/i.test(JSON.stringify(x)); });
+  var bbId = bb && (bb.sportId || bb.id);
+  if (bbId) {
+    var tn = await oddsPapi('tournaments', { sportId: bbId });
+    var tns = Array.isArray(tn.data) ? tn.data : [];
+    out.nba = papiShort(tns.filter(function (x) { return /nba/i.test(JSON.stringify(x)); }).slice(0, 3), 600) || papiShort(tn.data || tn.text, 400);
+    var mk = await oddsPapi('markets', { sportId: bbId });
+    var mks = Array.isArray(mk.data) ? mk.data : [];
+    out.markets = papiShort(mks.slice(0, 12), 2000) || papiShort(mk.data || mk.text, 600);
+    var nbaT = tns.find(function (x) { return /^nba$/i.test(x.tournamentName || '') || /nba/i.test(x.tournamentSlug || ''); });
+    if (nbaT) {
+      var bkSlug = (bks.find(function (x) { return /pokerstars/i.test(JSON.stringify(x)); }) || {}).slug || 'pokerstars';
+      var od = await oddsPapi('odds-by-tournaments', { bookmaker: bkSlug, tournamentIds: String(nbaT.tournamentId), oddsFormat: 'decimal' });
+      var ods = Array.isArray(od.data) ? od.data : [];
+      out.oddsStatus = od.status || od.error;
+      out.oddsSample = papiShort(ods.slice(0, 1), 2500) || papiShort(od.data || od.text, 600);
+    }
+  }
+  return c.json(out);
 });
 
 // Resultados de los últimos días (por defecto 14, máximo 60).
