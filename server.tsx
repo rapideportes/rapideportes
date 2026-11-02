@@ -2042,9 +2042,17 @@ app.get('/api/admin/schedule', async (c) => {
   var date = String(c.req.query('date') || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !(sport in SPORT_ESPN_PATH)) return c.json({ error: 'bad_request' }, 400);
   var games = await fetchSchedule(sport, date);
-  return c.json({ games: await addPapiOdds(sport, date, games) });
+  var withOdds = await addPapiOdds(sport, date, games);
+  var info = papiLastInfo || {};
+  var nOdds = withOdds.filter(function (g) { return g.odds; }).length;
+  if (!info.msg && withOdds.length && !nOdds) info.msg = 'PokerStars tiene ' + (info.fixtures || 0) + ' juegos con cuotas, pero ninguno de este día' + (info.next && info.next.length ? ' (los próximos: ' + info.next.map(function (t) { return prLabelServer(t); }).join(', ') + ')' : '') + '. Las cuotas suelen salir el mismo día o la víspera.';
+  return c.json({ games: withOdds, papi: nOdds ? null : (info.msg || null) });
 });
 
+function prLabelServer(t) {
+  var d = new Date(t); if (isNaN(d)) return String(t);
+  return new Intl.DateTimeFormat('es-PR', { timeZone: 'America/Puerto_Rico', weekday: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(d);
+}
 // ---------- OddsPapi: cuotas de PokerStars para "Traer juegos" ----------
 // Deportes de OddsPapi: 11 baloncesto, 13 béisbol, 14 fútbol americano, 15 hockey.
 const PAPI_SPORT = { baloncesto: 11, beisbol: 13, lidom: 13, nfl: 14, nhl: 15 };
@@ -2174,17 +2182,33 @@ function papiLines(fx, markets) {
   propList.sort(function (a, b) { return (ORDER[a.stat] - ORDER[b.stat]) || (b.line - a.line); });
   return { ml: ml, spread: sp, total: best(totals, 'over', 'under'), props: propList };
 }
+// Lo que pasó en la última búsqueda (para que el admin sepa por qué salen sin cuotas).
+var papiLastInfo = null;
+function papiErrText(x) {
+  if (!x) return 'sin respuesta';
+  if (x.error) return String(x.error);
+  var e = x.data && (x.data.error || x.data.message);
+  var msg = e ? (typeof e === 'string' ? e : (e.message || e.code || JSON.stringify(e))) : (x.text || '');
+  return 'status ' + x.status + (msg ? ' · ' + String(msg).slice(0, 160) : '');
+}
 async function addPapiOdds(sport, date, games) {
-  if (!Bun.env.ODDSPAPI_KEY || !PAPI_SPORT[sport] || !games.length) return games;
+  papiLastInfo = { sport: sport };
+  if (!Bun.env.ODDSPAPI_KEY) { papiLastInfo.msg = 'No está la clave ODDSPAPI_KEY en Railway.'; return games; }
+  if (!PAPI_SPORT[sport] || !games.length) return games;
   try {
-    var tid = await papiTournamentId(sport); if (!tid) return games;
-    var markets = await papiMarkets(sport); if (!markets) return games;
+    var tid = await papiTournamentId(sport); if (!tid) { papiLastInfo.msg = 'OddsPapi no encontró la liga.'; return games; }
+    var markets = await papiMarkets(sport); if (!markets) { papiLastInfo.msg = 'OddsPapi no devolvió los tipos de apuesta.'; return games; }
     var parts = await papiParticipants(sport);
+    var lastRaw = null;
     var r = await papiCached('o' + tid + date, 10 * 60e3, async function () {
       var x = await oddsPapi('odds-by-tournaments', { bookmaker: 'pokerstars', tournamentIds: String(tid), oddsFormat: 'decimal' });
+      lastRaw = x;
       return papiList(x.data).length ? x : null;
     });
     var fixtures = r ? papiList(r.data) : [];
+    papiLastInfo.fixtures = fixtures.length;
+    if (!fixtures.length) papiLastInfo.msg = 'PokerStars no tiene cuotas de esta liga ahora (' + papiErrText(lastRaw) + ').';
+    else papiLastInfo.next = fixtures.map(function (f) { return f.startTime; }).filter(Boolean).sort().slice(0, 3);
     games.forEach(function (g) {
       var t = Date.parse(g.startAt);
       var near = fixtures.filter(function (f) { return Math.abs(Date.parse(f.startTime) - t) < 3 * 3600e3; });
