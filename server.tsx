@@ -2602,6 +2602,7 @@ function papiLines(fx, markets) {
 var papiLastInfo = null;
 function papiErrText(x) {
   if (!x) return 'sin respuesta';
+  if (x.status === 429) return 'OddsPapi dice que se pasó del límite de consultas (429). La página espera 15 minutos antes de volver a preguntar. Si sigue igual, se acabaron las consultas del mes en tu cuenta de OddsPapi';
   if (x.error) return String(x.error);
   var e = x.data && (x.data.error || x.data.message);
   var msg = e ? (typeof e === 'string' ? e : (e.message || e.code || JSON.stringify(e))) : (x.text || '');
@@ -2672,9 +2673,13 @@ app.get('/api/admin/oddspapi-usage', async (c) => {
 // ---------- OddsPapi: prueba de conexión ----------
 // Trae una muestra de lo que devuelve OddsPapi (deportes, casas, ligas y mercados)
 // para terminar de conectar las cuotas. Gasta unas 5 consultas del plan.
+// Si OddsPapi contesta 429 (demasiadas consultas), se deja de preguntar un rato
+// para no gastar más ni empeorar el bloqueo.
+var papiBlockedUntil = 0, papiLast429 = 0;
 async function oddsPapi(path, params) {
   var key = Bun.env.ODDSPAPI_KEY;
   if (!key) return { error: 'no_key' };
+  if (Date.now() < papiBlockedUntil) return { status: 429, data: null, text: 'pausado por límite' };
   var qs = new URLSearchParams(Object.assign({}, params || {}, { apiKey: key })).toString();
   // Cuenta cada consulta del mes (para que el admin vea cuántas le quedan).
   try {
@@ -2686,6 +2691,7 @@ async function oddsPapi(path, params) {
   try {
     var r = await fetch('https://api.oddspapi.io/v4/' + path + '?' + qs, { headers: { 'Accept': 'application/json' } });
     var text = await r.text();
+    if (r.status === 429) { papiLast429 = Date.now(); papiBlockedUntil = Date.now() + 15 * 60 * 1000; }
     var data = null; try { data = JSON.parse(text); } catch (e) {}
     return { status: r.status, data: data, text: data ? null : text.slice(0, 300) };
   } catch (e) { return { error: String(e && e.message || e) }; }
@@ -2694,9 +2700,11 @@ function papiShort(x, n) { var t = JSON.stringify(x); return t && t.length > (n 
 app.get('/api/admin/oddspapi-test', async (c) => {
   if (!isAdminReq(c)) return c.json({ error: 'unauthorized' }, 401);
   if (!Bun.env.ODDSPAPI_KEY) return c.json({ key: false });
+  if (Date.now() < papiBlockedUntil) return c.json({ key: true, aviso: 'OddsPapi bloqueó las consultas por exceso (429) hace ' + Math.round((Date.now() - papiLast429) / 60000) + ' min. Espera 15 minutos y prueba otra vez. Si sigue igual, revisa en oddspapi.io cuántas consultas te quedan del mes.' });
   var out = { key: true };
   var sp = await oddsPapi('sports');
   out.sportsStatus = sp.status || sp.error;
+  if (sp.status === 429) return c.json({ key: true, aviso: 'OddsPapi dice que se pasó del límite de consultas (429). Espera 15 minutos y prueba otra vez. Si sigue igual, revisa en oddspapi.io cuántas consultas te quedan del mes.' });
   var sports = Array.isArray(sp.data) ? sp.data : (sp.data && (sp.data.data || sp.data.sports)) || [];
   var want = /basket|baseball|hockey|american/i;
   out.sports = papiShort(sports.filter(function (x) { return want.test(JSON.stringify(x)); }), 800) || papiShort(sp.data || sp.text, 600);
