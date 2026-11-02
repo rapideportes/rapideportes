@@ -779,12 +779,12 @@
         <button type="button" class="btn primary" id="impFind">Buscar</button>
       </div>
       <div class="imp-mg" id="impMg" hidden>
-        <label for="impMargin"><b>Bajar las cuotas</b><small>Tus cuotas salen un poco más bajas que las de PokerStars, para que la casa gane más.</small></label>
+        <label for="impMargin"><b>Bajar las cuotas</b><small>Tus cuotas salen un poco más bajas que las de la fuente, para que la casa gane más.</small></label>
         <div class="imp-mg-in"><input type="number" id="impMargin" min="0" max="15" step="0.5" value="3"><span>%</span></div>
       </div>
       <div class="papi-use" id="papiUse" hidden></div>
       <div id="impList"></div>
-      <button type="button" class="imp-test" id="papiTest">🔌 Probar conexión con OddsPapi</button>
+      <button type="button" class="imp-test" id="papiTest" hidden>🔌 Probar conexión con OddsPapi</button>
       <pre class="papi-out" id="papiOut" hidden></pre>
     </div>
     <div id="adminMatchList"></div>
@@ -1686,7 +1686,7 @@
         return '<div class="imp-g' + (ex ? ' ex' : '') + '"><input type="checkbox" id="impg' + i + '" data-imp="' + i + '"' + (on ? ' checked' : '') + (ex ? ' disabled' : '') + '>' +
           '<span class="imp-t"><label for="impg' + i + '"><b>' + g.away + ' @ ' + g.home + '</b><small>' + prLabel(g.startAt) + (ex ? ' · ya está en tu lista' : '') + '</small></label>' + (ex ? '' : impOddsHTML(g)) + '</span></div>';
       }).join('') +
-      '<p class="imp-legend">' + (imp.games.some(function (g) { return g.odds; }) ? 'En grande, tu cuota; en gris, la de ' + (imp.games.some(function (g) { return g.oddsSrc; }) ? 'la casa (PokerStars o ' + (imp.games.find(function (g) { return g.oddsSrc; }) || {}).oddsSrc + ')' : 'PokerStars') + '.' : '') + '</p><button type="button" class="btn primary" id="impAdd" style="width:100%; margin-top:6px;"' + (nPick ? '' : ' disabled') + '>Agregar ' + nPick + (nPick === 1 ? ' juego' : ' juegos') + '</button>';
+      '<p class="imp-legend">' + (imp.games.some(function (g) { return g.odds; }) ? 'En grande, tu cuota; en gris, la de ' + (imp.games.some(function (g) { return g.oddsSrc; }) ? (imp.games.find(function (g) { return g.oddsSrc; }) || {}).oddsSrc : 'la fuente') + '.' : '') + '</p><button type="button" class="btn primary" id="impAdd" style="width:100%; margin-top:6px;"' + (nPick ? '' : ' disabled') + '>Agregar ' + nPick + (nPick === 1 ? ' juego' : ' juegos') + '</button>';
   }
   async function loadPapiUsage() {
     var d = await apiGet('/api/admin/oddspapi-usage'), el = document.getElementById('papiUse');
@@ -2282,7 +2282,7 @@
     }
     return out;
   }
-  // Baja todas las cuotas de un juego el % de "Bajar las cuotas" (para cuando se copian a mano de PokerStars).
+  // Baja todas las cuotas de un juego el % de "Bajar las cuotas" (para cuando se copian a mano).
   function agoText(t) { var mn = Math.round((Date.now() - t) / 60000); return mn < 1 ? 'ahora' : mn < 60 ? 'hace ' + mn + ' min' : 'hace ' + Math.round(mn / 60) + ' h'; }
   function cutPct() { var el = document.getElementById('impMargin'); return Math.min(15, Math.max(0, Number(el && el.value) || 0)); }
   function cutAm(v) {
@@ -2299,8 +2299,9 @@
     (m.odds || []).forEach(function (o) { if (o && o.v) { o.v = cutAm(o.v); n++; } });
     if (m.handicap) { if (m.handicap.homeOdds) { m.handicap.homeOdds = cutAm(m.handicap.homeOdds); n++; } if (m.handicap.awayOdds) { m.handicap.awayOdds = cutAm(m.handicap.awayOdds); n++; } }
     if (m.total) { if (m.total.over) { m.total.over = cutAm(m.total.over); n++; } if (m.total.under) { m.total.under = cutAm(m.total.under); n++; } }
+    if (m.halftime) { if (m.halftime.away) { m.halftime.away = cutAm(m.halftime.away); n++; } if (m.halftime.home) { m.halftime.home = cutAm(m.halftime.home); n++; } }
     (m.props || []).forEach(function (p) { if (p.over) { p.over = cutAm(p.over); n++; } if (p.under) { p.under = cutAm(p.under); n++; } });
-    if (!n) { showToast('Primero escribe las cuotas de PokerStars.'); return; }
+    if (!n) { showToast('Primero escribe las cuotas.'); return; }
     saveMatches(state.matches);
     renderAdminList();
     showToast('✅ Bajé ' + pc + '% a ' + n + ' cuotas de ' + m.away + ' @ ' + m.home + '. Dale una sola vez.');
@@ -2319,8 +2320,8 @@
       var isDraft = !(m.odds && m.odds[0] && m.odds[0].v && m.odds[2] && m.odds[2].v);
       if (isDraft) html += '<div class="draft-tag">📝 Borrador · no sale en la página hasta que pongas las cuotas de Ganador</div>';
       html += '<div style="font-size:13px; font-weight:600; margin-bottom:8px;">' + m.away + ' @ ' + m.home + '</div>';
-      if (m.auto) html += '<div class="auto-tag">🔄 Cuotas automáticas de PokerStars (−' + (m.auto.cut || 0) + '%)' + (m.auto.at ? ' · revisadas ' + agoText(m.auto.at) : '') + '<small>Si cambias una cuota a mano, este juego deja de cambiarse solo.</small></div>';
-      else html += '<button type="button" class="cut-btn" data-cut="' + mi + '">➖ Bajar ' + cutPct() + '% las cuotas de este juego <small>(después de copiarlas de PokerStars)</small></button>';
+      if (m.auto) html += '<div class="auto-tag">🔄 Cuotas automáticas (−' + (m.auto.cut || 0) + '%)' + (m.auto.at ? ' · revisadas ' + agoText(m.auto.at) : '') + '<small>Si cambias una cuota a mano, este juego deja de cambiarse solo.</small></div>';
+      else html += '<button type="button" class="cut-btn" data-cut="' + mi + '">➖ Bajar ' + cutPct() + '% las cuotas de este juego <small>(después de escribir las cuotas)</small></button>';
       html += '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:center;">';
       m.odds.forEach(function (o, oi) {
         if (oi === 1 && (m.sport === 'beisbol' || m.sport === 'lidom')) return;
@@ -2358,6 +2359,13 @@
       html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Línea (más/menos ' + (TOTAL_UNIT[m.sport] || 'total') + ')</label><input type="number" step="0.5" class="odds-num-input" style="width:84px; padding:6px 8px; font-size:13px;" data-total-line="' + mi + '" value="' + tLine + '" placeholder="8.5"></div>';
       html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota Más</label><input type="number" step="0.01" class="odds-num-input" style="width:70px; padding:6px 8px; font-size:13px;" data-total-over-num="' + mi + '" value="' + tOverDec + '" placeholder="Cuota"></div>';
       html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota Menos</label><input type="number" step="0.01" class="odds-num-input" style="width:70px; padding:6px 8px; font-size:13px;" data-total-under-num="' + mi + '" value="' + tUnderDec + '" placeholder="Cuota"></div>';
+      html += '</div>';
+      var HT_LBL = { beisbol: 'Primeras 5 entradas', lidom: 'Primeras 5 entradas', nhl: 'Primer período' }[m.sport] || 'Medio tiempo';
+      var htA = m.halftime && m.halftime.away ? americanToDecimalStr(m.halftime.away) : '', htH = m.halftime && m.halftime.home ? americanToDecimalStr(m.halftime.home) : '';
+      html += '<div style="display:flex; gap:8px; flex-wrap:wrap; align-items:flex-end; margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">';
+      html += '<div style="width:100%; font-size:11px; color:var(--text-faint);">⏱️ ' + HT_LBL + ' — quién va ganando en esa parte (se paga solo; si van empatados se devuelve)</div>';
+      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota ' + esc(m.away) + '</label><input type="number" step="0.01" class="odds-num-input" style="width:90px; padding:6px 8px; font-size:13px;" data-ht-away="' + mi + '" value="' + htA + '" placeholder="Cuota"></div>';
+      html += '<div style="display:flex; flex-direction:column; gap:3px;"><label style="font-size:10px; color:var(--text-faint);">Cuota ' + esc(m.home) + '</label><input type="number" step="0.01" class="odds-num-input" style="width:90px; padding:6px 8px; font-size:13px;" data-ht-home="' + mi + '" value="' + htH + '" placeholder="Cuota"></div>';
       html += '</div>';
       html += '<div style="margin-top:10px; padding-top:10px; border-top:1px dashed var(--border);">';
       html += '<div style="font-size:11px; color:var(--text-faint); margin-bottom:6px;">' + propTitle(m.sport) + '</div>';
@@ -2397,7 +2405,7 @@
         var el = e.target; if (!el || !el.attributes) return;
         for (var i = 0; i < el.attributes.length; i++) {
           var at = el.attributes[i];
-          if (/^data-(num-match|hcap-|total-|prop-(over|under|line))/.test(at.name)) {
+          if (/^data-(num-match|hcap-|total-|ht-|prop-(over|under|line))/.test(at.name)) {
             var mm = state.matches[parseInt(String(at.value).split('-')[0], 10)];
             if (mm && mm.auto) { mm.auto = null; setTimeout(renderAdminList, 300); showToast('✋ Este juego ya no cambia sus cuotas solo.'); }
             return;
@@ -2471,6 +2479,14 @@
     });
     Array.prototype.forEach.call(root.querySelectorAll('[data-total-under-num]'), function (el) {
       el.addEventListener('change', function () { updateTotal(parseInt(el.dataset.totalUnderNum, 10)); });
+    });
+    function updateHt(mi) {
+      var a = root.querySelector('[data-ht-away="' + mi + '"]').value.trim(), h = root.querySelector('[data-ht-home="' + mi + '"]').value.trim();
+      if (!a && !h) { delete state.matches[mi].halftime; saveMatches(state.matches); showToast('Medio tiempo quitado de este partido.'); return; }
+      if (a && h) { state.matches[mi].halftime = { away: decimalToAmerican(a), home: decimalToAmerican(h) }; saveMatches(state.matches); showToast('✅ Medio tiempo listo: ya sale en la página.'); }
+    }
+    Array.prototype.forEach.call(root.querySelectorAll('[data-ht-away],[data-ht-home]'), function (el) {
+      el.addEventListener('change', function () { updateHt(parseInt(el.dataset.htAway || el.dataset.htHome, 10)); });
     });
     function updateProp(mi, pi) {
       var playerEl = root.querySelector('[data-prop-player="' + mi + '-' + pi + '"]');
