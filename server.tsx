@@ -2341,7 +2341,8 @@ app.get('/api/admin/schedule', async (c) => {
   var toa = await toaFill(sport, withOdds);
   if (toa.msg && !withOdds.some(function (g) { return g.odds; })) info.msg = (info.msg ? info.msg + ' ' : '') + toa.msg;
   var nOdds = withOdds.filter(function (g) { return g.odds; }).length;
-  if (!info.msg && withOdds.length && !nOdds) info.msg = 'PokerStars tiene ' + (info.fixtures || 0) + ' juegos con cuotas, pero ninguno de este día' + (info.next && info.next.length ? ' (los próximos: ' + info.next.map(function (t) { return prLabelServer(t); }).join(', ') + ')' : '') + '. Las cuotas suelen salir el mismo día o la víspera.';
+  if (!info.msg && withOdds.length && !nOdds) info.msg = (PAPI_ENABLED ? 'PokerStars tiene ' + (info.fixtures || 0) + ' juegos con cuotas, pero ninguno de este día' + (info.next && info.next.length ? ' (los próximos: ' + info.next.map(function (t) { return prLabelServer(t); }).join(', ') + ')' : '') + '. Las cuotas suelen salir el mismo día o la víspera.'
+    : (Bun.env.SPORTSGAMEODDS_KEY || Bun.env.THE_ODDS_API_KEY) ? 'La fuente de cuotas todavía no tiene cuotas de este día. Suelen salir el mismo día o la víspera.' : 'No hay ninguna fuente de cuotas conectada: los juegos entran sin cuotas y las pones tú.');
   return c.json({ games: withOdds, papi: nOdds ? null : (info.msg || null) });
 });
 
@@ -2643,7 +2644,7 @@ function papiErrText(x) {
 }
 async function addPapiOdds(sport, date, games) {
   papiLastInfo = { sport: sport };
-  if (!Bun.env.ODDSPAPI_KEY) { papiLastInfo.msg = 'No está la clave ODDSPAPI_KEY en Railway.'; return games; }
+  if (!PAPI_ENABLED || !Bun.env.ODDSPAPI_KEY) return games;
   if (!PAPI_SPORT[sport] || !games.length) return games;
   try {
     var tid = await papiTournamentId(sport); if (!tid) { papiLastInfo.msg = 'OddsPapi no encontró la liga.'; return games; }
@@ -2699,7 +2700,7 @@ app.get('/api/admin/oddspapi-usage', async (c) => {
   const r = await sql`SELECT value FROM app_state WHERE key = 'papi_usage'`;
   var v = r[0] ? r[0].value : null; if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
   var month = new Date().toISOString().slice(0, 7);
-  return c.json({ key: !!Bun.env.ODDSPAPI_KEY, used: v && v.month === month ? Number(v.count) || 0 : 0, limit: Number(Bun.env.ODDSPAPI_LIMIT) || 250,
+  return c.json({ key: PAPI_ENABLED && !!Bun.env.ODDSPAPI_KEY, used: v && v.month === month ? Number(v.count) || 0 : 0, limit: Number(Bun.env.ODDSPAPI_LIMIT) || 250,
     sgo: Bun.env.SPORTSGAMEODDS_KEY ? { used: await sgoUsedThisMonth(), limit: Number(Bun.env.SGO_LIMIT) || 2500 } : null });
 });
 
@@ -2709,9 +2710,11 @@ app.get('/api/admin/oddspapi-usage', async (c) => {
 // Si OddsPapi contesta 429 (demasiadas consultas), se deja de preguntar un rato
 // para no gastar más ni empeorar el bloqueo.
 var papiBlockedUntil = 0, papiLast429 = 0;
+// OddsPapi (PokerStars) está APAGADO. Para volver a usarlo: PAPI_ENABLED = true.
+const PAPI_ENABLED = false;
 async function oddsPapi(path, params) {
   var key = Bun.env.ODDSPAPI_KEY;
-  if (!key) return { error: 'no_key' };
+  if (!PAPI_ENABLED || !key) return { error: 'no_key' };
   if (Date.now() < papiBlockedUntil) return { status: 429, data: null, text: 'pausado por límite' };
   var qs = new URLSearchParams(Object.assign({}, params || {}, { apiKey: key })).toString();
   // Cuenta cada consulta del mes (para que el admin vea cuántas le quedan).
