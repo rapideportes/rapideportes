@@ -798,7 +798,7 @@
       <div class="papi-use" id="papiUse" hidden></div>
       <div id="impList"></div>
       <button type="button" class="imp-test" id="papiTest" hidden>🔌 Probar conexión con OddsPapi</button>
-      <button type="button" class="imp-test" id="apisTest">🔌 Probar API-Sports con la liga de arriba</button>
+      <button type="button" class="imp-test" id="apisTest" hidden>🔌 Probar API-Sports con la liga de arriba</button>
       <pre class="papi-out" id="papiOut" hidden></pre>
     </div>
     <button type="button" class="clr-old" id="clearOld">🧹 Borrar todos los juegos de días pasados</button>
@@ -1756,13 +1756,15 @@
   function apisSportOf() { var v = document.getElementById('impSport').value; return v === 'lidom' ? 'beisbol' : v; }
   async function loadPapiUsage() {
     var d = await apiGet('/api/admin/oddspapi-usage'), el = document.getElementById('papiUse');
-    if (!d || (!d.key && !d.sgo && !d.apis)) { el.hidden = true; return; }
+    var at = document.getElementById('apisTest'); if (at) at.hidden = !(d && d.apis);
+    if (!d || (!d.key && !d.sgo && !d.apis && !d.toa)) { el.hidden = true; return; }
     var bar = function (title, used, limit, unit, lowAt) {
       var left = Math.max(0, limit - used), pc = Math.min(100, Math.round(used / limit * 100));
       return '<div class="papi-use' + (left < lowAt ? ' low' : '') + '" style="margin:0 0 8px"><div><b>' + title + '</b><span>' + used + ' de ' + limit + ' ' + unit + ' · te quedan <strong>' + left + '</strong></span></div><div class="papi-bar"><i style="width:' + pc + '%"></i></div></div>';
     };
     el.hidden = false; el.className = '';
     el.innerHTML = (d.apis ? bar('API-Sports hoy · ' + ({ baloncesto: 'NBA', nfl: 'NFL', nhl: 'NHL', beisbol: 'Béisbol (MLB y LIDOM)' }[apisSportOf()] || ''), d.apis[apisSportOf()] || 0, 100, 'consultas', 15) : '') + (d.sgo ? bar('SportsGameOdds este mes (DraftKings, FanDuel…)', d.sgo.used, d.sgo.limit, 'juegos', 300) : '') +
+      (d.toa ? (d.toa.remaining === null || d.toa.remaining === undefined ? '<div class="papi-use" style="margin:0 0 8px"><div><b>The Odds API este mes</b><span>Conectada · busca juegos para ver cuántos créditos quedan</span></div></div>' : bar('The Odds API este mes', d.toa.used || 0, (d.toa.used || 0) + d.toa.remaining, 'créditos', 60)) : '') +
       (d.key ? bar('PokerStars (OddsPapi) este mes', d.used, d.limit, 'consultas', 30) : '');
   }
   loadPapiUsage();
