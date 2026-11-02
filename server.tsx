@@ -28,6 +28,8 @@ await sql`CREATE TABLE IF NOT EXISTS bets (
   created_at TIMESTAMPTZ DEFAULT now()
 )`;
 
+await sql`ALTER TABLE bets ADD COLUMN IF NOT EXISTS leg_results JSONB`;
+
 await sql`CREATE TABLE IF NOT EXISTS app_state (
   key TEXT PRIMARY KEY,
   value JSONB NOT NULL
@@ -1181,7 +1183,30 @@ function gradeSingleBet(descText, matchText, finishedByKey, statsByEventId) {
 // Califica una apuesta COMBINADA: cada pata va como
 // "main@@@pick@@@cuota" separada por " · ". Solo se califica cuando
 // TODAS las patas tienen su partido finalizado.
+// Resultado de cada jugada de una combinada (null = todavía no se sabe).
+function gradeParlayLegs(matchText, finishedByKey, statsByEventId, halfByKey) {
+  var legs = String(matchText || '').split(' · '), out = [];
+  for (var i = 0; i < legs.length; i++) {
+    var parts = legs[i].split('@@@');
+    if (parts.length !== 3) { out.push(null); continue; }
+    var main = parts[0], pick = parts[1], r = null;
+    var tm = /^(Ganador|Hándicap|Total) (.*) vs (.*)$/.exec(main);
+    if (tm) {
+      if (/ — (Más|Menos) [\d.]+$/.test(pick)) {
+        var m = finishedByKey[matchKey(tm[2], tm[3])];
+        var st = m && m.finished && m.espnEventId ? statsByEventId[m.espnEventId] : null;
+        if (st) r = gradePlayerProp(m, pick, st);
+      } else if (HALF_RE.test(pick)) r = gradeHalf(pick, (halfByKey || {})[matchKey(tm[2], tm[3])]);
+      else if (!/ — /.test(pick)) r = gradeSelection(tm[1], tm[2], tm[3], pick, finishedByKey);
+    }
+    out.push(r === undefined ? null : r);
+  }
+  return out;
+}
 function gradeParlayBet(matchText, finishedByKey, statsByEventId, halfByKey) {
+  // Si ya se perdió una jugada, la combinada está perdida (no hay que esperar las demás).
+  var lr = gradeParlayLegs(matchText, finishedByKey, statsByEventId, halfByKey);
+  if (lr.some(function (r) { return r === 'lost'; })) return 'lost';
   var legs = String(matchText || '').split(' · ');
   var results = [], pushDiv = 1;
   for (var i = 0; i < legs.length; i++) {
@@ -1403,7 +1428,7 @@ async function settleBets() {
     var anyHalf = matches.some(function (m) { return m.halfScore && m.halfScore.done; });
     if (Object.keys(finishedByKey).length === 0 && !anyHalf) return;
 
-    const pending = await sql`SELECT id, user_id, desc_text, match_text, stake, payout, created_at FROM bets WHERE status = 'pending' AND deleted_at IS NULL`;
+    const pending = await sql`SELECT id, user_id, desc_text, match_text, stake, payout, created_at, leg_results FROM bets WHERE status = 'pending' AND deleted_at IS NULL`;
     var anyPropPending = pending.some(function (b) { return / — (Más|Menos) [\d.]+/.test(b.desc_text || '') || / — (Más|Menos) [\d.]+/.test(b.match_text || ''); });
 
     // Solo pedimos el boxscore (ponches) si hay al menos una apuesta de
@@ -1429,6 +1454,14 @@ async function settleBets() {
       var fk = finishedViewFor(b.created_at, allByKey); // solo el juego que empezó después de la apuesta
       var hk = halfViewFor(b.created_at, allByKey);
       var sDesc = String(b.desc_text || '').replace(/\s*\([\d.]+\)\s*$/, ''), smm = /^(.*) @ (.*)$/.exec(b.match_text || '');
+      if (isParlay) {
+        // Se guarda cuál jugada ganó y cuál perdió, para marcarlas en el ticket.
+        var legRes = gradeParlayLegs(b.match_text, fk, statsByEventId, hk);
+        var prevLr = b.leg_results; if (typeof prevLr === 'string') { try { prevLr = JSON.parse(prevLr); } catch (e) { prevLr = null; } }
+        if (JSON.stringify(legRes) !== JSON.stringify(prevLr || null) && legRes.some(function (r) { return r !== null; })) {
+          try { await sql`UPDATE bets SET leg_results = ${JSON.stringify(legRes)}::jsonb WHERE id = ${b.id}`; } catch (e) {}
+        }
+      }
       var result = isParlay
         ? gradeParlayBet(b.match_text, fk, statsByEventId, hk)
         : HALF_RE.test(sDesc) ? (smm ? gradeHalf(sDesc, hk[matchKey(smm[1], smm[2])]) : null)
@@ -3043,7 +3076,7 @@ app.get('/api/bets', async (c) => {
   const user = await getUserFromCookie(c);
   if (!user) return c.json([]);
   const rows = await sql`
-    SELECT id, desc_text, match_text, stake, payout, status, created_at, win_seen
+    SELECT id, desc_text, match_text, stake, payout, status, created_at, win_seen, leg_results
     FROM bets WHERE user_id = ${user.id} AND deleted_at IS NULL
     ORDER BY created_at DESC LIMIT 60
   `;
@@ -3058,6 +3091,7 @@ app.get('/api/bets', async (c) => {
       cashoutWon: (function () { var q = cashoutQuote(r, byKey); return q ? q.won : 0; })(),
       cashoutLeft: (function () { var q = cashoutQuote(r, byKey); return q ? q.left : 0; })(),
       winSeen: !!r.win_seen,
+      legRes: (function () { var v = r.leg_results; if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } } return Array.isArray(v) ? v : null; })(),
       createdAt: r.created_at,
       date: new Date(r.created_at).toLocaleDateString('es-DO')
     };
