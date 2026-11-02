@@ -1528,8 +1528,10 @@ async function papiUsedThisMonth() {
 }
 // Aplica las cuotas nuevas de PokerStars (g.odds, en decimal) a un partido. Devuelve true si algo cambió.
 function applyAutoOdds(m, o) {
-  var pc = Math.min(20, Math.max(0, Number(m.auto && m.auto.cut) || 0)), ch = false;
+  var pc = o.ps ? 0 : Math.min(20, Math.max(0, Number(m.auto && m.auto.cut) || 0)), ch = false;
   var A2 = function (a, b) { var r = marginPair(a, b, pc); return [decToAm(r[0]), decToAm(r[1])]; };
+  var pcP = Math.min(20, Math.max(0, Number(m.auto && m.auto.cut) || 0)); // jugadores: vienen de DraftKings, siempre llevan el %
+  var A2P = function (a, b) { var r = marginPair(a, b, pcP); return [decToAm(r[0]), decToAm(r[1])]; };
   var set = function (obj, k, v) { if (v !== null && v !== undefined && String(obj[k]) !== String(v)) { obj[k] = v; ch = true; } };
   var r;
   if (o.home > 1 && o.away > 1 && m.odds) { r = A2(o.home, o.away); if (m.odds[0]) set(m.odds[0], 'v', r[0]); if (m.odds[2]) set(m.odds[2], 'v', r[1]); }
@@ -1541,7 +1543,7 @@ function applyAutoOdds(m, o) {
     var keep = m.props.filter(function (p) {
       var np = o.props.find(function (x) { return x.player === p.player && x.stat === p.stat; });
       if (!np) return false;
-      var rp = A2(np.over, np.under); set(p, 'line', np.line); set(p, 'over', rp[0]); set(p, 'under', rp[1]);
+      var rp = A2P(np.over, np.under); set(p, 'line', np.line); set(p, 'over', rp[0]); set(p, 'under', rp[1]);
       return true;
     });
     if (keep.length !== m.props.length) { m.props = keep; ch = true; }
@@ -1590,11 +1592,11 @@ async function autoOdds() {
         last['apis_' + sp] = now;
         try { await apisFill(sp, '', games); } catch (e) {}
       }
-      if (sgoDue && games.some(function (g) { return !g.odds; })) {
+      if (papiDue && games.some(function (g) { return !g.odds; })) { last[sp] = now; await addPapiOdds(sp, new Date().toISOString().slice(0, 10), games); }
+      if (sgoDue && games.some(function (g) { return !g.odds || (g.odds.ps && !g.odds.props); })) {
         last['sgo_' + sp] = now;
         try { await sgoFill(sp, '', games); } catch (e) {}
       }
-      if (papiDue && games.some(function (g) { return !g.odds; })) { last[sp] = now; await addPapiOdds(sp, new Date().toISOString().slice(0, 10), games); }
       if (toaDue) {
         last['toab_' + sp] = now; last['toa_' + sp] = now;
         try { await toaFill(sp, games, true); } catch (e) {}
@@ -2386,9 +2388,10 @@ app.get('/api/admin/schedule', async (c) => {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !(sport in SPORT_ESPN_PATH)) return c.json({ error: 'bad_request' }, 400);
   var games = await fetchSchedule(sport, date);
   var aps = await apisFill(sport, date, games);
-  var sgo = await sgoFill(sport, date, games);
-  if (aps.msg) sgo.msg = aps.msg + (sgo.msg ? ' · ' + sgo.msg : '');
+  // PokerStars primero; SportsGameOdds llena los que falten y les pone jugadores.
   var withOdds = games.some(function (g) { return !g.odds; }) ? await addPapiOdds(sport, date, games) : games;
+  var sgo = await sgoFill(sport, date, withOdds);
+  if (aps.msg) sgo.msg = aps.msg + (sgo.msg ? ' · ' + sgo.msg : '');
   var info = (games.some(function (g) { return !g.odds; }) || !sgo.n) ? (papiLastInfo || {}) : {};
   if (sgo.msg) info.msg = sgo.msg + (info.msg ? ' · ' + info.msg : '');
   var toa = await toaFill(sport, withOdds);
@@ -2403,14 +2406,14 @@ app.get('/api/admin/schedule', async (c) => {
 // Clave en Railway: SPORTSGAMEODDS_KEY. Plan gratis: 2,500 "objetos" (juegos) al mes.
 // Cada juego que devuelve cuenta 1, así que se guarda 10 min y se cuenta lo gastado.
 const SGO_LEAGUE = { baloncesto: 'NBA', nfl: 'NFL', nhl: 'NHL', beisbol: 'MLB' };
-const SGO_BOOKS = ['draftkings', 'fanduel', 'betmgm', 'caesars', 'espnbet', 'bovada'];
+const SGO_BOOKS = ['pokerstars', 'draftkings', 'fanduel', 'betmgm', 'caesars', 'espnbet', 'bovada'];
 // Estadísticas de jugadores que la página sabe calificar sola (por deporte).
 const SGO_PROP_STATS = {
   baloncesto: { points: 'Puntos', rebounds: 'Rebotes', assists: 'Asistencias', threePointersMade: 'Triples', steals: 'Robos', blocks: 'Tapones' },
   nfl: { passing_yards: 'Yardas pase', rushing_yards: 'Yardas carrera', receiving_yards: 'Yardas recepción', receiving_receptions: 'Recepciones' },
   nhl: { points: 'Goles', assists: 'Asistencias', 'goals+assists': 'Puntos', shots_onGoal: 'Tiros al arco', goalie_saves: 'Atajadas' }
 };
-const SGO_BOOK_NAME = { draftkings: 'DraftKings', fanduel: 'FanDuel', betmgm: 'BetMGM', caesars: 'Caesars', espnbet: 'ESPN BET', bovada: 'Bovada' };
+const SGO_BOOK_NAME = { pokerstars: 'PokerStars', draftkings: 'DraftKings', fanduel: 'FanDuel', betmgm: 'BetMGM', caesars: 'Caesars', espnbet: 'ESPN BET', bovada: 'Bovada' };
 var sgoCache = {};
 async function sgoUsedThisMonth() {
   const r = await sql`SELECT value FROM app_state WHERE key = 'sgo_usage'`;
@@ -2460,7 +2463,8 @@ function sgoPlayerName(p) {
 // Llena g.odds (en decimal, igual que PokerStars) con SportsGameOdds.
 async function sgoFill(sport, date, games) {
   if (!Bun.env.SPORTSGAMEODDS_KEY || !SGO_LEAGUE[sport]) return { n: 0, msg: null };
-  var need = games.filter(function (g) { return !g.odds; }); if (!need.length) return { n: 0, msg: null };
+  // Juegos sin cuotas, y juegos con cuotas de PokerStars a los que les faltan jugadores / medio tiempo.
+  var need = games.filter(function (g) { return !g.odds || (g.odds.ps && !g.odds.props); }); if (!need.length) return { n: 0, msg: null };
   var ts = need.map(function (g) { return Date.parse(g.startAt); }).filter(function (x) { return !isNaN(x); });
   if (!ts.length) return { n: 0, msg: null };
   var from = new Date(Math.min.apply(null, ts) - 3 * 3600e3).toISOString(), to = new Date(Math.max.apply(null, ts) + 3 * 3600e3).toISOString();
@@ -2474,7 +2478,7 @@ async function sgoFill(sport, date, games) {
       return h && a && Math.abs(Date.parse(e.status && e.status.startsAt) - t) < 3 * 3600e3 && teamNamesMatch(h.long, g.home) && teamNamesMatch(a.long, g.away);
     });
     if (!ev || !ev.odds) return;
-    var O = ev.odds;
+    var O = ev.odds, keepPs = g.odds && g.odds.ps ? g.odds : null;
     var mh = sgoPick(O['points-home-game-ml-home']), ma = sgoPick(O['points-away-game-ml-away']);
     if (!mh || !ma || !(mh.dec > 1) || !(ma.dec > 1)) return;
     g.odds = { home: mh.dec, away: ma.dec };
@@ -2498,6 +2502,8 @@ async function sgoFill(sport, date, games) {
       props.sort(function (a, b) { return (ORDER[a.stat] - ORDER[b.stat]) || (b.line - a.line); });
       if (props.length) g.odds.props = props;
     }
+    if (mh.book === 'pokerstars' && ma.book === 'pokerstars') g.odds.ps = true;
+    if (keepPs) { if (g.odds.props) keepPs.props = g.odds.props; if (g.odds.half && !keepPs.half) keepPs.half = g.odds.half; g.odds = keepPs; return; }
     g.oddsSrc = SGO_BOOK_NAME[mh.book] || 'SportsGameOdds'; n++;
   });
   return { n: n, msg: null };
@@ -2714,7 +2720,7 @@ async function toaEventProps(sport, evId) {
 }
 async function toaFill(sport, games, refresh) {
   if (!Bun.env.THE_ODDS_API_KEY || !TOA_SPORT[sport]) return { n: 0, msg: null };
-  var need = games.filter(function (g) { return refresh || !g.odds; }); if (!need.length) return { n: 0, msg: null };
+  var need = games.filter(function (g) { return refresh ? !(g.odds && g.odds.ps) : !g.odds; }); if (!need.length) return { n: 0, msg: null };
   var evs;
   try { evs = await toaFetch(sport); } catch (e) { return { n: 0, msg: 'The Odds API: ' + String(e.message || e) }; }
   var n = 0;
@@ -2936,7 +2942,7 @@ async function addPapiOdds(sport, date, games) {
       var L = papiLines(fx, markets); if (!L) return;
       // En deportes de EE. UU. el "1" de OddsPapi es el local.
       var H = function (a, b) { return p1Home ? a : b; };
-      g.odds = { home: H(L.ml.p1, L.ml.p2), away: H(L.ml.p2, L.ml.p1) };
+      g.odds = { home: H(L.ml.p1, L.ml.p2), away: H(L.ml.p2, L.ml.p1), ps: true }; g.oddsSrc = 'PokerStars';
       if (L.spread) { var hl = p1Home ? L.spread.h1 : -L.spread.h1; g.odds.hcap = { homeLine: hl, homeOdds: H(L.spread.p1, L.spread.p2), awayLine: -hl, awayOdds: H(L.spread.p2, L.spread.p1) }; }
       if (L.total) g.odds.total = { line: L.total.line, over: L.total.over, under: L.total.under };
       if (L.half) g.odds.half = { home: H(L.half.p1, L.half.p2), away: H(L.half.p2, L.half.p1) };
@@ -2964,7 +2970,7 @@ app.get('/api/admin/oddspapi-usage', async (c) => {
 // para no gastar más ni empeorar el bloqueo.
 var papiBlockedUntil = 0, papiLast429 = 0;
 // OddsPapi (PokerStars) está APAGADO. Para volver a usarlo: PAPI_ENABLED = true.
-const PAPI_ENABLED = false;
+const PAPI_ENABLED = true;
 async function oddsPapi(path, params) {
   var key = Bun.env.ODDSPAPI_KEY;
   if (!PAPI_ENABLED || !key) return { error: 'no_key' };
@@ -3489,6 +3495,122 @@ app.post('/api/withdraw', async (c) => {
   await sql`INSERT INTO withdrawals (user_id, amount, method_ref, method_label) VALUES (${user.id}, ${amount}, ${method.ref}, ${method.label})`;
   return c.json({ balance: Number(upd[0].balance) });
 });
+
+// ---------- Stripe: depósitos con tarjeta ----------
+// Claves en Railway (NUNCA en el código): STRIPE_SECRET_KEY y STRIPE_WEBHOOK_SECRET.
+// Opcionales: STRIPE_MIN (mínimo por depósito, 10) y STRIPE_MAX (máximo por depósito, 1000).
+await sql`ALTER TABLE deposits ADD COLUMN IF NOT EXISTS stripe_session TEXT`;
+await sql`CREATE UNIQUE INDEX IF NOT EXISTS deposits_stripe_session_uq ON deposits (stripe_session) WHERE stripe_session IS NOT NULL`;
+const STRIPE_MIN = () => Math.max(1, Number(Bun.env.STRIPE_MIN) || 10);
+const STRIPE_MAX = () => Math.max(STRIPE_MIN(), Number(Bun.env.STRIPE_MAX) || 1000);
+function stripeForm(obj, prefix, out) {
+  out = out || [];
+  Object.keys(obj).forEach(function (k) {
+    var v = obj[k], key = prefix ? prefix + '[' + k + ']' : k;
+    if (v === undefined || v === null) return;
+    if (typeof v === 'object') stripeForm(v, key, out);
+    else out.push(encodeURIComponent(key) + '=' + encodeURIComponent(String(v)));
+  });
+  return out.join('&');
+}
+async function stripeApi(method, path, params, idem) {
+  var h = { Authorization: 'Bearer ' + Bun.env.STRIPE_SECRET_KEY };
+  var body = undefined;
+  if (method === 'POST') { h['Content-Type'] = 'application/x-www-form-urlencoded'; body = stripeForm(params || {}); if (idem) h['Idempotency-Key'] = idem; }
+  var r = await fetch('https://api.stripe.com/v1' + path, { method: method, headers: h, body: body });
+  var j = null; try { j = await r.json(); } catch (e) {}
+  if (!r.ok) throw new Error((j && j.error && j.error.message) || ('Stripe ' + r.status));
+  return j;
+}
+function siteOrigin(c) {
+  if (Bun.env.PUBLIC_URL) return String(Bun.env.PUBLIC_URL).replace(/\/+$/, '');
+  var host = c.req.header('x-forwarded-host') || c.req.header('host') || 'www.rapideportes.com';
+  var proto = c.req.header('x-forwarded-proto') || (/localhost|127\.0\.0\.1/.test(host) ? 'http' : 'https');
+  return proto.split(',')[0].trim() + '://' + host.split(',')[0].trim();
+}
+// Suma el depósito una sola vez (el webhook y el regreso del jugador pueden llegar los dos).
+async function stripeCredit(sessionId) {
+  var s = await stripeApi('GET', '/checkout/sessions/' + encodeURIComponent(sessionId) + '?expand[]=payment_intent.payment_method');
+  if (!s || s.payment_status !== 'paid' || s.mode !== 'payment') return { ok: false, status: s && s.payment_status };
+  var uid = Number((s.metadata && s.metadata.user_id) || s.client_reference_id);
+  var amount = Math.round(Number(s.amount_total) || 0) / 100;
+  if (!uid || !(amount > 0) || String(s.currency).toLowerCase() !== 'usd') return { ok: false, status: 'bad_session' };
+  var pm = s.payment_intent && s.payment_intent.payment_method, card = pm && pm.card;
+  var ref = card && card.fingerprint ? 'stripe:card:' + card.fingerprint : 'stripe:' + ((pm && pm.id) || (s.payment_intent && s.payment_intent.id) || s.id);
+  var brand = card ? String(card.brand || 'tarjeta') : (pm && pm.type) || 'Stripe';
+  var label = card ? brand.charAt(0).toUpperCase() + brand.slice(1) + ' •••• ' + card.last4 : brand;
+  var ins = await sql`INSERT INTO deposits (user_id, amount, status, method_ref, method_label, stripe_session)
+    VALUES (${uid}, ${amount}, 'approved', ${ref}, ${label}, ${s.id}) ON CONFLICT DO NOTHING RETURNING id`;
+  if (ins[0]) await sql`UPDATE users SET balance = balance + ${amount} WHERE id = ${uid}`;
+  return { ok: true, uid: uid, amount: amount, fresh: !!ins[0] };
+}
+app.post('/api/deposit/checkout', async (c) => {
+  const user = await getUserFromCookie(c);
+  if (!user) return c.json({ error: 'unauthorized' }, 401);
+  if (!Bun.env.STRIPE_SECRET_KEY) return c.json({ error: 'not_ready' }, 503);
+  let body; try { body = await c.req.json(); } catch (e) { return c.json({ error: 'bad_request' }, 400); }
+  const amount = Math.floor(Number(body.amount) || 0);
+  if (amount < STRIPE_MIN() || amount > STRIPE_MAX()) return c.json({ error: 'bad_amount', min: STRIPE_MIN(), max: STRIPE_MAX() }, 400);
+  const v = await sql`SELECT verify_status FROM users WHERE id = ${user.id}`;
+  if (!v[0] || v[0].verify_status !== 'verified') return c.json({ error: 'not_verified' }, 403);
+  const lim = await depositAllowed(user.id, amount);
+  if (!lim.ok) return c.json({ error: 'over_limit', left: lim.left }, 400);
+  const origin = siteOrigin(c);
+  try {
+    var s = await stripeApi('POST', '/checkout/sessions', {
+      mode: 'payment',
+      client_reference_id: String(user.id),
+      customer_email: user.email || undefined,
+      line_items: { 0: { quantity: 1, price_data: { currency: 'usd', unit_amount: amount * 100, product_data: { name: 'Depósito a tu saldo RapiDeportes' } } } },
+      metadata: { user_id: String(user.id), amount: String(amount) },
+      payment_intent_data: { metadata: { user_id: String(user.id) } },
+      success_url: origin + '/?deposito=ok&sid={CHECKOUT_SESSION_ID}',
+      cancel_url: origin + '/?deposito=cancelado',
+      locale: 'es'
+    }, 'dep-' + user.id + '-' + amount + '-' + Math.floor(Date.now() / 30000));
+    return c.json({ url: s.url });
+  } catch (e) {
+    console.error('Stripe checkout:', e && e.message);
+    return c.json({ error: 'stripe_error' }, 502);
+  }
+});
+// El jugador regresa de Stripe: se confirma el pago y se suma (si el webhook no lo hizo ya).
+app.get('/api/deposit/confirm', async (c) => {
+  const user = await getUserFromCookie(c);
+  if (!user) return c.json({ error: 'unauthorized' }, 401);
+  const sid = String(c.req.query('sid') || '');
+  if (!/^cs_[A-Za-z0-9_]+$/.test(sid) || !Bun.env.STRIPE_SECRET_KEY) return c.json({ error: 'bad_request' }, 400);
+  try {
+    var r = await stripeCredit(sid);
+    if (!r.ok) return c.json({ status: r.status || 'pending' });
+    if (r.uid !== user.id) return c.json({ error: 'forbidden' }, 403);
+    const b = await sql`SELECT balance FROM users WHERE id = ${user.id}`;
+    return c.json({ status: 'paid', amount: r.amount, balance: Number(b[0].balance) });
+  } catch (e) { return c.json({ error: 'stripe_error' }, 502); }
+});
+// Webhook de Stripe (en Stripe: Developers → Webhooks → https://www.rapideportes.com/api/stripe/webhook).
+async function stripeSigOk(raw, header, secret) {
+  if (!header || !secret) return false;
+  var parts = {}; String(header).split(',').forEach(function (kv) { var i = kv.indexOf('='); if (i > 0) { var k = kv.slice(0, i).trim(); (parts[k] = parts[k] || []).push(kv.slice(i + 1).trim()); } });
+  var t = parts.t && parts.t[0]; if (!t || Math.abs(Date.now() / 1000 - Number(t)) > 600) return false;
+  var key = await crypto.subtle.importKey('raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign']);
+  var sig = new Uint8Array(await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(t + '.' + raw)));
+  var hex = Array.prototype.map.call(sig, function (b) { return b.toString(16).padStart(2, '0'); }).join('');
+  return (parts.v1 || []).some(function (v) {
+    if (v.length !== hex.length) return false;
+    var d = 0; for (var i = 0; i < v.length; i++) d |= v.charCodeAt(i) ^ hex.charCodeAt(i); return d === 0;
+  });
+}
+app.post('/api/stripe/webhook', async (c) => {
+  const raw = await c.req.raw.text();
+  if (!(await stripeSigOk(raw, c.req.header('stripe-signature'), Bun.env.STRIPE_WEBHOOK_SECRET))) return c.json({ error: 'bad_signature' }, 400);
+  var ev; try { ev = JSON.parse(raw); } catch (e) { return c.json({ error: 'bad_request' }, 400); }
+  if (ev && (ev.type === 'checkout.session.completed' || ev.type === 'checkout.session.async_payment_succeeded') && ev.data && ev.data.object && ev.data.object.id) {
+    try { await stripeCredit(ev.data.object.id); } catch (e) { console.error('Stripe webhook:', e && e.message); return c.json({ error: 'retry' }, 500); }
+  }
+  return c.json({ received: true });
+});
+app.get('/api/deposit/info', async (c) => c.json({ ready: !!Bun.env.STRIPE_SECRET_KEY, min: STRIPE_MIN(), max: STRIPE_MAX() }));
 
 app.get('/api/payout-method', async (c) => {
   const user = await getUserFromCookie(c);
