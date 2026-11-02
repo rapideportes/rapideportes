@@ -792,8 +792,8 @@
         <button type="button" class="btn primary" id="impFind">Buscar</button>
       </div>
       <div class="imp-mg" id="impMg" hidden>
-        <label for="impMargin"><b>Bajar las cuotas</b><small>Tus cuotas salen un poco más bajas que las de la fuente, para que la casa gane más.</small></label>
-        <div class="imp-mg-in"><input type="number" id="impMargin" min="0" max="15" step="0.5" value="3"><span>%</span></div>
+        <label for="impMargin"><b>Ganancia de la casa</b><small>Como PokerStars: más o menos 9%. Baja más al underdog y pone parejos los dos lados (1.83 / 1.83).</small></label>
+        <div class="imp-mg-in"><input type="number" id="impMargin" min="0" max="20" step="0.5" value="9"><span>%</span></div>
       </div>
       <div class="papi-use" id="papiUse" hidden></div>
       <div id="impList"></div>
@@ -1678,6 +1678,16 @@
   })();
   function impKey(g) { return g.away + '|' + g.home + '|' + String(g.startAt).slice(0, 10); }
   function impExists(g) { return state.matches.some(function (m) { return m.away === g.away && m.home === g.home && m.startAt && Math.abs(Date.parse(m.startAt) - Date.parse(g.startAt)) < 12 * 3600000; }); }
+  function impPc() { return Math.min(20, Math.max(0, Number(document.getElementById('impMargin').value) || 0)); }
+  // Margen de la casa por pares, como PokerStars: el underdog baja más y nunca se paga más que la fuente.
+  function impPair(a, b) {
+    a = Number(a); b = Number(b);
+    if (!(a > 1) || !(b > 1)) return [a > 1 ? impCut(a) : a, b > 1 ? impCut(b) : b];
+    var ia = 1 / a, ib = 1 / b, s = ia + ib, m = impPc() / 100;
+    var f = function (p, src) { var q = p / s + m / 2; var d = q >= 0.99 ? 1.01 : 1 / q; d = Math.min(d, src); return Math.max(1.01, Math.floor(d * 100 + 1e-9) / 100); };
+    return [f(ia, a), f(ib, b)];
+  }
+  function A2(a, b) { var r = impPair(a, b); return [decimalToAmerican(String(r[0])), decimalToAmerican(String(r[1]))]; }
   function impCut(d) { var pc = Math.min(15, Math.max(0, Number(document.getElementById('impMargin').value) || 0)); var v = 1 + (d - 1) * (1 - pc / 100); return Math.max(1.01, Math.round(v * 100) / 100); }
   // Juego sin cuotas: se escriben aquí mismo antes de agregarlo.
   imp.manual = imp.manual || {};
@@ -1719,11 +1729,12 @@
   function tkShort(n) { var w = String(n || '').split(' '); return imp.sport === 'lidom' ? w[0] : w[w.length - 1]; }
   function impOddsHTML(g) {
     var o = g.odds; if (!o) return impManualHTML(g);
-    function cell(lbl, d) { return '<span class="imp-c"><small>' + lbl + '</small><b>' + impCut(d).toFixed(2) + '</b><i>' + Number(d).toFixed(2) + '</i></span>'; }
-    var h = '<div class="imp-od">' + cell('Gana visit.', o.away) + cell('Gana local', o.home);
-    if (o.hcap) h += cell((o.hcap.awayLine > 0 ? '+' : '') + o.hcap.awayLine, o.hcap.awayOdds) + cell((o.hcap.homeLine > 0 ? '+' : '') + o.hcap.homeLine, o.hcap.homeOdds);
-    if (o.total) h += cell('Más ' + o.total.line, o.total.over) + cell('Menos ' + o.total.line, o.total.under);
-    if (o.half) h += cell('½ visit.', o.half.away) + cell('½ local', o.half.home);
+    function cell(lbl, d, v) { return '<span class="imp-c"><small>' + lbl + '</small><b>' + Number(v).toFixed(2) + '</b><i>' + Number(d).toFixed(2) + '</i></span>'; }
+    function two(l1, d1, l2, d2) { var r = impPair(d1, d2); return cell(l1, d1, r[0]) + cell(l2, d2, r[1]); }
+    var h = '<div class="imp-od">' + two('Gana visit.', o.away, 'Gana local', o.home);
+    if (o.hcap) h += two((o.hcap.awayLine > 0 ? '+' : '') + o.hcap.awayLine, o.hcap.awayOdds, (o.hcap.homeLine > 0 ? '+' : '') + o.hcap.homeLine, o.hcap.homeOdds);
+    if (o.total) h += two('Más ' + o.total.line, o.total.over, 'Menos ' + o.total.line, o.total.under);
+    if (o.half) h += two('½ visit.', o.half.away, '½ local', o.half.home);
     h += '</div>';
     if (o.props && o.props.length) {
       var gi = imp.games.indexOf(g), sel = imp.props[impKey(g)] || {}, nSel = Object.keys(sel).length;
@@ -1734,7 +1745,7 @@
         }).join('') + '<button type="button" data-imp-pts="' + gi + '" data-stat="*">Marcar todos</button><button type="button" data-imp-none="' + gi + '">Quitar</button></div>' +
         o.props.map(function (pr, pi) {
           var hdr = (pi === 0 || o.props[pi - 1].stat !== pr.stat) ? '<div class="imp-pr-h">' + pr.stat + '</div>' : '';
-          return hdr + '<label class="imp-pr-r"><input type="checkbox" data-imp-pr="' + gi + '-' + pi + '"' + (sel[pi] ? ' checked' : '') + '><span><b>' + pr.player + '</b><small>' + pr.stat + ' · línea ' + pr.line + '</small></span><em>Más <b>' + impCut(pr.over).toFixed(2) + '</b><br>Menos <b>' + impCut(pr.under).toFixed(2) + '</b></em></label>';
+          return hdr + '<label class="imp-pr-r"><input type="checkbox" data-imp-pr="' + gi + '-' + pi + '"' + (sel[pi] ? ' checked' : '') + '><span><b>' + pr.player + '</b><small>' + pr.stat + ' · línea ' + pr.line + '</small></span><em>Más <b>' + impPair(pr.over, pr.under)[0].toFixed(2) + '</b><br>Menos <b>' + impPair(pr.over, pr.under)[1].toFixed(2) + '</b></em></label>';
         }).join('') + '</details>';
     }
     return h;
@@ -1796,6 +1807,8 @@
       Object.keys(d).filter(function (k) { return k !== 'key'; }).map(function (k) { return k.toUpperCase() + ':\n' + d[k]; }).join('\n\n');
     loadPapiUsage();
   });
+  try { var svM = localStorage.getItem('rdImpMargin2'); if (svM !== null && svM !== '') document.getElementById('impMargin').value = svM; } catch (e) {}
+  document.getElementById('impMargin').addEventListener('change', function () { try { localStorage.setItem('rdImpMargin2', this.value); } catch (e) {} });
   document.getElementById('impMargin').addEventListener('input', function () { if (imp.games.length) impRender(); Array.prototype.forEach.call(document.querySelectorAll('.cut-btn'), function (b) { b.firstChild.textContent = '➖ Bajar ' + cutPct() + '% las cuotas de este juego '; }); });
   document.getElementById('impList').addEventListener('input', function (e) {
     var im = e.target.closest('[data-imm]'); if (!im) return;
@@ -1842,34 +1855,39 @@
         var ymd = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Puerto_Rico', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(g.startAt));
         state.matches.push({ id: 'm' + Date.now() + i, sport: imp.sport, sportLabel: SPORT_LABELS[imp.sport], time: formatMatchTime(ymd, hm), live: false,
           startAt: ymd + 'T' + hm + ':00-04:00', home: g.home, away: g.away,
-          odds: [{ k: 'Local', v: g.odds ? decimalToAmerican(String(impCut(g.odds.home))) : null }, { k: 'Empate', v: null }, { k: 'Visitante', v: g.odds ? decimalToAmerican(String(impCut(g.odds.away))) : null }] });
+          odds: [{ k: 'Local', v: g.odds ? A2(g.odds.home, g.odds.away)[0] : null }, { k: 'Empate', v: null }, { k: 'Visitante', v: g.odds ? A2(g.odds.home, g.odds.away)[1] : null }] });
         var nm = state.matches[state.matches.length - 1], o = g.odds;
-        var mv = !o && imp.manual[impKey(g)] ? imp.manual[impKey(g)] : null, D = function (x) { var n = parseFloat(String(x || '').replace(',', '.')); return n > 1 ? decimalToAmerican(String(impCut(n))) : null; };
+        var mv = !o && imp.manual[impKey(g)] ? imp.manual[impKey(g)] : null, N = function (x) { var n = parseFloat(String(x || '').replace(',', '.')); return n > 1 ? n : null; },
+          D = function (x) { var n = N(x); return n ? decimalToAmerican(String(impCut(n))) : null; },
+          P = function (x, y) { return N(x) && N(y) ? A2(N(x), N(y)) : null; };
         if (mv) {
-          if (D(mv.a) && D(mv.h)) { nm.odds[2].v = D(mv.a); nm.odds[0].v = D(mv.h); }
+          var pr2 = P(mv.a, mv.h); if (pr2) { nm.odds[2].v = pr2[0]; nm.odds[0].v = pr2[1]; }
           var tl2 = parseFloat(String(mv.tl !== undefined && mv.tl !== '' ? mv.tl : (TOTAL_DEFAULT[imp.sport] || '')).replace(',', '.'));
-          if (tl2 > 0 && D(mv.to) && D(mv.tu)) nm.total = { line: tl2, over: D(mv.to), under: D(mv.tu) };
-          if (D(mv.ha) && D(mv.hh)) {
+          if (tl2 > 0 && (pr2 = P(mv.to, mv.tu))) nm.total = { line: tl2, over: pr2[0], under: pr2[1] };
+          var prh = P(mv.ha, mv.hh);
+          if (prh) {
             var hl = parseFloat(String(mv.hl || '').replace(',', '.'));
-            if (!isNaN(hl) && hl !== 0) nm.handicap = { awayLine: hl, homeLine: -hl, awayOdds: D(mv.ha), homeOdds: D(mv.hh) };
-            else if (nm.odds[0].v) { var sg = suggestLines(nm); if (sg.home !== '') nm.handicap = { homeLine: sg.home, homeOdds: D(mv.hh), awayLine: sg.away, awayOdds: D(mv.ha) }; }
+            if (!isNaN(hl) && hl !== 0) nm.handicap = { awayLine: hl, homeLine: -hl, awayOdds: prh[0], homeOdds: prh[1] };
+            else if (nm.odds[0].v) { var sg = suggestLines(nm); if (sg.home !== '') nm.handicap = { homeLine: sg.home, homeOdds: prh[1], awayLine: sg.away, awayOdds: prh[0] }; }
           }
-          if (D(mv.xa) && D(mv.xh)) nm.halftime = { away: D(mv.xa), home: D(mv.xh) };
+          if ((pr2 = P(mv.xa, mv.xh))) nm.halftime = { away: pr2[0], home: pr2[1] };
           var isBb = imp.sport === 'beisbol' || imp.sport === 'lidom', np = isBb ? 2 : Math.max(1, Number(mv.pn) || 1), props = [];
           for (var pi2 = 0; pi2 < np; pi2++) {
             var pn = String(mv['pp' + pi2] || '').trim(), pl = parseFloat(String(mv['pl' + pi2] || '').replace(',', '.'));
-            if (!pn || !(pl > 0) || !D(mv['po' + pi2]) || !D(mv['pu' + pi2])) continue;
-            props.push({ player: pn, stat: isBb ? 'Ponches' : (mv['ps' + pi2] || IMP_STATS[imp.sport][0]), line: pl, over: D(mv['po' + pi2]), under: D(mv['pu' + pi2]) });
+            var pp2 = P(mv['po' + pi2], mv['pu' + pi2]);
+            if (!pn || !(pl > 0) || !pp2) continue;
+            props.push({ player: pn, stat: isBb ? 'Ponches' : (mv['ps' + pi2] || IMP_STATS[imp.sport][0]), line: pl, over: pp2[0], under: pp2[1] });
           }
           if (props.length) nm.props = props;
           delete imp.manual[impKey(g)];
         }
-        if (o) nm.auto = { cut: Math.min(15, Math.max(0, Number(document.getElementById('impMargin').value) || 0)) };
-        if (o && o.hcap) nm.handicap = { homeLine: o.hcap.homeLine, homeOdds: decimalToAmerican(String(impCut(o.hcap.homeOdds))), awayLine: o.hcap.awayLine, awayOdds: decimalToAmerican(String(impCut(o.hcap.awayOdds))) };
-        if (o && o.half) nm.halftime = { home: decimalToAmerican(String(impCut(o.half.home))), away: decimalToAmerican(String(impCut(o.half.away))) };
-        if (o && o.total) nm.total = { line: o.total.line, over: decimalToAmerican(String(impCut(o.total.over))), under: decimalToAmerican(String(impCut(o.total.under))) };
+        if (o) nm.auto = { cut: impPc() };
+        var q2;
+        if (o && o.hcap) { q2 = A2(o.hcap.homeOdds, o.hcap.awayOdds); nm.handicap = { homeLine: o.hcap.homeLine, homeOdds: q2[0], awayLine: o.hcap.awayLine, awayOdds: q2[1] }; }
+        if (o && o.half) { q2 = A2(o.half.home, o.half.away); nm.halftime = { home: q2[0], away: q2[1] }; }
+        if (o && o.total) { q2 = A2(o.total.over, o.total.under); nm.total = { line: o.total.line, over: q2[0], under: q2[1] }; }
         var ps = imp.props[impKey(g)] || {};
-        if (o && o.props) { var chosen = o.props.filter(function (pr, pi) { return ps[pi]; }); if (chosen.length) nm.props = chosen.map(function (pr) { return { player: pr.player, stat: pr.stat, line: pr.line, over: decimalToAmerican(String(impCut(pr.over))), under: decimalToAmerican(String(impCut(pr.under))) }; }); }
+        if (o && o.props) { var chosen = o.props.filter(function (pr, pi) { return ps[pi]; }); if (chosen.length) nm.props = chosen.map(function (pr) { return { player: pr.player, stat: pr.stat, line: pr.line, over: A2(pr.over, pr.under)[0], under: A2(pr.over, pr.under)[1] }; }); }
       });
       saveMatches(state.matches); renderAdminList(); imp.picked = {}; impRender();
       var withOdds = add.filter(function (g, i) { var mm = state.matches[state.matches.length - add.length + i]; return mm && mm.odds && mm.odds[0].v && mm.odds[2].v; }).length;
