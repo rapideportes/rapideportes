@@ -2133,6 +2133,33 @@ function orphanView(o) {
   return { id: b.id, email: b.email, desc: b.desc_text, stake: Number(b.stake), payout: Number(b.payout), createdAt: b.created_at,
     parlay: /^Combinada/i.test(b.desc_text || ''), legs: o.legs.length, missing: o.missing.map(function (l) { return l.label; }) };
 }
+// Borra de una vez los partidos de días pasados. Los que todavía tienen apuestas
+// pendientes NO se borran (para no dejar apuestas sin calificar).
+app.post('/api/admin/clear-old', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
+  const rows = await sql`SELECT value FROM app_state WHERE key = 'matches'`;
+  var list = rows[0] ? rows[0].value : []; if (typeof list === 'string') { try { list = JSON.parse(list); } catch (e) { list = []; } }
+  if (!Array.isArray(list)) list = [];
+  var fmt = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Puerto_Rico' }), today = fmt.format(new Date());
+  const pending = await sql`SELECT desc_text, match_text FROM bets WHERE status = 'pending' AND deleted_at IS NULL`;
+  var busy = {};
+  pending.forEach(function (b) { betLegs(b).forEach(function (l) { if (l.key) busy[l.key] = true; }); });
+  var keep = [], removed = 0, kept = 0;
+  list.forEach(function (m) {
+    var t = m.startAt ? Date.parse(m.startAt) : NaN;
+    var old = !isNaN(t) && fmt.format(new Date(t)) < today;
+    if (!old) { keep.push(m); return; }
+    if (busy[matchKey(m.away, m.home)] && !m.finished) { keep.push(m); kept++; return; }
+    if (busy[matchKey(m.away, m.home)]) { keep.push(m); kept++; return; }
+    removed++;
+  });
+  if (removed) {
+    await saveResults(list.filter(function (m) { return keep.indexOf(m) < 0; }));
+    await sql`INSERT INTO app_state (key, value) VALUES ('matches', ${JSON.stringify(keep)}::jsonb)
+      ON CONFLICT (key) DO UPDATE SET value = ${JSON.stringify(keep)}::jsonb`;
+  }
+  return c.json({ ok: true, removed: removed, kept: kept });
+});
 // Apuestas pendientes de un partido (para avisar antes de borrarlo).
 app.get('/api/admin/match-bets', async (c) => {
   if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
