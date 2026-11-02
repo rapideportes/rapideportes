@@ -1676,6 +1676,12 @@
     }
     return { ok: true, legs: out, changed: changed };
   }
+  // Resultado de cada jugada que ya calificó el servidor (combinadas), o el estado de la sencilla.
+  function legResOf(h, i) {
+    var st = betStatusMeta(h).cls;
+    if (!/^Combinada/i.test(h.desc || '')) return st === 'won' ? 'won' : st === 'lost' ? 'lost' : st === 'void' ? 'push' : null;
+    return h.legRes && h.legRes[i] ? h.legRes[i] : null;
+  }
   var tkHist = {};
   function tkLiveHTML(h) {
     var legs = tkRawLegs(h); if (!legs.length) return '';
@@ -2435,7 +2441,9 @@
           (isLive ? '<span class="bk-lv">EN VIVO</span>' : '<span class="bk-st">' + (st.i ? '<i>' + st.i + '</i>' : '<i class="dot"></i>') + st.t + '</span>') + '</div>' +
         '<div class="bk-when">' + fmtWhen(h) + '</div>' +
         '<div class="bk-legs">' + legsR.map(function (l, i) {
-          var L = raw[i], res = lvInfo[i] || {}, bname = L ? (L.mk === 'Ganador' && (L.pick === L.home || L.pick === L.away) ? L.pick : L.mk === 'Hándicap' ? L.pick.replace(/\s+[+-]?[\d.]+$/, '') : L.home) : '';
+          var L = raw[i], res = Object.assign({}, lvInfo[i] || {}), srvR = legResOf(h, i);
+          if (srvR) { res.fin = srvR; res.live = false; }
+          var bname = L ? (L.mk === 'Ganador' && (L.pick === L.home || L.pick === L.away) ? L.pick : L.mk === 'Hándicap' ? L.pick.replace(/\s+[+-]?[\d.]+$/, '') : L.home) : '';
           var b = bname ? teamBadge(bname) : null, isPlayer = L && L.mk === 'Otro' && / — (Más|Menos)/.test(L.pick);
           var av = isPlayer ? '<span class="bk-bd pl">' + esc(String(L.pick.split(' — ')[0]).replace(/\s*\(.*\)/, '').split(' ').map(function (w) { return w.charAt(0); }).join('').replace(/[^A-Za-zÁÉÍÓÚÑ]/g, '').slice(0, 2).toUpperCase()) + '</span>'
             : b ? '<span class="bk-bd" style="' + badgeStyle(b) + '">' + esc(b.abbr) + '</span>' : '<span class="bk-bd pl">•</span>';
@@ -3113,7 +3121,7 @@
     var b0 = bets[0], parlay = /^Combinada/i.test(b0.desc || '');
     var stake = 0, pay = 0;
     bets.forEach(function (b) { stake += Number(b.stake); pay += Number(b.payout); });
-    var legs = []; bets.forEach(function (b) { legs = legs.concat(tkLegs(b)); });
+    var legs = []; bets.forEach(function (b) { var L2 = tkLegs(b); L2.forEach(function (l, i) { var hb = (state.history || []).filter(function (x) { return String(x.id) === String(b.id); })[0] || b, sr = legResOf(hb, i); if (sr) l.res = sr; }); legs = legs.concat(L2); });
     var codes = (ids || []).map(function (id) { return 'T-' + String(id).padStart(6, '0'); });
     var whenMs = opt.at ? Date.parse(opt.at) : nowMs();
     var when = new Date(whenMs).toLocaleString('es-PR', { timeZone: PR_TZ, day: '2-digit', month: '2-digit', year: '2-digit', hour: 'numeric', minute: '2-digit' }).toUpperCase();
