@@ -875,6 +875,37 @@
   .mp-sec .mcard .mc-head, .mp-sec .mcard > .mc-time { display: none; }
   .mp-box { background: #fff; border: 1px solid var(--border); border-radius: 18px; padding: 4px 12px 12px; box-shadow: var(--shadow-sm); }
 .wd-type{grid-template-columns:repeat(2,1fr)}.wd-in input{width:100%;font-size:16px}
+
+  /* ---------- Posiciones ---------- */
+  .st-upd { display: inline-flex; align-items: center; gap: 6px; color: var(--text-dim); font-size: 12.5px; margin: 10px 0 2px; }
+  .st-upd b { width: 8px; height: 8px; border-radius: 50%; background: var(--win); box-shadow: 0 0 0 3px rgba(18,183,106,.18); }
+  .st-card { background: var(--bg-raised); border: 1px solid var(--border); border-radius: 12px; box-shadow: var(--shadow-sm); margin: 12px 0; overflow: hidden; }
+  .st-card h3 { margin: 0; padding: 12px 14px; font-family: var(--font-display); font-size: 18px; font-weight: 800; text-transform: uppercase; letter-spacing: .4px; display: flex; justify-content: space-between; align-items: baseline; border-bottom: 1px solid var(--border); }
+  .st-card h3 small { font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--text-faint); text-transform: none; letter-spacing: 0; }
+  .st-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .st-tb { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; font-size: 13.5px; }
+  .st-tb th { font-size: 11px; font-weight: 600; letter-spacing: .5px; text-transform: uppercase; color: var(--text-dim); text-align: right; padding: 8px 9px; white-space: nowrap; }
+  .st-tb td { padding: 9px 9px; text-align: right; border-top: 1px solid var(--border); white-space: nowrap; }
+  .st-tb th:first-child, .st-tb td:first-child { text-align: left; position: sticky; left: 0; background: var(--bg-raised); z-index: 1; box-shadow: 1px 0 0 var(--border); }
+  .st-tb tr[data-open-match] { cursor: pointer; }
+  .st-tb tr[data-open-match]:hover td { background: var(--surface); }
+  .st-team { font-weight: 600; }
+  .st-team > span { vertical-align: middle; }
+  .st-pos { display: inline-block; width: 16px; text-align: right; color: var(--text-faint); font-weight: 500; font-size: 12px; margin-right: 6px; }
+  .st-ab { display: inline-grid; place-items: center; min-width: 32px; height: 22px; padding: 0 4px; border-radius: 4px; background: var(--surface); font: 700 11px var(--font-body); margin-right: 7px; }
+  .st-tb tr.st-cut td { border-top: 2px dashed var(--accent); }
+  .st-pts { font-weight: 700; }
+  .st-strk { font-weight: 700; }
+  .st-strk.w { color: var(--win); } .st-strk.l { color: var(--accent); }
+  .st-betbtn { background: var(--accent); color: var(--on-accent); border: 0; border-radius: 6px; padding: 5px 10px; font-size: 12px; font-weight: 700; }
+  .st-leg { display: flex; align-items: center; gap: 6px; color: var(--text-dim); font-size: 12px; padding: 10px 14px; border-top: 1px solid var(--border); }
+  .st-leg i { display: inline-block; width: 18px; border-top: 2px dashed var(--accent); }
+  .st-name { display: inline-block; vertical-align: middle; }
+  @media (max-width: 520px) {
+    .st-ab { display: none; }
+    .st-name { white-space: normal; max-width: 112px; line-height: 1.2; }
+    .st-tb td, .st-tb th { padding-left: 7px; padding-right: 7px; }
+  }
 </style>
 </head>
 <body>
@@ -902,6 +933,7 @@
     <button type="button" data-view="home" class="active">Deportes</button>
     <button type="button" data-view="live">En vivo<span class="dr-live">LIVE</span></button>
     <button type="button" data-view="results">Resultados</button>
+    <button type="button" data-view="standings">Posiciones</button>
   </div>
   <div class="dr-group u dr-pad">
     <button type="button" data-info="responsable"><span>Juego responsable</span></button>
@@ -1321,7 +1353,7 @@
 
   /* ---------- Estado ---------- */
   var state = {
-    view: 'home', sport: 'all', results: [], slip: {}, slipMode: 'singles', slipModeManual: false, parlayStake: 10,
+    view: 'home', sport: 'all', stLeague: 'lidom', standings: {}, results: [], slip: {}, slipMode: 'singles', slipModeManual: false, parlayStake: 10,
     user: null, balance: 0, history: [], matches: [],
     authMode: 'login', searchQuery: '', expanded: {}, expandedZone: {}, expandedLiveRow: {}, isAdmin: false, cashPanel: null, cashAmt: 50, extrasLoaded: false, cashoutConfirm: null, winDismissed: false, favs: loadFavs(), limits: { period: 'day', amount: 0, used: 0 }, limitDraft: null, verify: { status: 'none' }, vfDraft: { dob: '' }, withdrawals: [], payoutLabel: null
   };
@@ -1782,6 +1814,76 @@
     if (!fromPop) { try { if (history.state && history.state.rdMatch) history.back(); } catch (e) {} }
   }
   window.addEventListener('popstate', function () { if (state.view === 'match') closeMatch(true); });
+
+  /* ---------- Posiciones ---------- */
+  var ST_LEAGUES = [['lidom', 'LIDOM', 'lidom'], ['nba', 'NBA', 'baloncesto'], ['nfl', 'NFL', 'nfl'], ['nhl', 'NHL', 'nhl']];
+  var ST_GROUP_ES = {
+    'Eastern Conference': 'Conferencia Este', 'Western Conference': 'Conferencia Oeste',
+    'AFC East': 'AFC Este', 'AFC North': 'AFC Norte', 'AFC South': 'AFC Sur', 'AFC West': 'AFC Oeste',
+    'NFC East': 'NFC Este', 'NFC North': 'NFC Norte', 'NFC South': 'NFC Sur', 'NFC West': 'NFC Oeste',
+    'Atlantic Division': 'División Atlántico', 'Metropolitan Division': 'División Metropolitana',
+    'Central Division': 'División Central', 'Pacific Division': 'División Pacífico'
+  };
+  async function loadStandings(lg, force) {
+    var cur = state.standings[lg];
+    if (!force && cur && cur.data && Date.now() - cur.at < 5 * 60000) return;
+    state.standings[lg] = { loading: true, data: cur && cur.data, at: cur ? cur.at : 0 };
+    if (state.view === 'standings') renderView();
+    var d = await apiGet('/api/standings?league=' + lg);
+    state.standings[lg] = d && d.groups ? { data: d, at: Date.now() } : { error: true, data: cur && cur.data, at: cur ? cur.at : 0 };
+    if (state.view === 'standings' && state.stLeague === lg) { var y = window.scrollY; renderView(); window.scrollTo(0, y); }
+  }
+  function stNextMatch(sport, team) {
+    var list = state.matches.filter(function (m) { return m.sport === sport && !isBettingClosed(m) && (m.home === team || m.away === team); });
+    list.sort(function (a, b) { return (Date.parse(a.startAt) || 0) - (Date.parse(b.startAt) || 0); });
+    return list[0] || null;
+  }
+  function stAgo(ts) {
+    var m = Math.floor((Date.now() - ts) / 60000);
+    return m < 1 ? 'Actualizado hace un momento' : 'Actualizado hace ' + m + ' min';
+  }
+  function stStreak(s) {
+    if (!s) return '—';
+    return '<span class="st-strk ' + (s[0] === 'G' ? 'w' : s[0] === 'P' ? 'l' : '') + '">' + esc(s) + '</span>';
+  }
+  function standingsHTML() {
+    var lg = state.stLeague, sport = ST_LEAGUES.filter(function (x) { return x[0] === lg; })[0][2];
+    var html = '<div class="sec-title">Posiciones</div>';
+    html += '<div class="chips">' + ST_LEAGUES.map(function (x) {
+      return '<button type="button" class="chip' + (x[0] === lg ? ' active' : '') + '" data-st-league="' + x[0] + '">' + x[1] + '</button>';
+    }).join('') + '</div>';
+    var s = state.standings[lg] || {}, d = s.data;
+    if (!d) return html + (s.error ? emptyHTML('📋', 'No pudimos cargar la tabla ahora. Intenta de nuevo en unos minutos.') : emptyHTML('⏳', 'Cargando la tabla…'));
+    html += '<div class="st-upd"><b></b>' + stAgo(d.updatedAt) + '</div>';
+    var cols, cut = 0, legend = '';
+    if (lg === 'lidom') { cols = [['J', 'gp'], ['G', 'w'], ['P', 'l'], ['Pct', 'pct'], ['Dif', 'gb'], ['Casa', 'home'], ['Ruta', 'road'], ['Racha', 'streak'], ['Últ. 10', 'l10']]; cut = 4; legend = 'Clasifican al Round Robin'; }
+    else if (lg === 'nba') { cols = [['G', 'w'], ['P', 'l'], ['Pct', 'pct'], ['Dif', 'gb'], ['Racha', 'streak'], ['Últ. 10', 'l10']]; cut = 10; legend = 'Playoffs y play-in (1-10)'; }
+    else if (lg === 'nfl') { cols = [['G', 'w'], ['P', 'l'], ['E', 't'], ['Pct', 'pct'], ['Racha', 'streak']]; }
+    else { cols = [['J', 'gp'], ['G', 'w'], ['P', 'l'], ['PT', 'otl'], ['Pts', 'pts'], ['Racha', 'streak'], ['Últ. 10', 'l10']]; cut = 3; legend = 'Clasifican a playoffs (1-3)'; }
+    d.groups.forEach(function (g) {
+      var name = g.name === 'LIDOM' ? 'LIDOM' : (ST_GROUP_ES[g.name] || g.name);
+      html += '<section class="st-card"><h3>' + esc(name) + '<small>' + g.rows.length + ' equipos</small></h3><div class="st-scroll"><table class="st-tb"><thead><tr><th>Equipo</th>' +
+        cols.map(function (c) { return '<th>' + c[0] + '</th>'; }).join('') + '<th></th></tr></thead><tbody>';
+      g.rows.forEach(function (r, i) {
+        var nm = stNextMatch(sport, r.team);
+        html += '<tr' + (cut && i === cut ? ' class="st-cut"' : '') + (nm ? ' data-open-match="' + esc(nm.id) + '"' : '') + '>' +
+          '<td class="st-team"><span class="st-pos">' + (i + 1) + '</span><span class="st-ab" data-no-i18n>' + esc(r.abbr) + '</span><span class="st-name" data-no-i18n>' + esc(r.team) + '</span></td>' +
+          cols.map(function (c) {
+            var v = r[c[1]];
+            if (c[1] === 'pct') v = v >= 1 ? '1.000' : Number(v || 0).toFixed(3).replace(/^0/, '');
+            else if (c[1] === 'gb') v = v === 0 ? '—' : (v % 1 ? v.toFixed(1) : v + '.0');
+            else if (c[1] === 'streak') return '<td>' + stStreak(v) + '</td>';
+            else if (v === '' || v == null) v = '—';
+            return '<td' + (c[1] === 'pts' ? ' class="st-pts"' : '') + '>' + esc(String(v)) + '</td>';
+          }).join('') +
+          '<td class="st-bet">' + (nm ? '<button type="button" class="st-betbtn" data-open-match="' + esc(nm.id) + '">Apostar</button>' : '') + '</td></tr>';
+      });
+      html += '</tbody></table></div>' + (legend ? '<div class="st-leg"><i></i>' + legend + '</div>' : '') + '</section>';
+    });
+    if (lg === 'nhl') html += '<p class="sec-sub">PT = derrotas en tiempo extra.</p>';
+    return html;
+  }
+  setInterval(function () { if (state.view === 'standings') { var e = document.querySelector('.st-upd'); var d = (state.standings[state.stLeague] || {}).data; if (e && d) e.lastChild.nodeValue = stAgo(d.updatedAt); } }, 30000);
   function chipsHTML() {
     var items = [['all', 'Todos'], ['beisbol', 'MLB'], ['lidom', 'LIDOM'], ['baloncesto', 'NBA'], ['nfl', 'NFL'], ['nhl', 'NHL']];
     return '<div class="chips">' + items.map(function (c) {
@@ -2196,6 +2298,7 @@
     else if (v === 'promos') app.innerHTML = promosHTML();
     else if (v === 'cashier') app.innerHTML = cashierHTML();
     else if (v === 'results') app.innerHTML = chipsHTML() + resultsHTML();
+    else if (v === 'standings') app.innerHTML = standingsHTML();
     else if (v === 'search') { app.innerHTML = searchShell(); updateSearchResults(); }
     else if (v === 'match') app.innerHTML = matchPageHTML();
     syncNav();
@@ -2203,6 +2306,7 @@
   function setView(v, focusSearch) {
     state.view = v;
     renderView();
+    if (v === 'standings') loadStandings(state.stLeague);
     if (v === 'live' || v === 'results') loadResults().then(function () { if (state.view === v) { var y = window.scrollY; renderView(); window.scrollTo(0, y); } });
     window.scrollTo(0, 0);
     if (v === 'search' && focusSearch) { var i = $('searchInput'); if (i) i.focus(); }
@@ -3013,6 +3117,7 @@
       renderView();
       return;
     }
+    var stl = t.closest('[data-st-league]'); if (stl) { state.stLeague = stl.dataset.stLeague; renderView(); loadStandings(state.stLeague); return; }
     var om = t.closest('[data-open-match]'); if (om) { openMatch(om.dataset.openMatch); return; }
     if (t.closest('[data-mp-back]')) { closeMatch(); return; }
     var mpt = t.closest('[data-mp-tab]'); if (mpt) { state.mpTab = mpt.dataset.mpTab; renderView(); return; }
@@ -3406,7 +3511,7 @@
   'use strict';
   var EXACT = {
     'Inicio': 'Home', 'En vivo': 'Live', 'Mis apuestas': 'My bets', 'Promociones': 'Promotions', 'Buscar': 'Search',
-    'Deportes': 'Sports', 'Resultados': 'Results', 'Ayuda': 'Help', 'Juego responsable': 'Responsible gaming',
+    'Deportes': 'Sports', 'Resultados': 'Results', 'Posiciones': 'Standings', 'Equipo': 'Team', 'Casa': 'Home', 'Ruta': 'Away', 'Racha': 'Strk', 'Últ. 10': 'L10', 'Dif': 'GB', 'Pts': 'Pts', 'PT': 'OTL', 'J': 'GP', 'G': 'W', 'P': 'L', 'E': 'T', 'Apostar': 'Bet', 'Ayuda': 'Help', 'Juego responsable': 'Responsible gaming',
     'Depositar': 'Deposit', 'Mi cuenta': 'My account', 'Métodos de pago': 'Payment methods', 'Reglas de apuestas': 'Betting rules',
     'Términos y condiciones': 'Terms and conditions', 'Soporte': 'Support', 'Privacidad': 'Privacy', 'Contacto': 'Contact',
     'Entrar': 'Log in', 'Regístrate': 'Sign up', 'Cuenta': 'Account', 'Saldo': 'Balance', 'Todos': 'All',
@@ -3552,11 +3657,14 @@
     ['En vivo', 'Live'], ['Ganador', 'Winner'], ['Hándicap', 'Handicap'], ['carreras', 'runs'], ['puntos', 'points'], ['goles', 'goals'],
     ['Imprimiendo tu ticket…', 'Printing your ticket…'], ['¡Listo! Apuesta confirmada', 'Done! Bet confirmed'], ['📲 Compartir jugada', '📲 Share bet'],
     ['SI GANAS', 'IF YOU WIN'], ['Todas', 'All'], ['Principales', 'Main'], ['Jugadores', 'Players'], ['Lanzadores', 'Pitchers'], ['Ver el partido ›', 'View game ›'], ['Este partido ya no está disponible.', 'This game is no longer available.'], ['Puntos', 'Points'], ['Rebotes', 'Rebounds'], ['Asistencias', 'Assists'], ['Ver menos', 'Show less'], ['Estamos preparando las líneas de los próximos juegos. Vuelve pronto.', 'We are preparing the lines for the next games. Check back soon.'], ['Mira el marcador al momento', 'Watch the live score'], ['Mira cómo van', 'See how they are going'], ['Resultados recientes', 'Recent results'], ['Las cuotas cambiaron. Revisa tu boleto y confirma otra vez.', 'The odds changed. Check your slip and confirm again.'], ['Ver todos los resultados', 'See all results'], ['Ayer', 'Yesterday'], ['Partidos terminados con su marcador final, por día.', 'Finished games with their final score, by day.'], ['🧾 Ver ticket y compartir', '🧾 View ticket & share'], ['Tu ticket', 'Your ticket'], ['Se guardó la foto del ticket. Mándala por WhatsApp o donde quieras.', 'The ticket image was saved. Send it on WhatsApp or anywhere.'], ['APUESTA SENCILLA', 'SINGLE BET'], ['Apostaste', 'You bet'], ['cuota total', 'total odds'],
+    ['Actualizado hace un momento', 'Updated just now'], ['Clasifican al Round Robin', 'Round Robin spots'], ['Clasifican a playoffs', 'Playoff spots'], ['Playoffs y play-in', 'Playoffs and play-in'], ['PT = derrotas en tiempo extra.', 'OTL = overtime losses.'], ['No pudimos cargar la tabla ahora. Intenta de nuevo en unos minutos.', "We couldn't load the table right now. Try again in a few minutes."], ['Cargando la tabla…', 'Loading the table…'], ['equipos', 'teams'],
+    ['Conferencia Este', 'Eastern Conference'], ['Conferencia Oeste', 'Western Conference'], ['División Atlántico', 'Atlantic Division'], ['División Metropolitana', 'Metropolitan Division'], ['División Central', 'Central Division'], ['División Pacífico', 'Pacific Division'], ['AFC Este', 'AFC East'], ['AFC Norte', 'AFC North'], ['AFC Sur', 'AFC South'], ['AFC Oeste', 'AFC West'], ['NFC Este', 'NFC East'], ['NFC Norte', 'NFC North'], ['NFC Sur', 'NFC South'], ['NFC Oeste', 'NFC West'],
     ['Más ', 'Over '], ['Menos ', 'Under '], ['Cerrar', 'Close'], ['Hoy ', 'Today '], ['Mañana ', 'Tomorrow ']
   ];
   PHRASES.sort(function (a, b) { return b[0].length - a[0].length; });
   var REGEX = [
     [/Saldo insuficiente: tienes (\S+) y la apuesta es de (\S+?)\.$/, 'Insufficient balance: you have $1 and the bet is $2.'],
+    [/Actualizado hace (\d+) min/, 'Updated $1 min ago'],
     [/(\d)\s?p\.\s?m\./g, '$1 PM'], [/(\d)\s?a\.\s?m\./g, '$1 AM'],
     [/(\d+)\s?ª entrada/g, 'Inning $1'], [/(\d+)\s?er período/g, '$1st period'], [/(\d+)\s?do período/g, '$1nd period'],
     [/(\d+)\s?er cuarto/g, '$1st quarter'], [/(\d+)\s?to cuarto/g, '$1th quarter'],
