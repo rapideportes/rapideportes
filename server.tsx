@@ -511,6 +511,8 @@ async function fetchEspnGames(espnPath) {
         state: (function () { var ty = comp.status && comp.status.type ? comp.status.type : {}; var stt = ty.state || ''; return stt === 'post' && ty.completed === false ? 'pre' : stt; })(),
         estadoDetallado: (function () { var ty = comp.status && comp.status.type ? comp.status.type : {}; if (ty.state !== 'post' || ty.completed !== false) return null; return /cancel/i.test(ty.name || '') ? 'Cancelado' : /suspend/i.test(ty.name || '') ? 'Suspendido' : 'Pospuesto'; })(),
         startTimeUtc: ev.date || null,
+        lsHome: (home.linescores || []).map(function (x) { return Number(x.value); }),
+        lsAway: (away.linescores || []).map(function (x) { return Number(x.value); }),
         period: comp.status ? comp.status.period : undefined,
         clock: comp.status ? comp.status.displayClock : '',
         leaders: (function () {
@@ -646,6 +648,7 @@ async function fetchMlbGamesFromStatsApi(sportId) {
         awayScore: ls.teams && ls.teams.away ? ls.teams.away.runs : undefined,
         state: state,
         estadoDetallado: estadoDetallado,
+        innings: (ls.innings || []).map(function (x) { return { a: Number(x.away && x.away.runs) || 0, h: Number(x.home && x.home.runs) || 0 }; }),
         precomputedPeriod: ls.currentInning ? ((inningWord ? inningWord + ' ' : '') + ls.currentInning + 'ª entrada') : '',
         sportDetail: {
           inning: ls.currentInning || null,
@@ -702,6 +705,7 @@ async function nhlWithLeaders() {
     games.forEach(function (g) {
       var e = es.find(function (x) { return teamNamesMatch(x.home, g.home) && teamNamesMatch(x.away, g.away); });
       if (e && e.leaders && (e.leaders.home || e.leaders.away)) g.leaders = e.leaders;
+      if (e && e.lsHome && e.lsHome.length) { g.lsHome = e.lsHome; g.lsAway = e.lsAway; }
     });
   } catch (e) {}
   return games;
@@ -859,6 +863,8 @@ async function updateLiveScores() {
       var realHomeScore = reversed ? g.awayScore : g.homeScore;
       var realAwayScore = reversed ? g.homeScore : g.awayScore;
       var update = { espnEventId: g.id || m.espnEventId };
+      var hs = halfFromGame(m.sport, g);
+      if (hs) update.halfScore = reversed ? { away: hs.home, home: hs.away, done: hs.done, voided: hs.voided } : hs;
 
       // Arma el detalle específico del deporte para la nueva interfaz de
       // "En vivo": bases/outs en béisbol, período+reloj en NHL/NBA.
@@ -938,6 +944,7 @@ async function updateLiveScores() {
       if (u.espnEventId) m.espnEventId = u.espnEventId;
       if (u.live !== undefined) m.live = u.live;
       if (u.finished !== undefined) m.finished = u.finished;
+      if (u.halfScore && !(m.halfScore && m.halfScore.done)) m.halfScore = u.halfScore;
       if (u.score) {
         // ¿El reloj del juego está corriendo? NHL lo dice; en NBA/NFL se sabe
         // comparando con la lectura anterior: si no cambió, está parado
@@ -1024,6 +1031,47 @@ function indexMatches(list) {
 }
 // Para calificar: el partido al que pertenece una apuesta es el primero con esos
 // equipos que empezó DESPUÉS de hecha la apuesta (nunca uno ya jugado antes).
+// ---------- Medio tiempo / primeras 5 entradas / primer período ----------
+// Marcador de esa parte del juego y si ya terminó.
+function halfFromGame(sport, g) {
+  if (!g) return null;
+  if (sport === 'beisbol' || sport === 'lidom') {
+    var inn = g.innings || []; if (!inn.length) return null;
+    var cur = Number((g.sportDetail && g.sportDetail.inning) || 0), half = (g.sportDetail && g.sportDetail.half) || '';
+    var five = inn.slice(0, 5), a = five.reduce(function (x, i) { return x + i.a; }, 0), h = five.reduce(function (x, i) { return x + i.h; }, 0);
+    var done = g.state === 'post' ? inn.length >= 5 : (cur >= 6 || (cur === 5 && /end/i.test(half)));
+    if (g.state === 'post' && inn.length < 5) return { away: a, home: h, done: true, voided: true }; // juego acortado
+    return { away: a, home: h, done: !!done };
+  }
+  var la = g.lsAway || [], lh = g.lsHome || [], need = sport === 'nhl' ? 1 : 2;
+  if (lh.length < need || la.length < need) return null;
+  var sa = 0, sh = 0; for (var i = 0; i < need; i++) { sa += Number(la[i]) || 0; sh += Number(lh[i]) || 0; }
+  var per = Number(g.period) || 0;
+  return { away: sa, home: sh, done: g.state === 'post' || per > need };
+}
+var HALF_RE = /^(Medio tiempo|Primeras 5 entradas|Primer período) — (.*)$/;
+function gradeHalf(pick, m) {
+  var mm = HALF_RE.exec(String(pick || '').trim()); if (!mm || !m || !m.halfScore || !m.halfScore.done) return null;
+  var hs = m.halfScore, team = mm[2].trim();
+  if (hs.voided || hs.away === hs.home) return 'push';
+  var winner = hs.away > hs.home ? m.away : m.home;
+  if (team !== m.away && team !== m.home) return null;
+  return team === winner ? 'won' : 'lost';
+}
+function halfViewFor(createdAt, allByKey) {
+  var bt = createdAt ? new Date(createdAt).getTime() : NaN, out = {};
+  Object.keys(allByKey).forEach(function (k) {
+    var list = allByKey[k], pick = null;
+    if (list.length === 1 && !list[0].startAt) pick = list[0];
+    else list.forEach(function (m) {
+      var t = m.startAt ? Date.parse(m.startAt) : NaN;
+      if (isNaN(t) || isNaN(bt) || t < bt - 60000) return;
+      if (!pick || t < Date.parse(pick.startAt)) pick = m;
+    });
+    if (pick && pick.halfScore && pick.halfScore.done) out[k] = pick;
+  });
+  return out;
+}
 function finishedViewFor(createdAt, allByKey) {
   var bt = createdAt ? new Date(createdAt).getTime() : NaN;
   var out = {};
@@ -1133,7 +1181,7 @@ function gradeSingleBet(descText, matchText, finishedByKey, statsByEventId) {
 // Califica una apuesta COMBINADA: cada pata va como
 // "main@@@pick@@@cuota" separada por " · ". Solo se califica cuando
 // TODAS las patas tienen su partido finalizado.
-function gradeParlayBet(matchText, finishedByKey, statsByEventId) {
+function gradeParlayBet(matchText, finishedByKey, statsByEventId, halfByKey) {
   var legs = String(matchText || '').split(' · ');
   var results = [], pushDiv = 1;
   for (var i = 0; i < legs.length; i++) {
@@ -1152,8 +1200,10 @@ function gradeParlayBet(matchText, finishedByKey, statsByEventId) {
       var stats = statsByEventId[m.espnEventId];
       if (!stats) return null;
       result = gradePlayerProp(m, pick, stats);
+    } else if (HALF_RE.test(pick)) {
+      result = gradeHalf(pick, (halfByKey || {})[matchKey(away, home)]);
     } else if (/ — /.test(pick)) {
-      return null; // medio tiempo / primer período: lo califica el admin (nunca se da por perdida sola)
+      return null;
     } else {
       result = gradeSelection(mainType, away, home, pick, finishedByKey);
     }
@@ -1350,7 +1400,8 @@ async function settleBets() {
       (allByKey[k] = allByKey[k] || []).push(m);
       if (m.finished) finishedByKey[k] = m;
     });
-    if (Object.keys(finishedByKey).length === 0) return;
+    var anyHalf = matches.some(function (m) { return m.halfScore && m.halfScore.done; });
+    if (Object.keys(finishedByKey).length === 0 && !anyHalf) return;
 
     const pending = await sql`SELECT id, user_id, desc_text, match_text, stake, payout, created_at FROM bets WHERE status = 'pending' AND deleted_at IS NULL`;
     var anyPropPending = pending.some(function (b) { return / — (Más|Menos) [\d.]+/.test(b.desc_text || '') || / — (Más|Menos) [\d.]+/.test(b.match_text || ''); });
@@ -1376,8 +1427,11 @@ async function settleBets() {
     for (const b of pending) {
       var isParlay = /^Combinada/i.test(b.desc_text || '');
       var fk = finishedViewFor(b.created_at, allByKey); // solo el juego que empezó después de la apuesta
+      var hk = halfViewFor(b.created_at, allByKey);
+      var sDesc = String(b.desc_text || '').replace(/\s*\([\d.]+\)\s*$/, ''), smm = /^(.*) @ (.*)$/.exec(b.match_text || '');
       var result = isParlay
-        ? gradeParlayBet(b.match_text, fk, statsByEventId)
+        ? gradeParlayBet(b.match_text, fk, statsByEventId, hk)
+        : HALF_RE.test(sDesc) ? (smm ? gradeHalf(sDesc, hk[matchKey(smm[1], smm[2])]) : null)
         : gradeSingleBet(b.desc_text, b.match_text, fk, statsByEventId);
       if (result === null) continue; // todavía no se puede calificar
 
@@ -1436,6 +1490,7 @@ function applyAutoOdds(m, o) {
   var set = function (obj, k, v) { if (v !== null && v !== undefined && String(obj[k]) !== String(v)) { obj[k] = v; ch = true; } };
   if (o.home > 1 && o.away > 1 && m.odds) { if (m.odds[0]) set(m.odds[0], 'v', A(o.home)); if (m.odds[2]) set(m.odds[2], 'v', A(o.away)); }
   if (o.hcap && m.handicap) { set(m.handicap, 'homeLine', o.hcap.homeLine); set(m.handicap, 'awayLine', o.hcap.awayLine); set(m.handicap, 'homeOdds', A(o.hcap.homeOdds)); set(m.handicap, 'awayOdds', A(o.hcap.awayOdds)); }
+  if (o.half && m.halftime) { set(m.halftime, 'home', A(o.half.home)); set(m.halftime, 'away', A(o.half.away)); }
   if (o.total && m.total) { set(m.total, 'line', o.total.line); set(m.total, 'over', A(o.total.over)); set(m.total, 'under', A(o.total.under)); }
   if (o.props && o.props.length && m.props) {
     // Si PokerStars quitó a un jugador (lesión, no juega), se quita también aquí para que no le apuesten.
@@ -2074,6 +2129,65 @@ app.post('/api/admin/orphan-bets/resolve', async (c) => {
   return c.json({ ok: true, resolved: done });
 });
 
+// ---------- Copias de seguridad ----------
+// Todo lo que importa del dinero: jugadores y saldos, apuestas, retiros, depósitos y ajustes.
+async function buildBackup() {
+  const users = await sql`SELECT id, email, balance, created_at FROM users ORDER BY id`;
+  const bets = await sql`SELECT id, user_id, desc_text, match_text, stake, payout, status, created_at, deleted_at FROM bets
+    WHERE status = 'pending' OR created_at > now() - interval '120 days' ORDER BY id`;
+  var safe = async function (q) { try { return await q; } catch (e) { return []; } };
+  const withdrawals = await safe(sql`SELECT * FROM withdrawals WHERE status = 'pending' OR created_at > now() - interval '120 days' ORDER BY id`);
+  const deposits = await safe(sql`SELECT * FROM deposits WHERE created_at > now() - interval '120 days' ORDER BY id`);
+  const adjustments = await safe(sql`SELECT * FROM balance_adjustments WHERE created_at > now() - interval '120 days' ORDER BY id`);
+  var total = users.reduce(function (a, u) { return a + Number(u.balance); }, 0);
+  return {
+    sitio: 'RapiDeportes', hecho: new Date().toISOString(),
+    resumen: { jugadores: users.length, saldo_total: Math.round(total * 100) / 100, apuestas_pendientes: bets.filter(function (b) { return b.status === 'pending' && !b.deleted_at; }).length },
+    users: users, bets: bets, withdrawals: withdrawals, deposits: deposits, balance_adjustments: adjustments
+  };
+}
+app.get('/api/admin/backup', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
+  var data = await buildBackup();
+  var day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Puerto_Rico' }).format(new Date());
+  return new Response(JSON.stringify(data, null, 1), { headers: { 'Content-Type': 'application/json; charset=utf-8', 'Content-Disposition': 'attachment; filename="rapideportes-copia-' + day + '.json"' } });
+});
+app.get('/api/admin/backup-status', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
+  const r = await sql`SELECT value FROM app_state WHERE key = 'backup_last'`;
+  var v = r[0] ? r[0].value : null; if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
+  return c.json({ email: !!(Bun.env.BACKUP_EMAIL && emailEnabled()), to: Bun.env.BACKUP_EMAIL ? String(Bun.env.BACKUP_EMAIL).replace(/^(.).*(@.*)$/, '$1***$2') : null, last: v });
+});
+// Cada día (después de las 4 a. m. de PR) se manda la copia al correo BACKUP_EMAIL (Railway → Variables).
+async function dailyBackup() {
+  try {
+    if (!Bun.env.BACKUP_EMAIL || !emailEnabled()) return;
+    var now = new Date();
+    var hour = Number(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Puerto_Rico', hour: 'numeric', hour12: false }).format(now));
+    var day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Puerto_Rico' }).format(now);
+    if (hour < 4) return;
+    const r = await sql`SELECT value FROM app_state WHERE key = 'backup_last'`;
+    var v = r[0] ? r[0].value : null; if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
+    if (v && v.day === day) return;
+    var data = await buildBackup();
+    var json = JSON.stringify(data);
+    var res = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: { 'Authorization': 'Bearer ' + Bun.env.RESEND_API_KEY, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        from: Bun.env.MAIL_FROM || 'RapiDeportes <no-responder@rapideportes.com>', to: [Bun.env.BACKUP_EMAIL],
+        subject: 'Copia de seguridad RapiDeportes · ' + day,
+        html: '<p>Copia del día ' + day + '.</p><p>Jugadores: <b>' + data.resumen.jugadores + '</b> · Saldo total de jugadores: <b>$' + data.resumen.saldo_total.toFixed(2) + '</b> · Apuestas pendientes: <b>' + data.resumen.apuestas_pendientes + '</b></p><p>Guarda este correo: el archivo adjunto tiene todo para recuperar los saldos y las apuestas si algo falla.</p>',
+        attachments: [{ filename: 'rapideportes-copia-' + day + '.json', content: Buffer.from(json).toString('base64') }]
+      })
+    });
+    var st = { day: day, at: now.toISOString(), ok: res.ok, kb: Math.round(json.length / 1024) };
+    await sql`INSERT INTO app_state (key, value) VALUES ('backup_last', ${JSON.stringify(st)}::jsonb) ON CONFLICT (key) DO UPDATE SET value = ${JSON.stringify(st)}::jsonb`;
+  } catch (e) {}
+}
+setInterval(dailyBackup, 30 * 60 * 1000);
+setTimeout(dailyBackup, 60 * 1000);
+
 // Eliminar un ticket: desaparece de las listas. Si estaba pendiente, se le devuelve lo apostado al jugador.
 app.post('/api/admin/bets/:id/delete', async (c) => {
   if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
@@ -2279,6 +2393,8 @@ async function sgoFill(sport, date, games) {
     g.odds = { home: mh.dec, away: ma.dec };
     var sh = sgoPick(O['points-home-game-sp-home']), sa = sgoPick(O['points-away-game-sp-away']);
     if (sh && sa && sh.dec > 1 && sa.dec > 1 && !isNaN(Number(sh.spread)) && !isNaN(Number(sa.spread))) g.odds.hcap = { homeLine: Number(sh.spread), homeOdds: sh.dec, awayLine: Number(sa.spread), awayOdds: sa.dec };
+    var hp = { baloncesto: '1h', nfl: '1h', nhl: '1p', beisbol: '1ix5' }[sport];
+    if (hp) { var hh = sgoPick(O['points-home-' + hp + '-ml-home']), ha = sgoPick(O['points-away-' + hp + '-ml-away']); if (hh && ha && hh.dec > 1 && ha.dec > 1) g.odds.half = { home: hh.dec, away: ha.dec }; }
     var to2 = sgoPick(O['points-all-game-ou-over']), tu = sgoPick(O['points-all-game-ou-under']);
     if (to2 && tu && to2.dec > 1 && tu.dec > 1 && Number(to2.ou) > 0) g.odds.total = { line: Number(to2.ou), over: to2.dec, under: tu.dec };
     var PS = SGO_PROP_STATS[sport];
@@ -2417,10 +2533,11 @@ function papiPlayerName(n) {
   if (m) return m[2].charAt(0).toUpperCase() + '. ' + m[1].trim();
   var w = String(n || '').trim().split(/\s+/); return w.length > 1 ? w[0].charAt(0).toUpperCase() + '. ' + w.slice(1).join(' ') : String(n || '');
 }
+const PAPI_HALF_RE = /1st.?half|first.?half|firsthalf|\bh1\b|\b1h\b|halftime|1st.?period|first.?period|\bp1\b|\b1p\b|period1|1st.?5|first.?5|f5|1-5/i;
 function papiLines(fx, markets) {
   var bk = fx.bookmakerOdds && fx.bookmakerOdds.pokerstars;
   if (!bk || !bk.markets) return null;
-  var ml = null, spreads = [], totals = [];
+  var ml = null, spreads = [], totals = [], halfMl = null;
   var props = {};
   Object.keys(bk.markets).forEach(function (mid) {
     var def = markets[mid]; if (!def) return;
@@ -2453,7 +2570,11 @@ function papiLines(fx, markets) {
       pr[def.names[oid]] = Number(pl.price); if (pl.mainLine) main = true;
     });
     var full = def.period === 'result' || def.period === 'fulltime' || def.period === '';
-    if (!full) return;
+    if (!full) {
+      // Medio tiempo / 1er período / primeras 5 entradas: ganador a 2 lados (sin empate).
+      if (PAPI_HALF_RE.test(def.period + ' ' + def.type) && pr['1'] && pr['2'] && !pr.X && !def.handicap && !/total|handicap|spread/i.test(def.type) && !halfMl) halfMl = { p1: pr['1'], p2: pr['2'] };
+      return;
+    }
     if (/total/i.test(def.type) && pr.Over && pr.Under) totals.push({ line: def.handicap, over: pr.Over, under: pr.Under, main: main, period: def.period });
     else if (pr['1'] && pr['2'] && !pr.X) {
       if (!def.handicap && !/handicap|spread/i.test(def.type)) { if (!ml || def.period === 'result') ml = { p1: pr['1'], p2: pr['2'] }; }
@@ -2475,7 +2596,7 @@ function papiLines(fx, markets) {
   }).filter(function (x) { return x.line > 0.4; });
   var ORDER = { Puntos: 0, Rebotes: 1, Asistencias: 2, Triples: 3, Robos: 4, Tapones: 5 };
   propList.sort(function (a, b) { return (ORDER[a.stat] - ORDER[b.stat]) || (b.line - a.line); });
-  return { ml: ml, spread: sp, total: best(totals, 'over', 'under'), props: propList };
+  return { ml: ml, spread: sp, total: best(totals, 'over', 'under'), props: propList, half: halfMl };
 }
 // Lo que pasó en la última búsqueda (para que el admin sepa por qué salen sin cuotas).
 var papiLastInfo = null;
@@ -2532,6 +2653,7 @@ async function addPapiOdds(sport, date, games) {
       g.odds = { home: H(L.ml.p1, L.ml.p2), away: H(L.ml.p2, L.ml.p1) };
       if (L.spread) { var hl = p1Home ? L.spread.h1 : -L.spread.h1; g.odds.hcap = { homeLine: hl, homeOdds: H(L.spread.p1, L.spread.p2), awayLine: -hl, awayOdds: H(L.spread.p2, L.spread.p1) }; }
       if (L.total) g.odds.total = { line: L.total.line, over: L.total.over, under: L.total.under };
+      if (L.half) g.odds.half = { home: H(L.half.p1, L.half.p2), away: H(L.half.p2, L.half.p1) };
       if (sport === 'baloncesto' && L.props && L.props.length) g.odds.props = L.props.map(function (x) { return { player: papiPlayerName(x.player), stat: x.stat, line: x.line, over: x.over, under: x.under }; });
     });
   } catch (e) {}
@@ -2585,6 +2707,8 @@ app.get('/api/admin/oddspapi-test', async (c) => {
     var lt = await oddsPapi('tournaments', { sportId: 13 });
     out.lidom = papiShort(papiList(lt.data).filter(function (x) { return /lidom|dominican|winter|invierno/i.test((x.tournamentName || '') + ' ' + (x.tournamentSlug || '')); }).slice(0, 5), 700) || 'no aparece';
     out.lidomUsado = await papiTournamentId('lidom');
+    // Mercados de medio tiempo / 1er período / 5 entradas que existen
+    try { var mk2 = await papiMarkets('baloncesto'); if (mk2) out.medioTiempo = Object.keys(mk2).map(function (k) { return mk2[k]; }).filter(function (d) { return !d.prop && d.period && d.period !== 'result' && d.period !== 'fulltime'; }).map(function (d) { return d.period + ' · ' + d.type; }).filter(function (x, i, a) { return a.indexOf(x) === i; }).slice(0, 12).join('\n') || 'ninguno'; } catch (e) {}
     // ¿PokerStars tiene cuotas de LIDOM? (para saber por qué salen sin cuotas)
     var lid = out.lidomUsado;
     if (lid) {
