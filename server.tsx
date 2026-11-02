@@ -1508,6 +1508,16 @@ function decToAm(d) {
   var n = d >= 2 ? Math.round((d - 1) * 100) : Math.round(-100 / (d - 1));
   return (n > 0 ? '+' : '') + n;
 }
+// Margen de la casa por pares (como PokerStars): se quita el margen de la fuente,
+// se reparte el margen de la casa igual en los dos lados (el underdog baja más)
+// y nunca se paga más que la fuente.
+function marginPair(a, b, pc) {
+  a = Number(a); b = Number(b);
+  if (!(a > 1) || !(b > 1)) return [a > 1 ? cutDec(a, pc) : a, b > 1 ? cutDec(b, pc) : b];
+  var ia = 1 / a, ib = 1 / b, s = ia + ib, m = Math.max(0, Number(pc) || 0) / 100;
+  var f = function (p, src) { var q = p / s + m / 2; var d = q >= 0.99 ? 1.01 : 1 / q; d = Math.min(d, src); return Math.max(1.01, Math.floor(d * 100 + 1e-9) / 100); };
+  return [f(ia, a), f(ib, b)];
+}
 function cutDec(d, pc) { return Math.max(1.01, Math.round((1 + (Number(d) - 1) * (1 - pc / 100)) * 100) / 100); }
 var autoBusy = false, autoLastCheck = 0;
 const AUTO_RESERVE = 25; // consultas que se guardan para cuando el admin busca juegos
@@ -1518,19 +1528,20 @@ async function papiUsedThisMonth() {
 }
 // Aplica las cuotas nuevas de PokerStars (g.odds, en decimal) a un partido. Devuelve true si algo cambió.
 function applyAutoOdds(m, o) {
-  var pc = Math.min(15, Math.max(0, Number(m.auto && m.auto.cut) || 0)), ch = false;
-  var A = function (d) { return decToAm(cutDec(d, pc)); };
+  var pc = Math.min(20, Math.max(0, Number(m.auto && m.auto.cut) || 0)), ch = false;
+  var A2 = function (a, b) { var r = marginPair(a, b, pc); return [decToAm(r[0]), decToAm(r[1])]; };
   var set = function (obj, k, v) { if (v !== null && v !== undefined && String(obj[k]) !== String(v)) { obj[k] = v; ch = true; } };
-  if (o.home > 1 && o.away > 1 && m.odds) { if (m.odds[0]) set(m.odds[0], 'v', A(o.home)); if (m.odds[2]) set(m.odds[2], 'v', A(o.away)); }
-  if (o.hcap && m.handicap) { set(m.handicap, 'homeLine', o.hcap.homeLine); set(m.handicap, 'awayLine', o.hcap.awayLine); set(m.handicap, 'homeOdds', A(o.hcap.homeOdds)); set(m.handicap, 'awayOdds', A(o.hcap.awayOdds)); }
-  if (o.half && m.halftime) { set(m.halftime, 'home', A(o.half.home)); set(m.halftime, 'away', A(o.half.away)); }
-  if (o.total && m.total) { set(m.total, 'line', o.total.line); set(m.total, 'over', A(o.total.over)); set(m.total, 'under', A(o.total.under)); }
+  var r;
+  if (o.home > 1 && o.away > 1 && m.odds) { r = A2(o.home, o.away); if (m.odds[0]) set(m.odds[0], 'v', r[0]); if (m.odds[2]) set(m.odds[2], 'v', r[1]); }
+  if (o.hcap && m.handicap) { r = A2(o.hcap.homeOdds, o.hcap.awayOdds); set(m.handicap, 'homeLine', o.hcap.homeLine); set(m.handicap, 'awayLine', o.hcap.awayLine); set(m.handicap, 'homeOdds', r[0]); set(m.handicap, 'awayOdds', r[1]); }
+  if (o.half && m.halftime) { r = A2(o.half.home, o.half.away); set(m.halftime, 'home', r[0]); set(m.halftime, 'away', r[1]); }
+  if (o.total && m.total) { r = A2(o.total.over, o.total.under); set(m.total, 'line', o.total.line); set(m.total, 'over', r[0]); set(m.total, 'under', r[1]); }
   if (o.props && o.props.length && m.props) {
     // Si PokerStars quitó a un jugador (lesión, no juega), se quita también aquí para que no le apuesten.
     var keep = m.props.filter(function (p) {
       var np = o.props.find(function (x) { return x.player === p.player && x.stat === p.stat; });
       if (!np) return false;
-      set(p, 'line', np.line); set(p, 'over', A(np.over)); set(p, 'under', A(np.under));
+      var rp = A2(np.over, np.under); set(p, 'line', np.line); set(p, 'over', rp[0]); set(p, 'under', rp[1]);
       return true;
     });
     if (keep.length !== m.props.length) { m.props = keep; ch = true; }
@@ -1538,7 +1549,7 @@ function applyAutoOdds(m, o) {
   return ch;
 }
 async function autoOdds() {
-  if (autoBusy || !Bun.env.ODDSPAPI_KEY || Date.now() - autoLastCheck < 60000) return;
+  if (autoBusy || !((PAPI_ENABLED && Bun.env.ODDSPAPI_KEY) || Bun.env.SPORTSGAMEODDS_KEY || Bun.env.APISPORTS_KEY || Bun.env.THE_ODDS_API_KEY) || Date.now() - autoLastCheck < 60000) return;
   autoBusy = true; autoLastCheck = Date.now();
   try {
     const rows = await sql`SELECT value FROM app_state WHERE key = 'matches'`;
@@ -1547,14 +1558,14 @@ async function autoOdds() {
     var now = Date.now();
     var due = list.filter(function (m) {
       var t = m.startAt ? Date.parse(m.startAt) : NaN;
-      return m.auto && (PAPI_SPORT[m.sport] || APIS_HOST[m.sport]) && !m.live && !m.finished && t - now > 5 * 60000 && t - now < 24 * 3600000;
+      return m.auto && (PAPI_SPORT[m.sport] || APIS_HOST[m.sport] || TOA_SPORT[m.sport]) && !m.live && !m.finished && t - now > 5 * 60000 && t - now < 24 * 3600000;
     });
     if (!due.length) return;
     var sports = Array.from(new Set(due.map(function (m) { return m.sport; })));
     // Presupuesto: lo que queda del mes (menos la reserva) repartido entre los días que faltan.
     var limit = Number(Bun.env.ODDSPAPI_LIMIT) || 250;
     var left = limit - (await papiUsedThisMonth()) - AUTO_RESERVE;
-    if (left <= 0 && !Bun.env.SPORTSGAMEODDS_KEY && !Bun.env.APISPORTS_KEY) return;
+    if (left <= 0 && !Bun.env.SPORTSGAMEODDS_KEY && !Bun.env.APISPORTS_KEY && !Bun.env.THE_ODDS_API_KEY) return;
     var d = new Date(), daysLeft = new Date(d.getUTCFullYear(), d.getUTCMonth() + 1, 0).getDate() - d.getUTCDate() + 1;
     var perDay = Math.max(1, left / daysLeft);
     // Cada liga se refresca cada tanto, según cuántas ligas haya hoy (mín. 45 min, máx. 6 h).
@@ -1571,7 +1582,9 @@ async function autoOdds() {
       var sgoDue = !!(Bun.env.SPORTSGAMEODDS_KEY && SGO_LEAGUE[sp] && now - (Number(last['sgo_' + sp]) || 0) >= sgoEvery);
       var papiDue = PAPI_ENABLED && left > 0 && now - (Number(last[sp]) || 0) >= every;
       var apisDue = !!(Bun.env.APISPORTS_KEY && APIS_HOST[sp] && now - (Number(last['apis_' + sp]) || 0) >= 3 * 3600000);
-      if (!sgoDue && !papiDue && !apisDue) continue;
+      // The Odds API con plan pagado: refresca cuotas y jugadores cada 3 horas.
+      var toaDue = !!(Bun.env.THE_ODDS_API_KEY && TOA_SPORT[sp] && toaBig() && Number(toaLast.remaining) > 1500 && now - (Number(last['toab_' + sp]) || 0) >= 3 * 3600000);
+      if (!sgoDue && !papiDue && !apisDue && !toaDue && !Bun.env.THE_ODDS_API_KEY) continue;
       var games = due.filter(function (m) { return m.sport === sp; }).map(function (m) { return { id: m.id, away: m.away, home: m.home, startAt: m.startAt }; });
       if (apisDue) {
         last['apis_' + sp] = now;
@@ -1582,9 +1595,13 @@ async function autoOdds() {
         try { await sgoFill(sp, '', games); } catch (e) {}
       }
       if (papiDue && games.some(function (g) { return !g.odds; })) { last[sp] = now; await addPapiOdds(sp, new Date().toISOString().slice(0, 10), games); }
-      if (games.some(function (g) { return !g.odds; }) && Bun.env.THE_ODDS_API_KEY && now - (Number(last['toa_' + sp]) || 0) > 4 * 3600000 && !(toaLast.remaining !== null && toaLast.remaining < 60)) {
+      if (toaDue) {
+        last['toab_' + sp] = now; last['toa_' + sp] = now;
+        try { await toaFill(sp, games, true); } catch (e) {}
+      } else if (Bun.env.THE_ODDS_API_KEY && !toaBig() && now - (Number(last['toa_' + sp]) || 0) > 20 * 3600000 && !(toaLast.remaining !== null && toaLast.remaining < 150)) {
+        // Plan gratis: 1 vez al día por deporte, y se guardan 150 créditos para "Traer juegos".
         last['toa_' + sp] = now;
-        try { await toaFill(sp, games); } catch (e) {}
+        try { await toaFill(sp, games, true); } catch (e) {}
       }
       games.forEach(function (g) { if (g.odds) changedById[g.id] = g.odds; });
     }
@@ -2632,6 +2649,7 @@ app.get('/api/admin/apisports-test', async (c) => {
 // Cada búsqueda gasta 3 créditos (ganador + hándicap + total). El plan gratis trae 500 al mes.
 const TOA_SPORT = { baloncesto: 'basketball_nba', nfl: 'americanfootball_nfl', nhl: 'icehockey_nhl', beisbol: 'baseball_mlb' };
 var toaCache = {}, toaLast = { remaining: null, used: null, at: 0 };
+(async function () { try { var r = await sql`SELECT value FROM app_state WHERE key = 'toa_usage'`; var v = r[0] && r[0].value; if (typeof v === 'string') v = JSON.parse(v); if (v && v.remaining !== undefined && toaLast.remaining === null) toaLast = v; } catch (e) {} })();
 async function toaFetch(sport) {
   var hit = toaCache[sport];
   if (hit && Date.now() - hit.t < 10 * 60e3) return hit.v;
@@ -2646,9 +2664,57 @@ async function toaFetch(sport) {
   return toaCache[sport].v;
 }
 // Llena g.odds (en decimal, igual que PokerStars) en los juegos que no tengan.
-async function toaFill(sport, games) {
+// Plan pagado (20,000 créditos o más): se traen también los jugadores y se refrescan las cuotas solas.
+function toaBig() { return toaLast.remaining !== null && (Number(toaLast.used) || 0) + Number(toaLast.remaining) >= 10000; }
+const TOA_PROPS = {
+  baloncesto: { player_points: 'Puntos', player_rebounds: 'Rebotes', player_assists: 'Asistencias', player_threes: 'Triples' },
+  nfl: { player_pass_yds: 'Yardas pase', player_rush_yds: 'Yardas carrera', player_reception_yds: 'Yardas recepción', player_receptions: 'Recepciones' },
+  nhl: { player_points: 'Puntos', player_assists: 'Asistencias', player_shots_on_goal: 'Tiros al arco', player_total_saves: 'Atajadas' },
+  beisbol: { pitcher_strikeouts: 'Ponches' }
+};
+var toaPropCache = {};
+// Jugadores de un juego (cada estadística gasta 1 crédito).
+async function toaEventProps(sport, evId) {
+  var PS = TOA_PROPS[sport]; if (!PS) return [];
+  var hit = toaPropCache[evId];
+  if (hit && Date.now() - hit.t < 2 * 3600e3) return hit.v;
+  var url = 'https://api.the-odds-api.com/v4/sports/' + TOA_SPORT[sport] + '/events/' + encodeURIComponent(evId) + '/odds?apiKey=' + encodeURIComponent(Bun.env.THE_ODDS_API_KEY) +
+    '&bookmakers=draftkings,fanduel&markets=' + Object.keys(PS).join(',') + '&oddsFormat=decimal';
+  var r = await fetch(url);
+  var rem = r.headers.get('x-requests-remaining'), used = r.headers.get('x-requests-used');
+  if (rem !== null) { toaLast = { remaining: Number(rem), used: Number(used), at: Date.now() }; try { await sql`INSERT INTO app_state (key, value) VALUES ('toa_usage', ${JSON.stringify(toaLast)}::jsonb) ON CONFLICT (key) DO UPDATE SET value = ${JSON.stringify(toaLast)}::jsonb`; } catch (e) {} }
+  if (!r.ok) return [];
+  var ev = await r.json(), books = (ev && ev.bookmakers) || [], seen = {}, props = [];
+  books.sort(function (a, b) { return (a.key === 'draftkings' ? 0 : 1) - (b.key === 'draftkings' ? 0 : 1); });
+  books.forEach(function (bk) {
+    (bk.markets || []).forEach(function (m) {
+      var stat = PS[m.key]; if (!stat) return;
+      var by = {};
+      (m.outcomes || []).forEach(function (o) {
+        if (!o.description || !(o.price > 1) || !(Number(o.point) > 0.4)) return;
+        var k = o.description + '|' + o.point; by[k] = by[k] || { player: String(o.description), line: Number(o.point) };
+        if (o.name === 'Over') by[k].over = Number(o.price); else if (o.name === 'Under') by[k].under = Number(o.price);
+      });
+      // Por jugador, la línea donde Más y Menos están más parejos (la línea principal).
+      var best = {};
+      Object.keys(by).forEach(function (k) {
+        var x = by[k]; if (!x.over || !x.under) return;
+        var b = best[x.player]; if (!b || Math.abs(x.over - x.under) < Math.abs(b.over - b.under)) best[x.player] = x;
+      });
+      Object.keys(best).forEach(function (pl) {
+        var sk = pl + '|' + stat; if (seen[sk]) return; seen[sk] = 1;
+        var x = best[pl]; props.push({ player: x.player, stat: stat, line: x.line, over: x.over, under: x.under });
+      });
+    });
+  });
+  var ORDER = {}; Object.keys(PS).forEach(function (k, i) { ORDER[PS[k]] = i; });
+  props.sort(function (a, b) { return (ORDER[a.stat] - ORDER[b.stat]) || (b.line - a.line); });
+  toaPropCache[evId] = { t: Date.now(), v: props };
+  return props;
+}
+async function toaFill(sport, games, refresh) {
   if (!Bun.env.THE_ODDS_API_KEY || !TOA_SPORT[sport]) return { n: 0, msg: null };
-  var need = games.filter(function (g) { return !g.odds; }); if (!need.length) return { n: 0, msg: null };
+  var need = games.filter(function (g) { return refresh || !g.odds; }); if (!need.length) return { n: 0, msg: null };
   var evs;
   try { evs = await toaFetch(sport); } catch (e) { return { n: 0, msg: 'The Odds API: ' + String(e.message || e) }; }
   var n = 0;
@@ -2667,8 +2733,16 @@ async function toaFill(sport, games) {
     if (sH && sA && sH.price > 1 && sA.price > 1) g.odds.hcap = { homeLine: Number(sH.point), homeOdds: Number(sH.price), awayLine: Number(sA.point), awayOdds: Number(sA.price) };
     var tO = side(mk.totals || [], 'Over'), tU = side(mk.totals || [], 'Under');
     if (tO && tU && tO.price > 1 && tU.price > 1) g.odds.total = { line: Number(tO.point), over: Number(tO.price), under: Number(tU.price) };
-    g.oddsSrc = bk.title || bk.key; n++;
+    g.oddsSrc = bk.title || bk.key; g.toaEv = ev.id; n++;
   });
+  // Jugadores: solo con el plan pagado y si quedan créditos de sobra.
+  if (toaBig() && TOA_PROPS[sport]) {
+    for (const g of need) {
+      if (!g.odds || !g.toaEv || Number(toaLast.remaining) < 1500) continue;
+      try { var pr = await toaEventProps(sport, g.toaEv); if (pr.length) g.odds.props = pr; } catch (e) {}
+    }
+  }
+  need.forEach(function (g) { delete g.toaEv; });
   return { n: n, msg: null };
 }
 function prLabelServer(t) {
