@@ -721,6 +721,9 @@
 .cut-btn{display:block;width:100%;margin:0 0 10px;padding:9px 12px;border:1.5px dashed var(--accent);border-radius:9px;background:transparent;color:var(--accent);font-weight:700;font-size:13px;cursor:pointer;text-align:left}.cut-btn small{font-weight:500;color:var(--text-faint)}
 .auto-tag{margin:0 0 10px;padding:8px 12px;border-radius:9px;background:#ECFDF3;color:#067647;font-weight:700;font-size:13px}.auto-tag small{display:block;font-weight:500;color:#475467;margin-top:2px}
 .imp-why{margin:0 0 10px;padding:10px 12px;border-radius:10px;background:#EFF8FF;color:#175CD3;font-size:13px;line-height:1.4}
+.tk-grade{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:10px 0 2px}.tk-grade span{font-size:12px;color:var(--text-faint);font-weight:700;margin-right:2px}
+.tk-grade button{height:34px;padding:0 12px;border-radius:9px;border:1.5px solid;font-weight:800;font-size:13px;background:#fff;cursor:pointer}
+.tk-grade .g-won{border-color:#12B76A;color:#067647}.tk-grade .g-lost{border-color:#F04438;color:#B42318}.tk-grade .g-void{border-color:#98A2B3;color:#475467}
 </style>
 </head>
 <body>
@@ -936,6 +939,17 @@
     </div>
 
     <div id="tabFinanciero" hidden>
+    <div class="amc" style="margin-top:18px;">
+      <div class="amc-header">
+        <span class="amc-icon">💾</span>
+        <div>
+          <h3>Copia de seguridad</h3>
+          <p class="amc-sub">Jugadores y saldos, apuestas, retiros y ajustes. Si algo falla, con esto se recupera todo.</p>
+        </div>
+      </div>
+      <button type="button" class="btn primary" id="bkDownload" style="width:100%;">⬇️ Descargar copia ahora</button>
+      <p class="amc-sub" id="bkStatus" style="margin-top:8px;"></p>
+    </div>
     <div class="amc" style="margin-top:18px;">
       <div class="amc-header">
         <span class="amc-icon">🛡️</span>
@@ -1547,6 +1561,17 @@
     });
   }
 
+  /* ---------- Copia de seguridad ---------- */
+  async function loadBackupStatus() {
+    var d = await apiGet('/api/admin/backup-status'), el = document.getElementById('bkStatus');
+    if (!d || !el) return;
+    el.innerHTML = d.email ? '📧 Cada día se manda una copia a <b>' + esc(d.to) + '</b>' + (d.last ? ' · última: ' + esc(new Date(d.last.at).toLocaleString('es-DO')) + (d.last.ok ? ' ✓' : ' ✗ (falló)') : ' · todavía no se ha mandado ninguna') + '.'
+      : '⚠️ La copia diaria por correo está apagada. Para prenderla: en Railway → Variables pon <b>BACKUP_EMAIL</b> con tu correo.';
+  }
+  var bkBtn = document.getElementById('bkDownload');
+  if (bkBtn) bkBtn.addEventListener('click', function () { window.location.href = '/api/admin/backup'; });
+  loadBackupStatus();
+
   /* ---------- Eliminar ticket (sin tocar el saldo) ---------- */
   var tkDel = null;
   document.addEventListener('click', function (e) {
@@ -1633,6 +1658,7 @@
     var h = '<div class="imp-od">' + cell('Gana visit.', o.away) + cell('Gana local', o.home);
     if (o.hcap) h += cell((o.hcap.awayLine > 0 ? '+' : '') + o.hcap.awayLine, o.hcap.awayOdds) + cell((o.hcap.homeLine > 0 ? '+' : '') + o.hcap.homeLine, o.hcap.homeOdds);
     if (o.total) h += cell('Más ' + o.total.line, o.total.over) + cell('Menos ' + o.total.line, o.total.under);
+    if (o.half) h += cell('½ visit.', o.half.away) + cell('½ local', o.half.home);
     h += '</div>';
     if (o.props && o.props.length) {
       var gi = imp.games.indexOf(g), sel = imp.props[impKey(g)] || {}, nSel = Object.keys(sel).length;
@@ -1725,6 +1751,7 @@
         var nm = state.matches[state.matches.length - 1], o = g.odds;
         if (o) nm.auto = { cut: Math.min(15, Math.max(0, Number(document.getElementById('impMargin').value) || 0)) };
         if (o && o.hcap) nm.handicap = { homeLine: o.hcap.homeLine, homeOdds: decimalToAmerican(String(impCut(o.hcap.homeOdds))), awayLine: o.hcap.awayLine, awayOdds: decimalToAmerican(String(impCut(o.hcap.awayOdds))) };
+        if (o && o.half) nm.halftime = { home: decimalToAmerican(String(impCut(o.half.home))), away: decimalToAmerican(String(impCut(o.half.away))) };
         if (o && o.total) nm.total = { line: o.total.line, over: decimalToAmerican(String(impCut(o.total.over))), under: decimalToAmerican(String(impCut(o.total.under))) };
         var ps = imp.props[impKey(g)] || {};
         if (o && o.props) { var chosen = o.props.filter(function (pr, pi) { return ps[pi]; }); if (chosen.length) nm.props = chosen.map(function (pr) { return { player: pr.player, stat: pr.stat, line: pr.line, over: decimalToAmerican(String(impCut(pr.over))), under: decimalToAmerican(String(impCut(pr.under))) }; }); }
