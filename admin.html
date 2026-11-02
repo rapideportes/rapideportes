@@ -798,6 +798,7 @@
       <div class="papi-use" id="papiUse" hidden></div>
       <div id="impList"></div>
       <button type="button" class="imp-test" id="papiTest" hidden>🔌 Probar conexión con OddsPapi</button>
+      <button type="button" class="imp-test" id="apisTest">🔌 Probar API-Sports con la liga de arriba</button>
       <pre class="papi-out" id="papiOut" hidden></pre>
     </div>
     <button type="button" class="clr-old" id="clearOld">🧹 Borrar todos los juegos de días pasados</button>
@@ -1752,15 +1753,16 @@
       }).join('') +
       '<p class="imp-legend">' + (imp.games.some(function (g) { return g.odds; }) ? 'En grande, tu cuota; en gris, la de ' + (imp.games.some(function (g) { return g.oddsSrc; }) ? (imp.games.find(function (g) { return g.oddsSrc; }) || {}).oddsSrc : 'la fuente') + '.' : '') + '</p><button type="button" class="btn primary" id="impAdd" style="width:100%; margin-top:6px;"' + (nPick ? '' : ' disabled') + '>Agregar ' + nPick + (nPick === 1 ? ' juego' : ' juegos') + '</button>';
   }
+  function apisSportOf() { var v = document.getElementById('impSport').value; return v === 'lidom' ? 'beisbol' : v; }
   async function loadPapiUsage() {
     var d = await apiGet('/api/admin/oddspapi-usage'), el = document.getElementById('papiUse');
-    if (!d || (!d.key && !d.sgo)) { el.hidden = true; return; }
+    if (!d || (!d.key && !d.sgo && !d.apis)) { el.hidden = true; return; }
     var bar = function (title, used, limit, unit, lowAt) {
       var left = Math.max(0, limit - used), pc = Math.min(100, Math.round(used / limit * 100));
       return '<div class="papi-use' + (left < lowAt ? ' low' : '') + '" style="margin:0 0 8px"><div><b>' + title + '</b><span>' + used + ' de ' + limit + ' ' + unit + ' · te quedan <strong>' + left + '</strong></span></div><div class="papi-bar"><i style="width:' + pc + '%"></i></div></div>';
     };
     el.hidden = false; el.className = '';
-    el.innerHTML = (d.sgo ? bar('SportsGameOdds este mes (DraftKings, FanDuel…)', d.sgo.used, d.sgo.limit, 'juegos', 300) : '') +
+    el.innerHTML = (d.apis ? bar('API-Sports hoy · ' + ({ baloncesto: 'NBA', nfl: 'NFL', nhl: 'NHL', beisbol: 'Béisbol (MLB y LIDOM)' }[apisSportOf()] || ''), d.apis[apisSportOf()] || 0, 100, 'consultas', 15) : '') + (d.sgo ? bar('SportsGameOdds este mes (DraftKings, FanDuel…)', d.sgo.used, d.sgo.limit, 'juegos', 300) : '') +
       (d.key ? bar('PokerStars (OddsPapi) este mes', d.used, d.limit, 'consultas', 30) : '');
   }
   loadPapiUsage();
@@ -1773,6 +1775,15 @@
     imp.games = d.games || []; imp.sport = document.getElementById('impSport').value; imp.picked = {}; imp.props = {}; imp.papiMsg = d.papi || ''; loadPapiUsage();
     imp.games.forEach(function (g) { if (!impExists(g)) imp.picked[impKey(g)] = true; });
     impRender(); loadPapiUsage();
+  });
+  document.getElementById('impSport').addEventListener('change', loadPapiUsage);
+  document.getElementById('apisTest').addEventListener('click', async function () {
+    var o = document.getElementById('papiOut'); o.hidden = false; o.textContent = 'Probando API-Sports…';
+    var d = await apiGet('/api/admin/apisports-test?sport=' + document.getElementById('impSport').value);
+    if (!d) { o.textContent = 'No se pudo probar.'; return; }
+    if (!d.key) { o.textContent = '⚠️ No encontré la clave. En Railway → Variables pon APISPORTS_KEY con tu clave de api-sports.io.'; return; }
+    o.textContent = 'Mándale una foto de esto a Claude:\n\n' + JSON.stringify(d, null, 1);
+    loadPapiUsage();
   });
   document.getElementById('papiTest').addEventListener('click', async function () {
     var o = document.getElementById('papiOut'); o.hidden = false; o.textContent = 'Probando conexión…';
