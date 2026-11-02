@@ -277,6 +277,7 @@
   .bk-nums b { font-size: 16px; font-weight: 800; color: var(--text); } .bk-nums .r { text-align: right; }
   .bk-nums b.won { color: #067647; } .bk-nums b.lost { color: #B42318; } .bk-nums b.open { color: var(--accent); } .bk-nums b.cash { color: #175CD3; } .bk-nums b.void { color: #475467; }
   .bk .bk-tk { margin-top: 10px; }
+  .bk-again { display: block; width: 100%; height: 46px; margin-top: 10px; border: none; border-radius: 12px; background: var(--accent); color: #fff; font-weight: 800; font-size: 15px; box-shadow: 0 6px 16px rgba(240,20,70,.22); }
   .tkl-wait { margin: 12px 0 4px; padding: 10px 12px; border-radius: 12px; background: rgba(255,255,255,.06); font-size: 13px; font-weight: 600; color: #D0D5DD; }
   .tks { margin: 12px 0 2px; padding: 12px; border-radius: 14px; background: linear-gradient(135deg, rgba(22,199,132,.10), rgba(255,255,255,.04)); border: 1px solid rgba(92,255,176,.22); }
   .tks-top { display: flex; align-items: center; gap: 8px; }
@@ -1643,6 +1644,38 @@
     } else pOver = lpPhi((cur + expRest - line) / (Math.max(2, 0.4 * line) * Math.sqrt(Math.max(rem, 0.0001))));
     return { p: over ? pOver : 1 - pOver, sub: 'Lleva ' + cur + ' ' + unit + ' · ' + (over ? (need === 1 ? 'le falta 1' : 'le faltan ' + need) : 'puede hacer ' + Math.max(0, Math.ceil(line) - 1 - cur) + ' más') };
   }
+  // ---------- Volver a apostar ----------
+  // Busca hoy las mismas jugadas de un ticket viejo (si sus juegos están abiertos).
+  // Si la línea se movió, usa la de hoy y avisa.
+  function againLegs(h) {
+    var legs = tkRawLegs(h), out = [], changed = false;
+    if (!legs.length) return { ok: false };
+    var box = document.createElement('div');
+    for (var i = 0; i < legs.length; i++) {
+      var L = legs[i];
+      var m = (state.matches || []).filter(function (x) { return x.away === L.away && x.home === L.home && !isBettingClosed(x); })[0];
+      if (!m) return { ok: false };
+      box.innerHTML = matchCard(m) + extraHTML(m);
+      var btns = Array.prototype.slice.call(box.querySelectorAll('.odd[data-selid]'));
+      var pick = String(L.pick), found = null;
+      if (L.mk === 'Ganador') found = btns.find(function (b) { return /-ml-/.test(b.dataset.selid) && b.dataset.key === pick; });
+      else if (L.mk === 'Hándicap') {
+        var team = pick.replace(/\s+[+-]?[\d.]+$/, '');
+        found = btns.find(function (b) { return b.dataset.key === 'Hándicap ' + pick; }) || btns.find(function (b) { return /-hcap-/.test(b.dataset.selid) && b.dataset.key.indexOf('Hándicap ' + team + ' ') === 0; });
+      } else if (L.mk === 'Total') {
+        var over = /^(Más|>)/.test(pick), ln = (/([\d.]+)/.exec(pick) || [])[1];
+        found = btns.find(function (b) { return /-tot-/.test(b.dataset.selid) && b.dataset.key.indexOf(over ? 'Más ' : 'Menos ') === 0; });
+        if (found && ln && found.dataset.key.indexOf(' ' + ln) < 0) changed = true;
+      } else {
+        found = btns.find(function (b) { return b.dataset.key === pick; });
+        if (!found) { var who = pick.split(' — ')[0], side = / — Menos /.test(pick) ? 'Menos' : 'Más'; found = btns.find(function (b) { return b.dataset.key.indexOf(who + ' — ' + side + ' ') === 0; }); if (found) changed = true; }
+      }
+      if (!found) return { ok: false };
+      if (L.dec > 1 && Math.abs(americanToDecimal(found.dataset.odds) - L.dec) > 0.011) changed = true;
+      out.push(found);
+    }
+    return { ok: true, legs: out, changed: changed };
+  }
   var tkHist = {};
   function tkLiveHTML(h) {
     var legs = tkRawLegs(h); if (!legs.length) return '';
@@ -2434,6 +2467,7 @@
             (h.cashoutWon ? '<div class="co-left-note">✅ Ya ganaste ' + h.cashoutWon + (h.cashoutWon === 1 ? ' jugada' : ' jugadas') + '. Te ' + (h.cashoutLeft === 1 ? 'falta 1 juego' : 'faltan ' + h.cashoutLeft + ' juegos') + ': puedes cobrar ahora o esperar a que se ' + (h.cashoutLeft === 1 ? 'juegue' : 'jueguen') + '.</div>' : '');
         }
       }
+      if (h.id && meta.cls !== '' && againLegs(h).ok) html += '<button type="button" class="bk-again" data-again="' + esc(h.id) + '">🔁 Volver a apostar</button>';
       if (h.id) html += '<button type="button" class="tk-btn bk-tk" data-ticket="' + esc(h.id) + '">🧾 Ver ticket y compartir</button>';
       html += '</div>';
     });
@@ -3384,6 +3418,20 @@
       return;
     }
     if (t.closest('[data-win-ok]')) { state.winDismissed = true; apiPost('/api/bets/seen', {}); renderView(); return; }
+    var ag = t.closest('[data-again]');
+    if (ag) {
+      var hb2 = state.history.filter(function (x) { return String(x.id) === ag.dataset.again; })[0]; if (!hb2) return;
+      var A = againLegs(hb2);
+      if (!A.ok) { showToast('Esos juegos ya no están disponibles para apostar.'); return; }
+      state.slip = {};
+      A.legs.forEach(function (b) { state.slip[b.dataset.selid] = { id: b.dataset.selid, odds: b.dataset.odds, key: b.dataset.key, home: b.dataset.home, away: b.dataset.away, stake: Number(hb2.stake) || 10 }; });
+      var par = A.legs.length > 1;
+      state.slipMode = par ? 'parlay' : 'singles'; state.parlayStake = Number(hb2.stake) || 10;
+      Array.prototype.forEach.call($('slipModeToggle').querySelectorAll('button'), function (x) { x.classList.toggle('active', x.dataset.mode === state.slipMode); });
+      syncSelected(); renderSlip(); openOv('slipOverlay');
+      if (A.changed) showToast('Algunas cuotas o líneas cambiaron: revisa tu boleto antes de apostar.');
+      return;
+    }
     var cb = t.closest('[data-combo]');
     if (cb) {
       var combo = comboList()[Number(cb.dataset.combo)]; if (!combo) return;
@@ -3982,7 +4030,7 @@
     ['Ya puedes retirar tus ganancias.', 'You can now withdraw your winnings.'],
     ['¿Necesitas ayuda con tu cuenta, un depósito o una apuesta? Nuestro equipo te atiende todos los días.', 'Need help with your account, a deposit or a bet? Our team is here every day.'],
     ['Lanzamientos de este turno al bate', 'Pitches in this at-bat'],
-    ['Líderes del partido', 'Game leaders'], ['🏏 Bateo', '🏏 Batting'], ['⚾ Pitcheo', '⚾ Pitching'], [' — línea ', ' — line '], ['(Puntos)', '(Points)'], ['Goles', 'Goals'], ['Triples', '3-pointers'], ['Yardas pase', 'Pass yds'], ['Yardas carrera', 'Rush yds'], ['Yardas recep.', 'Rec yds'], ['(Rebotes)', '(Rebounds)'], ['(Asistencias)', '(Assists)'], ['(Triples)', '(3-pointers)'], ['(Robos)', '(Steals)'], ['(Tapones)', '(Blocks)'], ['🍀 ¡Mucha suerte! ', '🍀 Good luck! '], ['Que se te dé esa jugada.', 'Hope this one hits.'], ['📈 ¿Cómo va el juego?', '📈 How is the game going?'], ['Abiertas', 'Open'], ['Terminadas', 'Settled'], ['Ganadas', 'Won'], ['Perdidas', 'Lost'], ['Devueltas', 'Refunded'], ['Cobradas', 'Cashed out'], ['Paga si gana', 'Pays if it wins'], ['Apostó', 'Stake'], ['Cuota', 'Odds'], ['Cobró', 'Paid'], ['Perdió', 'Lost'], ['Devuelto', 'Refunded'], ['Chance de cobrar', 'Chance to cash'], ['Marcador', 'Score'], ['chance de cobrar', 'chance to cash'], ['EN VIVO', 'LIVE'], ['🏆 ¿Quién gana?', '🏆 Who wins?'], ['📌 Es un cálculo con el marcador y el tiempo que falta. Puede cambiar en cualquier jugada.', '📌 Estimate from the score and time left. It can change on any play.'], ['Las estadísticas de los jugadores aparecen en unos minutos.', 'Player stats will appear in a few minutes.'],
+    ['Líderes del partido', 'Game leaders'], ['🏏 Bateo', '🏏 Batting'], ['⚾ Pitcheo', '⚾ Pitching'], [' — línea ', ' — line '], ['(Puntos)', '(Points)'], ['Goles', 'Goals'], ['Triples', '3-pointers'], ['Yardas pase', 'Pass yds'], ['Yardas carrera', 'Rush yds'], ['Yardas recep.', 'Rec yds'], ['(Rebotes)', '(Rebounds)'], ['(Asistencias)', '(Assists)'], ['(Triples)', '(3-pointers)'], ['(Robos)', '(Steals)'], ['(Tapones)', '(Blocks)'], ['🍀 ¡Mucha suerte! ', '🍀 Good luck! '], ['Que se te dé esa jugada.', 'Hope this one hits.'], ['📈 ¿Cómo va el juego?', '📈 How is the game going?'], ['Abiertas', 'Open'], ['🔁 Volver a apostar', '🔁 Bet again'], ['Terminadas', 'Settled'], ['Ganadas', 'Won'], ['Perdidas', 'Lost'], ['Devueltas', 'Refunded'], ['Cobradas', 'Cashed out'], ['Paga si gana', 'Pays if it wins'], ['Apostó', 'Stake'], ['Cuota', 'Odds'], ['Cobró', 'Paid'], ['Perdió', 'Lost'], ['Devuelto', 'Refunded'], ['Chance de cobrar', 'Chance to cash'], ['Marcador', 'Score'], ['chance de cobrar', 'chance to cash'], ['EN VIVO', 'LIVE'], ['🏆 ¿Quién gana?', '🏆 Who wins?'], ['📌 Es un cálculo con el marcador y el tiempo que falta. Puede cambiar en cualquier jugada.', '📌 Estimate from the score and time left. It can change on any play.'], ['Las estadísticas de los jugadores aparecen en unos minutos.', 'Player stats will appear in a few minutes.'],
     ['Apuesta confirmada por', 'Bet placed for'], ['Combinada confirmada por', 'Parlay placed for'],
     ['Míralas en Mis apuestas.', 'See them in My bets.'], ['Te avisamos cuando se apruebe.', "We'll let you know when it's approved."],
     ['Ya está en tu saldo.', "It's in your balance."], ['ya está en tu saldo', "it's in your balance"],
