@@ -694,6 +694,12 @@
   .imq2, .imq3 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 6px; } .imq3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .imp-mi { display: flex; flex-direction: column; gap: 2px; min-width: 0; } .imp-mi small { font-size: 10.5px; color: var(--text-dim); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .imp-mi input { -moz-appearance: textfield; appearance: textfield; min-width: 0; height: 36px; border: 1px solid var(--border-strong, #D0D5DD); border-radius: 8px; padding: 0 8px; font-size: 15px; width: 100%; box-sizing: border-box; background: #fff; }
+  .imp-sub { font-size: 11px; font-weight: 800; color: #344054; margin: 2px 0 4px; }
+  .imp-pr-row { background: #fff; border: 1px solid #FEDF89; border-radius: 9px; padding: 6px; margin-bottom: 6px; display: grid; gap: 6px; }
+  .imp-pr-row select { height: 36px; border: 1px solid #D0D5DD; border-radius: 8px; padding: 0 6px; font-size: 14px; background: #fff; width: 100%; }
+  .imp-addp { border: 1px dashed #F79009; background: none; color: #B54708; font-weight: 800; border-radius: 8px; height: 32px; width: 100%; margin-bottom: 6px; cursor: pointer; }
+  .imp-mi input::-webkit-outer-spin-button, .imp-mi input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+  .imp-mi input { padding: 0 6px !important; }
   .imp-mn { font-size: 11px; color: var(--text-faint); }
   .imp-od.none { display: block; font-size: 12px; color: #93370D; background: #FEF0C7; border-radius: 8px; padding: 5px 8px; }
   .imp-c { display: flex; align-items: baseline; gap: 6px; background: var(--surface); border-radius: 8px; padding: 5px 8px; }
@@ -1679,12 +1685,35 @@
     var HT = { beisbol: '5 entradas', lidom: '5 entradas', nhl: '1er período' }[imp.sport] || 'Medio tiempo';
     var f = function (name, lbl, ph, step) { return '<label class="imp-mi"><small>' + lbl + '</small><input type="number" inputmode="decimal" step="' + (step || '0.01') + '" data-imm="' + gi + '|' + name + '" value="' + esc(v[name] !== undefined ? v[name] : '') + '" placeholder="' + ph + '"></label>'; };
     var tl = v.tl !== undefined ? v.tl : (TOTAL_DEFAULT[imp.sport] || '');
+    var HC = { beisbol: '⚾ Run line (rulay)', lidom: '⚾ Run line (rulay)', nhl: '🏒 Puck line' }[imp.sport] || '🏀 Hándicap (spread)';
+    var HCDEF = (imp.sport === 'beisbol' || imp.sport === 'lidom' || imp.sport === 'nhl') ? '-1.5 / +1.5' : 'ej. +3.5';
     return '<div class="imp-man"><div class="imp-mh">✍️ Escribe las cuotas aquí (si no, entra como borrador)</div>' +
       '<div class="imq2">' + f('a', 'Gana ' + esc(tkShort(g.away)), 'Cuota') + f('h', 'Gana ' + esc(tkShort(g.home)), 'Cuota') + '</div>' +
       '<div class="imq3">' + '<label class="imp-mi"><small>Línea total</small><input type="number" inputmode="decimal" step="0.5" data-imm="' + gi + '|tl" value="' + esc(tl) + '"></label>' + f('to', 'Más', 'Cuota') + f('tu', 'Menos', 'Cuota') + '</div>' +
-      '<div class="imq2">' + f('ha', 'Hándicap ' + esc(tkShort(g.away)), 'Cuota') + f('hh', 'Hándicap ' + esc(tkShort(g.home)), 'Cuota') + '</div>' +
+      '<div class="imp-sub">' + HC + '</div>' +
+      '<div class="imq2">' + f('hl', esc(tkShort(g.away)) + ' · línea', HCDEF, '0.5') + f('ha', esc(tkShort(g.away)) + ' · cuota', 'Cuota') + '</div>' +
+      '<div class="imq2">' + f('hlh', esc(tkShort(g.home)) + ' · línea', HCDEF, '0.5') + f('hh', esc(tkShort(g.home)) + ' · cuota', 'Cuota') + '</div>' +
       '<div class="imq2">' + f('xa', HT + ' ' + esc(tkShort(g.away)), 'Cuota') + f('xh', HT + ' ' + esc(tkShort(g.home)), 'Cuota') + '</div>' +
-      '<div class="imp-mn">La línea del hándicap se pone sola según el favorito. Al agregar se les baja el % de arriba.</div></div>';
+      impManPropsHTML(g, gi, v) +
+      '<div class="imp-mn">Si dejas la línea vacía, se pone sola según el favorito (el favorito da −1.5). Al agregar se les baja el % de arriba.</div></div>';
+  }
+  // Jugadores en "Traer juegos": en béisbol, ponches de los lanzadores abridores
+  // (los únicos que se pagan solos); en NBA/NFL/NHL, jugador + estadística.
+  var IMP_STATS = { baloncesto: ['Puntos', 'Rebotes', 'Asistencias', 'Triples', 'Robos', 'Tapones'], nfl: ['Yardas pase', 'Yardas carrera', 'Yardas recepción', 'Recepciones'], nhl: ['Goles', 'Asistencias', 'Puntos', 'Tiros al arco', 'Atajadas'] };
+  function impManPropsHTML(g, gi, v) {
+    var rows = '', isB = imp.sport === 'beisbol' || imp.sport === 'lidom';
+    var inp = function (name, ph, step, w) { return '<input type="' + (step ? 'number' : 'text') + '"' + (step ? ' inputmode="decimal" step="' + step + '"' : '') + ' data-imm="' + gi + '|' + name + '" value="' + esc(v[name] !== undefined ? v[name] : '') + '" placeholder="' + ph + '"' + (w ? ' style="' + w + '"' : '') + '>'; };
+    var n = isB ? 2 : Math.max(1, Number(v.pn) || 1);
+    for (var i = 0; i < n; i++) {
+      var name = isB ? (v['pp' + i] !== undefined ? v['pp' + i] : (i === 0 ? g.awayPitcher : g.homePitcher) || '') : null;
+      if (isB && v['pp' + i] === undefined && name) { imp.manual[impKey(g)] = imp.manual[impKey(g)] || {}; imp.manual[impKey(g)]['pp' + i] = name; }
+      rows += '<div class="imp-pr-row">' +
+        (isB ? '<label class="imp-mi"><small>Lanzador ' + esc(tkShort(i === 0 ? g.away : g.home)) + ' · ponches</small><input type="text" data-imm="' + gi + '|pp' + i + '" value="' + esc(name) + '" placeholder="Nombre del abridor"></label>'
+          : '<label class="imp-mi"><small>Jugador</small>' + inp('pp' + i, 'Ej. J. Tatum') + '</label><label class="imp-mi"><small>Estadística</small><select data-imm="' + gi + '|ps' + i + '">' + IMP_STATS[imp.sport].map(function (st) { return '<option' + (v['ps' + i] === st ? ' selected' : '') + '>' + st + '</option>'; }).join('') + '</select></label>') +
+        '<div class="imq3"><label class="imp-mi"><small>Línea</small>' + inp('pl' + i, isB ? '4.5' : '24.5', '0.5') + '</label><label class="imp-mi"><small>Más</small>' + inp('po' + i, 'Cuota', '0.01') + '</label><label class="imp-mi"><small>Menos</small>' + inp('pu' + i, 'Cuota', '0.01') + '</label></div></div>';
+    }
+    return '<div class="imp-sub">' + (isB ? '⚾ Lanzadores (ponches)' : '👤 Jugadores') + '</div>' + rows +
+      (isB ? '' : '<button type="button" class="imp-addp" data-imp-addp="' + gi + '">+ Otro jugador</button>');
   }
   function tkShort(n) { var w = String(n || '').split(' '); return imp.sport === 'lidom' ? w[0] : w[w.length - 1]; }
   function impOddsHTML(g) {
@@ -1759,8 +1788,18 @@
     var im = e.target.closest('[data-imm]'); if (!im) return;
     var q = im.dataset.imm.split('|'), g = imp.games[+q[0]]; if (!g) return;
     var k = impKey(g); imp.manual[k] = imp.manual[k] || {}; imp.manual[k][q[1]] = im.value;
+    // Las líneas del rulay van al revés: si uno es -1.5, el otro es +1.5.
+    if (q[1] === 'hl' || q[1] === 'hlh') {
+      var other = q[1] === 'hl' ? 'hlh' : 'hl', n = parseFloat(String(im.value).replace(',', '.'));
+      var oe = document.querySelector('[data-imm="' + q[0] + '|' + other + '"]');
+      var ov = isNaN(n) ? '' : (n > 0 ? '-' : n < 0 ? '+' : '') + Math.abs(n);
+      if (oe) oe.value = ov; imp.manual[k][other] = ov;
+      if (!isNaN(n)) imp.manual[k].hl = q[1] === 'hl' ? im.value : ov;
+    }
   });
   document.getElementById('impList').addEventListener('change', function (e) {
+    var sel = e.target.closest('select[data-imm]');
+    if (sel) { var q2 = sel.dataset.imm.split('|'), g2 = imp.games[+q2[0]]; if (g2) { var k2 = impKey(g2); imp.manual[k2] = imp.manual[k2] || {}; imp.manual[k2][q2[1]] = sel.value; } return; }
     if (e.target.closest('[data-imm]')) return;
     var pc = e.target.closest('[data-imp-pr]');
     if (pc) { var pp = pc.dataset.impPr.split('-'), gk = impKey(imp.games[+pp[0]]); imp.props[gk] = imp.props[gk] || {}; if (pc.checked) imp.props[gk][+pp[1]] = true; else delete imp.props[gk][+pp[1]]; if (pc.checked) imp.picked[gk] = true; impRender(); return; }
@@ -1776,6 +1815,8 @@
       if (pts) { var want = pts.dataset.stat; gg.odds.props.forEach(function (pr, pi) { if (want === '*' || pr.stat === want) imp.props[k2][pi] = true; }); imp.picked[k2] = true; }
       impRender(); return;
     }
+    var ap = e.target.closest('[data-imp-addp]');
+    if (ap) { var gp = imp.games[+ap.dataset.impAddp], kp = impKey(gp); imp.manual[kp] = imp.manual[kp] || {}; imp.manual[kp].pn = (Number(imp.manual[kp].pn) || 1) + 1; impRender(); return; }
     if (e.target.closest('#impAll')) {
       var nNew = imp.games.filter(function (g) { return !impExists(g); });
       if (Object.keys(imp.picked).length === nNew.length) imp.picked = {}; else nNew.forEach(function (g) { imp.picked[impKey(g)] = true; });
@@ -1795,8 +1836,19 @@
           if (D(mv.a) && D(mv.h)) { nm.odds[2].v = D(mv.a); nm.odds[0].v = D(mv.h); }
           var tl2 = parseFloat(String(mv.tl !== undefined && mv.tl !== '' ? mv.tl : (TOTAL_DEFAULT[imp.sport] || '')).replace(',', '.'));
           if (tl2 > 0 && D(mv.to) && D(mv.tu)) nm.total = { line: tl2, over: D(mv.to), under: D(mv.tu) };
-          if (D(mv.ha) && D(mv.hh) && nm.odds[0].v) { var sg = suggestLines(nm); if (sg.home !== '') nm.handicap = { homeLine: sg.home, homeOdds: D(mv.hh), awayLine: sg.away, awayOdds: D(mv.ha) }; }
+          if (D(mv.ha) && D(mv.hh)) {
+            var hl = parseFloat(String(mv.hl || '').replace(',', '.'));
+            if (!isNaN(hl) && hl !== 0) nm.handicap = { awayLine: hl, homeLine: -hl, awayOdds: D(mv.ha), homeOdds: D(mv.hh) };
+            else if (nm.odds[0].v) { var sg = suggestLines(nm); if (sg.home !== '') nm.handicap = { homeLine: sg.home, homeOdds: D(mv.hh), awayLine: sg.away, awayOdds: D(mv.ha) }; }
+          }
           if (D(mv.xa) && D(mv.xh)) nm.halftime = { away: D(mv.xa), home: D(mv.xh) };
+          var isBb = imp.sport === 'beisbol' || imp.sport === 'lidom', np = isBb ? 2 : Math.max(1, Number(mv.pn) || 1), props = [];
+          for (var pi2 = 0; pi2 < np; pi2++) {
+            var pn = String(mv['pp' + pi2] || '').trim(), pl = parseFloat(String(mv['pl' + pi2] || '').replace(',', '.'));
+            if (!pn || !(pl > 0) || !D(mv['po' + pi2]) || !D(mv['pu' + pi2])) continue;
+            props.push({ player: pn, stat: isBb ? 'Ponches' : (mv['ps' + pi2] || IMP_STATS[imp.sport][0]), line: pl, over: D(mv['po' + pi2]), under: D(mv['pu' + pi2]) });
+          }
+          if (props.length) nm.props = props;
           delete imp.manual[impKey(g)];
         }
         if (o) nm.auto = { cut: Math.min(15, Math.max(0, Number(document.getElementById('impMargin').value) || 0)) };
