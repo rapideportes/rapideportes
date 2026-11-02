@@ -720,6 +720,7 @@
   .imp-pr-r em { font-style: normal; font-size: 12px; color: var(--text-dim); white-space: nowrap; text-align: right; line-height: 1.5; } .imp-pr-r em b { color: var(--text); display: inline; font-size: 13px; }
 .cut-btn{display:block;width:100%;margin:0 0 10px;padding:9px 12px;border:1.5px dashed var(--accent);border-radius:9px;background:transparent;color:var(--accent);font-weight:700;font-size:13px;cursor:pointer;text-align:left}.cut-btn small{font-weight:500;color:var(--text-faint)}
 .auto-tag{margin:0 0 10px;padding:8px 12px;border-radius:9px;background:#ECFDF3;color:#067647;font-weight:700;font-size:13px}.auto-tag small{display:block;font-weight:500;color:#475467;margin-top:2px}
+.imp-why{margin:0 0 10px;padding:10px 12px;border-radius:10px;background:#EFF8FF;color:#175CD3;font-size:13px;line-height:1.4}
 </style>
 </head>
 <body>
@@ -1653,6 +1654,7 @@
     if (!imp.games.length) { box.innerHTML = '<p class="imp-empty">No se encontraron juegos para ese día.</p>'; return; }
     var nNew = imp.games.filter(function (g) { return !impExists(g); }).length, nPick = Object.keys(imp.picked).length;
     box.innerHTML = '<div class="imp-head"><span>' + imp.games.length + ' juegos · ' + nNew + ' nuevos</span><button type="button" class="imp-all" id="impAll">' + (nPick === nNew && nNew ? 'Quitar todos' : 'Marcar todos') + '</button></div>' +
+      (imp.papiMsg ? '<div class="imp-why">ℹ️ <b>¿Por qué salen sin cuotas?</b> ' + esc(imp.papiMsg) + '</div>' : '') +
       imp.games.map(function (g, i) {
         var ex = impExists(g), on = !!imp.picked[impKey(g)];
         return '<div class="imp-g' + (ex ? ' ex' : '') + '"><input type="checkbox" id="impg' + i + '" data-imp="' + i + '"' + (on ? ' checked' : '') + (ex ? ' disabled' : '') + '>' +
@@ -1674,7 +1676,7 @@
     var d = await apiGet('/api/admin/schedule?sport=' + document.getElementById('impSport').value + '&date=' + document.getElementById('impDay').value);
     b.disabled = false;
     if (!d) { box.innerHTML = '<p class="imp-empty">No se pudo buscar. Intenta otra vez.</p>'; return; }
-    imp.games = d.games || []; imp.sport = document.getElementById('impSport').value; imp.picked = {}; imp.props = {}; loadPapiUsage();
+    imp.games = d.games || []; imp.sport = document.getElementById('impSport').value; imp.picked = {}; imp.props = {}; imp.papiMsg = d.papi || ''; loadPapiUsage();
     imp.games.forEach(function (g) { if (!impExists(g)) imp.picked[impKey(g)] = true; });
     impRender(); loadPapiUsage();
   });
