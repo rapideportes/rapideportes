@@ -1451,7 +1451,7 @@
     soporte: { t: 'Soporte', p: ['¿Necesitas ayuda con tu cuenta, un depósito o una apuesta? Nuestro equipo te atiende todos los días.', 'Antes de escribirnos, revisa la sección “Mis apuestas” para ver el estado de tus jugadas.'] },
     terminos: { t: 'Términos y condiciones', p: ['Al usar RapiDeportes aceptas cumplir con estas condiciones. Solo pueden jugar personas mayores de 18 años.', 'Cada apuesta confirmada queda registrada con las cuotas que viste al momento de confirmar. Las cuotas pueden cambiar sin previo aviso antes de que confirmes.', 'Nos reservamos el derecho de anular apuestas realizadas con errores evidentes de cuota o de información.'] },
     privacidad: { t: 'Privacidad', p: ['Solo guardamos los datos necesarios para operar tu cuenta: tu correo, tu saldo y tu historial de apuestas.', 'No compartimos tu información personal con terceros sin tu autorización, salvo cuando la ley lo exija.'] },
-    pagos: { t: 'Métodos de pago', p: ['Depositas y retiras con Stride desde el Cajero.', 'Tus datos de pago los maneja Stride; RapiDeportes no guarda tu tarjeta.'] },
+    pagos: { t: 'Métodos de pago', p: ['Depositas con tarjeta, Apple Pay o Google Pay desde el Cajero. Los pagos los procesa Stripe.', 'Tus datos de pago los maneja Stripe; RapiDeportes no guarda tu tarjeta.'] },
     reglas: { t: 'Reglas de apuestas', p: ['Una apuesta sencilla se gana cuando tu selección acierta. Una combinada se gana solo si aciertan todas sus selecciones.', 'Las cuotas se muestran en formato decimal. La posible ganancia es lo que recibirías por encima de tu monto apostado.', 'Si un partido se suspende o se cancela, la apuesta se anula según las reglas de cada deporte.'] },
     responsable: { t: 'Juego responsable', p: ['Apostar debe ser entretenimiento, nunca una forma de resolver problemas de dinero.', 'Juega solo con dinero que puedas permitirte perder, define un límite antes de empezar y no intentes recuperar pérdidas.', 'Si sientes que el juego se te está saliendo de control, busca ayuda profesional. Este sitio es solo para mayores de 18 años.'] },
     contacto: { t: 'Contacto', p: ['Escríbenos por los canales oficiales de atención de RapiDeportes. Respondemos lo antes posible.', 'Ten a mano tu correo de registro para agilizar tu consulta.'] }
@@ -2520,18 +2520,19 @@
     html += '<button type="button" class="cj-limit" data-cash="limits">' + (lim.amount ? 'Tu límite ' + PERIOD_LABEL[lim.period] + ': $' + money(lim.amount) + ' · te quedan $' + money(limitLeft()) : 'Establecer tu límite de juego') + '</button>';
     var vs = state.verify.status;
     var vsTag = vs === 'verified' ? '<span class="st ok">VERIFICADO</span>' : vs === 'pending' ? '<span class="st pending">EN REVISIÓN</span>' : '<span class="st none">SIN VERIFICAR</span>';
-    var vsSub = vs === 'verified' ? 'Ya puedes retirar tus ganancias.' : 'Confirma que eres mayor de 18 años para retirar.';
+    var vsSub = vs === 'verified' ? 'Ya puedes depositar y retirar.' : 'Confirma que eres mayor de 18 años para depositar y retirar.';
     html += '<button type="button" class="vf-status" data-cash="verify"><span><b>Verificación de edad</b><small>' + vsSub + '</small></span>' + vsTag + '</button>';
     html += '<div class="cj-grid">' + tile('deposit', 'Depositar', ic.dep) + tile('withdraw', 'Retirar fondos', ic.wd) + tile('history', 'Historial de transacciones', ic.hist) + tile('methods', 'Métodos de pago', ic.pay) + '</div>';
     var p = state.cashPanel;
-    if (p === 'withdraw' && state.verify.status !== 'verified') {
-      html += '<div class="cj-panel"><h3>Retirar fondos</h3><p>' + 'Antes de tu primer retiro confirma tu fecha de nacimiento.' + '</p>' +
+    if ((p === 'withdraw' || p === 'deposit') && state.verify.status !== 'verified') {
+      html += '<div class="cj-panel"><h3>' + (p === 'deposit' ? 'Depositar' : 'Retirar fondos') + '</h3><p>' + (p === 'deposit' ? 'Antes de tu primer depósito confirma tu fecha de nacimiento.' : 'Antes de tu primer retiro confirma tu fecha de nacimiento.') + '</p>' +
         '<button type="button" class="btn primary block" data-cash="verify">Verificar mi edad</button></div>';
     } else if (p === 'deposit' || p === 'withdraw') {
       var dep = p === 'deposit';
       var amts = dep ? [25, 50, 100, 250] : [25, 50, 100, 'Todo'];
+      var dmin = (state.depInfo && state.depInfo.min) || 10, dmax = (state.depInfo && state.depInfo.max) || 1000;
       html += '<div class="cj-panel"><h3>' + (dep ? 'Depositar' : 'Retirar fondos') + '</h3>' +
-        '<p>' + (dep ? (state.limits.amount ? 'Puedes depositar hasta $' + money(limitLeft()) + ' ' + PERIOD_SHORT[state.limits.period] + ' por tu límite.' : 'Escoge cuánto quieres añadir a tu saldo.') : 'Puedes retirar hasta $' + money(bal) + '.') + '</p>' +
+        '<p>' + (dep ? (state.limits.amount ? 'Puedes depositar hasta $' + money(limitLeft()) + ' ' + PERIOD_SHORT[state.limits.period] + ' por tu límite.' : 'Escoge cuánto quieres añadir a tu saldo (de $' + dmin + ' a $' + Number(dmax).toLocaleString('en-US') + ').') : 'Puedes retirar hasta $' + money(bal) + '.') + '</p>' +
         '<div class="cj-amts">' + amts.map(function (a) { var v = a === 'Todo' ? Math.floor(bal) : a; return '<button type="button" data-amt="' + v + '" class="' + (Number(state.cashAmt) === v ? 'on' : '') + '">' + (a === 'Todo' ? 'Todo' : '$' + a) + '</button>'; }).join('') + '</div>' +
         (dep || state.payoutLabel ? '' : '<div class="wd-to"><div class="pm-meta" style="margin:0 0 6px;">¿A dónde te enviamos el dinero?</div>' +
           '<div class="cj-amts wd-type">' + ['Zelle', 'PayPal'].map(function (t) { return '<button type="button" data-wdtype="' + t + '" class="' + ((state.wdType || 'Zelle') === t ? 'on' : '') + '">' + t + '</button>'; }).join('') + '</div>' +
@@ -2540,7 +2541,7 @@
         (dep || !state.payoutLabel ? '' : '<div class="pm" style="margin-bottom:12px;"><div class="pm-ic"><svg viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="13" rx="2"/><path d="M2.5 9.5h19M6 15h4"/></svg></div><div class="pm-body"><div class="pm-meta" style="margin:0;">Se enviará a</div><div class="pm-name">' + esc(state.payoutLabel) + '</div><div class="pm-meta">La misma con la que depositaste</div></div></div>') +
         '<label class="cj-input" for="cashAmt"><span>$</span><input id="cashAmt" type="number" inputmode="decimal" min="1" step="1" value="' + esc(state.cashAmt) + '"></label>' +
         '<button type="button" class="btn primary block" data-cash-go="' + p + '">' + (dep ? 'Continuar al pago' : 'Solicitar retiro') + '</button>' +
-        '<div class="cj-note">' + (dep ? 'El pago se procesa de forma segura.' : 'Revisamos cada retiro antes de enviarlo. Normalmente toma menos de 24 horas.') + '</div></div>';
+        '<div class="cj-note">' + (dep ? '🔒 Pagas con tarjeta, Apple Pay o Google Pay en la página segura de Stripe. Tu saldo se suma al instante.' : 'Revisamos cada retiro antes de enviarlo. Normalmente toma menos de 24 horas.') + '</div></div>';
     } else if (p === 'limits') {
       var d = state.limitDraft || { period: state.limits.period, amount: state.limits.amount || '' };
       state.limitDraft = d;
@@ -2568,12 +2569,12 @@
         phone: '<svg viewBox="0 0 24 24"><rect x="6.5" y="2.5" width="11" height="19" rx="2.5"/><path d="M10.5 18.5h3"/></svg>'
       };
       var methods = [
-        { ic: 'card', n: 'Stride', m: 'Pago seguro procesado por Stride', tags: ['Depositar', 'Retirar'] }
+        { ic: 'card', n: 'Tarjeta · Apple Pay · Google Pay', m: 'Pago seguro procesado por Stripe', tags: ['Depositar', 'Retirar'] }
       ];
       html += '<div class="cj-panel"><h3>Métodos de pago</h3><p>Así podrás añadir dinero a tu saldo y cobrar tus ganancias.</p><div class="pm-list">' +
         methods.map(function (x) {
           return '<div class="pm"><div class="pm-ic">' + pmIc[x.ic] + '</div><div class="pm-body"><div class="pm-name">' + x.n + '</div><div class="pm-meta">' + x.m + '</div><div class="pm-tags">' + x.tags.map(function (t) { return '<span class="pm-tag">' + t + '</span>'; }).join('') + '</div></div><span class="pm-soon">PRONTO</span></div>';
-        }).join('') + '</div><div class="cj-note">Tus datos de pago los maneja Stride; RapiDeportes no guarda tu tarjeta.</div></div>';
+        }).join('') + '</div><div class="cj-note">Tus datos de pago los maneja Stripe; RapiDeportes no guarda tu tarjeta.</div></div>';
     } else if (p === 'history') {
       var WST = { pending: ['EN REVISIÓN', 'pending'], approved: ['PAGADO', 'ok'], rejected: ['RECHAZADO', 'none'] };
       var items = state.withdrawals.map(function (w) {
@@ -3491,7 +3492,19 @@
       if (n < 1) { showToast('Escribe un monto válido.'); return; }
       if (cgo.dataset.cashGo === 'withdraw' && n > state.balance) { showToast('No tienes suficiente saldo para retirar esa cantidad.'); return; }
       if (cgo.dataset.cashGo === 'deposit' && n > limitLeft()) { showToast('Ese monto pasa tu límite. Puedes depositar hasta $' + Math.floor(limitLeft()) + '.'); return; }
-      if (cgo.dataset.cashGo === 'deposit') { showToast('Los pagos con Stride se conectarán pronto.'); return; }
+      if (cgo.dataset.cashGo === 'deposit') {
+        var dmn = (state.depInfo && state.depInfo.min) || 10, dmx = (state.depInfo && state.depInfo.max) || 1000;
+        if (n < dmn) { showToast('El depósito mínimo es $' + dmn + '.'); return; }
+        if (n > dmx) { showToast('El depósito máximo es $' + dmx + ' por vez.'); return; }
+        cgo.disabled = true; cgo.textContent = 'Abriendo pago seguro…';
+        apiPost('/api/deposit/checkout', { amount: Math.floor(n) }).then(function (r) {
+          if (r.ok && r.data && r.data.url) { window.location.href = r.data.url; return; }
+          cgo.disabled = false; cgo.textContent = 'Continuar al pago';
+          var e = r.data && r.data.error;
+          showToast(e === 'not_verified' ? 'Verifica tu edad antes de depositar.' : e === 'over_limit' ? 'Ese monto pasa tu límite de depósito.' : e === 'bad_amount' ? 'El depósito tiene que ser de $' + dmn + ' a $' + dmx + '.' : e === 'not_ready' ? 'Los depósitos todavía no están activos.' : 'No se pudo abrir el pago. Intenta otra vez.');
+        });
+        return;
+      }
       var payTo = null;
       if (!state.payoutLabel) {
         var wto = String(state.wdTo || '').trim(), wty = state.wdType || 'Zelle';
@@ -3900,7 +3913,23 @@
     }
     var adminCheck = await apiGet('/api/admin/check');
     state.isAdmin = !!(adminCheck && adminCheck.ok);
+    state.depInfo = await apiGet('/api/deposit/info');
     renderView();
+    // Regreso de Stripe después de pagar.
+    try {
+      var qs = new URLSearchParams(location.search), dsid = qs.get('sid'), dst = qs.get('deposito');
+      if (dst) history.replaceState(null, '', location.pathname + location.hash);
+      if (dst === 'cancelado') showToast('Cancelaste el pago. No se te cobró nada.');
+      if (dst === 'ok' && dsid && state.user) {
+        var tries = 0;
+        (async function chk() {
+          var cr = await apiGet('/api/deposit/confirm?sid=' + encodeURIComponent(dsid));
+          if (cr && cr.status === 'paid') { state.balance = cr.balance; updateHeader(); renderView(); showToast('✅ Se añadieron $' + (Number(cr.amount) || 0).toFixed(2) + ' a tu saldo. ¡Mucha suerte!'); return; }
+          if (++tries < 6) { setTimeout(chk, 2500); return; }
+          showToast('Tu pago se está procesando. El saldo se suma en unos minutos.');
+        })();
+      }
+    } catch (e) {}
     renderSlip();
     updateHeader();
     updateBadge();
@@ -3940,7 +3969,7 @@
     'Primeras 5 entradas': 'First 5 innings', 'Tanda de penales': 'Shootout', 'Bono de bienvenida': 'Welcome bonus',
     'Cashback semanal': 'Weekly cashback', 'Combinada Plus': 'Parlay Plus', 'Invita y gana': 'Invite and earn',
     'Ejemplos:': 'Examples:', 'Menú': 'Menu', 'Más': 'More', 'Outs:': 'Outs:', 'diario': 'daily', 'semanal': 'weekly', 'mensual': 'monthly',
-    'esta semana': 'this week', 'este mes': 'this month', '¡Bien!': 'Great!', 'Pago seguro procesado por Stride': 'Secure payment processed by Stride',
+    'esta semana': 'this week', 'este mes': 'this month', '¡Bien!': 'Great!', 'Pago seguro procesado por Stripe': 'Secure payment processed by Stripe', 'Tarjeta · Apple Pay · Google Pay': 'Card · Apple Pay · Google Pay', 'Depositar ahora ': 'Deposit now ',
     'La misma con la que depositaste': 'The same one you deposited with', 'Monto total': 'Total amount', 'Tu límite': 'Your limit',
     'Puntos': 'Points', 'Rebotes': 'Rebounds', 'Asistencias': 'Assists', 'Ver estadísticas completas': 'Full stats', 'Ver estadísticas de los jugadores': 'Player stats', 'Bateador': 'Batter', 'Lanzador': 'Pitcher', 'Carreras': 'Runs', 'Hits': 'Hits', 'Jonrones': 'Home runs', 'Base por bolas': 'Walks', 'Ponches recibidos': 'Strikeouts', 'Dejados en base': 'Left on base', 'Errores': 'Errors', 'Promedio de bateo': 'Batting average', 'Sin datos todavía': 'No data yet', 'Jugador': 'Player', 'Jugadores': 'Players', 'Lanzadores': 'Pitchers', 'Estadísticas': 'Stats', 'Equipos': 'Teams', 'Titulares': 'Starters', 'Banca': 'Bench', 'Totales': 'Totals', 'No jugó': 'DNP', 'Se actualiza solo cada 20 segundos.': 'Updates every 20 seconds.', 'Cargando estadísticas…': 'Loading stats…', 'Las estadísticas de este partido todavía no están disponibles. Vuelve a intentarlo en unos minutos.': 'Stats for this game are not available yet. Try again in a few minutes.', 'Tiros de campo': 'Field goals', 'Tiros de campo %': 'Field goal %', 'Triples': '3-pointers', 'Triples %': '3-point %', 'Tiros libres': 'Free throws', 'Tiros libres %': 'Free throw %', 'Rebotes ofensivos': 'Offensive rebounds', 'Rebotes defensivos': 'Defensive rebounds', 'Robos': 'Steals', 'Tapones': 'Blocks', 'Pérdidas': 'Turnovers', 'Faltas': 'Fouls', 'Puntos de contraataque': 'Fast break points', 'Puntos en la pintura': 'Points in the paint', 'Puntos por pérdidas': 'Points off turnovers', 'Mayor ventaja': 'Largest lead'
   };
@@ -3966,7 +3995,11 @@
     ['Correo o contraseña incorrectos.', 'Incorrect email or password.'],
     ['Cuenta creada. Saldo inicial asignado.', 'Account created. Starting balance assigned.'],
     ['Cuenta verificada.', 'Account verified.'],
-    ['Depositas y retiras con Stride desde el Cajero.', 'You deposit and withdraw with Stride from the Cashier.'],
+    ['Depositas con tarjeta, Apple Pay o Google Pay desde el Cajero. Los pagos los procesa Stripe.', 'You deposit with card, Apple Pay or Google Pay from the Cashier. Payments are processed by Stripe.'],
+    ['🔒 Pagas con tarjeta, Apple Pay o Google Pay en la página segura de Stripe. Tu saldo se suma al instante.', '🔒 Pay with card, Apple Pay or Google Pay on Stripe’s secure page. Your balance is added instantly.'],
+    ['Antes de tu primer depósito confirma tu fecha de nacimiento.', 'Before your first deposit, confirm your date of birth.'],
+    ['Ya puedes depositar y retirar.', 'You can now deposit and withdraw.'],
+    ['Confirma que eres mayor de 18 años para depositar y retirar.', 'Confirm you are over 18 to deposit and withdraw.'],
     ['El pago se procesa de forma segura.', 'Payment is processed securely.'],
     ['Elige al menos 2 selecciones para armar una combinada.', 'Pick at least 2 selections to build a parlay.'],
     ['Elige una cuota en un partido para empezar.', 'Pick odds on a game to get started.'],
@@ -3994,7 +4027,7 @@
     ['Las cuotas se muestran en formato decimal. La posible ganancia es lo que recibirías por encima de tu monto apostado.', 'Odds are shown in decimal format. Potential win is what you would receive on top of your stake.'],
     ['Listo. El cambio aplica en 24 horas.', 'Done. The change applies in 24 hours.'],
     ['Lo pide la ley: tienes que ser mayor de 18 años para jugar y retirar.', 'Required by law: you must be over 18 to play and withdraw.'],
-    ['Los pagos con Stride se conectarán pronto.', 'Stride payments will be connected soon.'],
+    ['Abriendo pago seguro…', 'Opening secure payment…'],
     ['Límite guardado.', 'Limit saved.'], ['Límite quitado.', 'Limit removed.'],
     ['Necesitas al menos 2 cuotas para una combinada.', 'You need at least 2 odds for a parlay.'],
     ['No compartimos tu información personal con terceros sin tu autorización, salvo cuando la ley lo exija.', 'We do not share your personal information with third parties without your authorization, except when required by law.'],
@@ -4028,7 +4061,7 @@
     ['Todavía no hay lanzamientos registrados en este turno.', 'No pitches recorded in this at-bat yet.'],
     ['Todavía no hay partidos terminados.', 'No finished games yet.'],
     ['Tu cuenta está verificada. Ya puedes retirar.', 'Your account is verified. You can now withdraw.'],
-    ['Tus datos de pago los maneja Stride; RapiDeportes no guarda tu tarjeta.', 'Your payment details are handled by Stride; RapiDeportes does not store your card.'],
+    ['Tus datos de pago los maneja Stripe; RapiDeportes no guarda tu tarjeta.', 'Your payment details are handled by Stripe; RapiDeportes does not store your card.'],
     ['Tus equipos favoritos no juegan pronto. Te los mostramos aquí cuando tengan partido.', "Your favorite teams aren't playing soon. We'll show them here when they have a game."],
     ['Un impulso extra para tu primer depósito en RapiDeportes.', 'An extra boost for your first deposit at RapiDeportes.'],
     ['Una apuesta sencilla se gana cuando tu selección acierta. Una combinada se gana solo si aciertan todas sus selecciones.', 'A single bet wins when your pick is right. A parlay wins only if all its picks are right.'],
