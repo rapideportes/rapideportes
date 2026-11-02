@@ -2323,14 +2323,16 @@ async function fetchSchedule(sport, date) {
   try {
     if (sport === 'beisbol' || sport === 'lidom') {
       var sid = sport === 'lidom' ? 17 : 1;
-      var r = await fetch('https://statsapi.mlb.com/api/v1/schedule?sportId=' + sid + '&date=' + date, { headers: UA });
+      var r = await fetch('https://statsapi.mlb.com/api/v1/schedule?sportId=' + sid + '&date=' + date + '&hydrate=probablePitcher', { headers: UA });
       if (!r.ok) return out;
       var d = await r.json();
       (d.dates || []).forEach(function (dd) { (dd.games || []).forEach(function (g) {
         var h = g.teams && g.teams.home && g.teams.home.team, a = g.teams && g.teams.away && g.teams.away.team;
         if (!h || !a) return;
         if (sport === 'lidom' && !(isLidomTeamName(h.name) && isLidomTeamName(a.name))) return;
-        out.push({ away: canonTeam(sport, a.name), home: canonTeam(sport, h.name), startAt: g.gameDate, done: g.status && g.status.abstractGameState !== 'Preview' });
+        var pa = g.teams.away.probablePitcher, ph = g.teams.home.probablePitcher;
+        out.push({ away: canonTeam(sport, a.name), home: canonTeam(sport, h.name), startAt: g.gameDate, done: g.status && g.status.abstractGameState !== 'Preview',
+          awayPitcher: pa && pa.fullName ? pa.fullName : null, homePitcher: ph && ph.fullName ? ph.fullName : null });
       }); });
     } else if (sport === 'nhl') {
       var rn = await fetch('https://api-web.nhle.com/v1/schedule/' + date, { headers: UA });
