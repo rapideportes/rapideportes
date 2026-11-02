@@ -689,6 +689,12 @@
   .draft-tag { display: inline-block; background: #FEF0C7; color: #93370D; border-radius: 8px; padding: 4px 9px; font-size: 12px; font-weight: 700; margin-bottom: 8px; }
   @media (max-width: 520px) { .imp-row { grid-template-columns: 1fr 1fr; } .imp-row .btn { grid-column: 1 / -1; } }
   .imp-od { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin-top: 8px; }
+  .imp-man { margin-top: 8px; background: #FFFCF5; border: 1px dashed #FEC84B; border-radius: 10px; padding: 8px; }
+  .imp-mh { font-size: 12px; font-weight: 700; color: #93370D; margin-bottom: 6px; }
+  .imq2, .imq3 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin-bottom: 6px; } .imq3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .imp-mi { display: flex; flex-direction: column; gap: 2px; min-width: 0; } .imp-mi small { font-size: 10.5px; color: var(--text-dim); font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .imp-mi input { -moz-appearance: textfield; appearance: textfield; min-width: 0; height: 36px; border: 1px solid var(--border-strong, #D0D5DD); border-radius: 8px; padding: 0 8px; font-size: 15px; width: 100%; box-sizing: border-box; background: #fff; }
+  .imp-mn { font-size: 11px; color: var(--text-faint); }
   .imp-od.none { display: block; font-size: 12px; color: #93370D; background: #FEF0C7; border-radius: 8px; padding: 5px 8px; }
   .imp-c { display: flex; align-items: baseline; gap: 6px; background: var(--surface); border-radius: 8px; padding: 5px 8px; }
   .imp-c small { flex: 1; font-size: 11px; color: var(--text-dim); font-weight: 700; }
@@ -724,6 +730,7 @@
 .tk-grade{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:10px 0 2px}.tk-grade span{font-size:12px;color:var(--text-faint);font-weight:700;margin-right:2px}
 .tk-grade button{height:34px;padding:0 12px;border-radius:9px;border:1.5px solid;font-weight:800;font-size:13px;background:#fff;cursor:pointer}
 .tk-grade .g-won{border-color:#12B76A;color:#067647}.tk-grade .g-lost{border-color:#F04438;color:#B42318}.tk-grade .g-void{border-color:#98A2B3;color:#475467}
+.clr-old{display:block;width:100%;margin:14px 0 10px;height:46px;border-radius:12px;border:1.5px dashed #F04438;background:#FEF3F2;color:#B42318;font-weight:800;font-size:15px;cursor:pointer}
 </style>
 </head>
 <body>
@@ -787,6 +794,7 @@
       <button type="button" class="imp-test" id="papiTest" hidden>🔌 Probar conexión con OddsPapi</button>
       <pre class="papi-out" id="papiOut" hidden></pre>
     </div>
+    <button type="button" class="clr-old" id="clearOld">🧹 Borrar todos los juegos de días pasados</button>
     <div id="adminMatchList"></div>
     <div class="amc">
       <div class="amc-header">
@@ -1561,6 +1569,18 @@
     });
   }
 
+  /* ---------- Borrar juegos viejos ---------- */
+  document.getElementById('clearOld').addEventListener('click', async function () {
+    if (!window.confirm('¿Borrar todos los juegos de días pasados?\n\nLos que todavía tengan apuestas pendientes se quedan, para que se paguen.')) return;
+    this.disabled = true;
+    var r = await apiPost('/api/admin/clear-old', {});
+    this.disabled = false;
+    if (!r.ok) { showToast('No se pudo borrar.'); return; }
+    state.matches = await loadMatches(); renderAdminList();
+    var d = r.data || {};
+    showToast(d.removed ? '🧹 Se borraron ' + d.removed + (d.removed === 1 ? ' juego' : ' juegos') + (d.kept ? '. ' + d.kept + ' se quedaron porque tienen apuestas pendientes.' : '.') : (d.kept ? 'No se borró nada: los ' + d.kept + ' juegos viejos tienen apuestas pendientes.' : 'No hay juegos de días pasados.'));
+  });
+
   /* ---------- Copia de seguridad ---------- */
   async function loadBackupStatus() {
     var d = await apiGet('/api/admin/backup-status'), el = document.getElementById('bkStatus');
@@ -1652,8 +1672,23 @@
   function impKey(g) { return g.away + '|' + g.home + '|' + String(g.startAt).slice(0, 10); }
   function impExists(g) { return state.matches.some(function (m) { return m.away === g.away && m.home === g.home && m.startAt && Math.abs(Date.parse(m.startAt) - Date.parse(g.startAt)) < 12 * 3600000; }); }
   function impCut(d) { var pc = Math.min(15, Math.max(0, Number(document.getElementById('impMargin').value) || 0)); var v = 1 + (d - 1) * (1 - pc / 100); return Math.max(1.01, Math.round(v * 100) / 100); }
+  // Juego sin cuotas: se escriben aquí mismo antes de agregarlo.
+  imp.manual = imp.manual || {};
+  function impManualHTML(g) {
+    var k = impKey(g), v = imp.manual[k] || {}, gi = imp.games.indexOf(g);
+    var HT = { beisbol: '5 entradas', lidom: '5 entradas', nhl: '1er período' }[imp.sport] || 'Medio tiempo';
+    var f = function (name, lbl, ph, step) { return '<label class="imp-mi"><small>' + lbl + '</small><input type="number" inputmode="decimal" step="' + (step || '0.01') + '" data-imm="' + gi + '|' + name + '" value="' + esc(v[name] !== undefined ? v[name] : '') + '" placeholder="' + ph + '"></label>'; };
+    var tl = v.tl !== undefined ? v.tl : (TOTAL_DEFAULT[imp.sport] || '');
+    return '<div class="imp-man"><div class="imp-mh">✍️ Escribe las cuotas aquí (si no, entra como borrador)</div>' +
+      '<div class="imq2">' + f('a', 'Gana ' + esc(tkShort(g.away)), 'Cuota') + f('h', 'Gana ' + esc(tkShort(g.home)), 'Cuota') + '</div>' +
+      '<div class="imq3">' + '<label class="imp-mi"><small>Línea total</small><input type="number" inputmode="decimal" step="0.5" data-imm="' + gi + '|tl" value="' + esc(tl) + '"></label>' + f('to', 'Más', 'Cuota') + f('tu', 'Menos', 'Cuota') + '</div>' +
+      '<div class="imq2">' + f('ha', 'Hándicap ' + esc(tkShort(g.away)), 'Cuota') + f('hh', 'Hándicap ' + esc(tkShort(g.home)), 'Cuota') + '</div>' +
+      '<div class="imq2">' + f('xa', HT + ' ' + esc(tkShort(g.away)), 'Cuota') + f('xh', HT + ' ' + esc(tkShort(g.home)), 'Cuota') + '</div>' +
+      '<div class="imp-mn">La línea del hándicap se pone sola según el favorito. Al agregar se les baja el % de arriba.</div></div>';
+  }
+  function tkShort(n) { var w = String(n || '').split(' '); return imp.sport === 'lidom' ? w[0] : w[w.length - 1]; }
   function impOddsHTML(g) {
-    var o = g.odds; if (!o) return '<div class="imp-od none">Sin cuotas: se agrega como borrador</div>';
+    var o = g.odds; if (!o) return impManualHTML(g);
     function cell(lbl, d) { return '<span class="imp-c"><small>' + lbl + '</small><b>' + impCut(d).toFixed(2) + '</b><i>' + Number(d).toFixed(2) + '</i></span>'; }
     var h = '<div class="imp-od">' + cell('Gana visit.', o.away) + cell('Gana local', o.home);
     if (o.hcap) h += cell((o.hcap.awayLine > 0 ? '+' : '') + o.hcap.awayLine, o.hcap.awayOdds) + cell((o.hcap.homeLine > 0 ? '+' : '') + o.hcap.homeLine, o.hcap.homeOdds);
@@ -1720,7 +1755,13 @@
     loadPapiUsage();
   });
   document.getElementById('impMargin').addEventListener('input', function () { if (imp.games.length) impRender(); Array.prototype.forEach.call(document.querySelectorAll('.cut-btn'), function (b) { b.firstChild.textContent = '➖ Bajar ' + cutPct() + '% las cuotas de este juego '; }); });
+  document.getElementById('impList').addEventListener('input', function (e) {
+    var im = e.target.closest('[data-imm]'); if (!im) return;
+    var q = im.dataset.imm.split('|'), g = imp.games[+q[0]]; if (!g) return;
+    var k = impKey(g); imp.manual[k] = imp.manual[k] || {}; imp.manual[k][q[1]] = im.value;
+  });
   document.getElementById('impList').addEventListener('change', function (e) {
+    if (e.target.closest('[data-imm]')) return;
     var pc = e.target.closest('[data-imp-pr]');
     if (pc) { var pp = pc.dataset.impPr.split('-'), gk = impKey(imp.games[+pp[0]]); imp.props[gk] = imp.props[gk] || {}; if (pc.checked) imp.props[gk][+pp[1]] = true; else delete imp.props[gk][+pp[1]]; if (pc.checked) imp.picked[gk] = true; impRender(); return; }
     var cb = e.target.closest('[data-imp]'); if (!cb) return;
@@ -1749,6 +1790,15 @@
           startAt: ymd + 'T' + hm + ':00-04:00', home: g.home, away: g.away,
           odds: [{ k: 'Local', v: g.odds ? decimalToAmerican(String(impCut(g.odds.home))) : null }, { k: 'Empate', v: null }, { k: 'Visitante', v: g.odds ? decimalToAmerican(String(impCut(g.odds.away))) : null }] });
         var nm = state.matches[state.matches.length - 1], o = g.odds;
+        var mv = !o && imp.manual[impKey(g)] ? imp.manual[impKey(g)] : null, D = function (x) { var n = parseFloat(String(x || '').replace(',', '.')); return n > 1 ? decimalToAmerican(String(impCut(n))) : null; };
+        if (mv) {
+          if (D(mv.a) && D(mv.h)) { nm.odds[2].v = D(mv.a); nm.odds[0].v = D(mv.h); }
+          var tl2 = parseFloat(String(mv.tl !== undefined && mv.tl !== '' ? mv.tl : (TOTAL_DEFAULT[imp.sport] || '')).replace(',', '.'));
+          if (tl2 > 0 && D(mv.to) && D(mv.tu)) nm.total = { line: tl2, over: D(mv.to), under: D(mv.tu) };
+          if (D(mv.ha) && D(mv.hh) && nm.odds[0].v) { var sg = suggestLines(nm); if (sg.home !== '') nm.handicap = { homeLine: sg.home, homeOdds: D(mv.hh), awayLine: sg.away, awayOdds: D(mv.ha) }; }
+          if (D(mv.xa) && D(mv.xh)) nm.halftime = { away: D(mv.xa), home: D(mv.xh) };
+          delete imp.manual[impKey(g)];
+        }
         if (o) nm.auto = { cut: Math.min(15, Math.max(0, Number(document.getElementById('impMargin').value) || 0)) };
         if (o && o.hcap) nm.handicap = { homeLine: o.hcap.homeLine, homeOdds: decimalToAmerican(String(impCut(o.hcap.homeOdds))), awayLine: o.hcap.awayLine, awayOdds: decimalToAmerican(String(impCut(o.hcap.awayOdds))) };
         if (o && o.half) nm.halftime = { home: decimalToAmerican(String(impCut(o.half.home))), away: decimalToAmerican(String(impCut(o.half.away))) };
@@ -1757,7 +1807,7 @@
         if (o && o.props) { var chosen = o.props.filter(function (pr, pi) { return ps[pi]; }); if (chosen.length) nm.props = chosen.map(function (pr) { return { player: pr.player, stat: pr.stat, line: pr.line, over: decimalToAmerican(String(impCut(pr.over))), under: decimalToAmerican(String(impCut(pr.under))) }; }); }
       });
       saveMatches(state.matches); renderAdminList(); imp.picked = {}; impRender();
-      var withOdds = add.filter(function (g) { return g.odds; }).length;
+      var withOdds = add.filter(function (g, i) { var mm = state.matches[state.matches.length - add.length + i]; return mm && mm.odds && mm.odds[0].v && mm.odds[2].v; }).length;
       showToast(withOdds === add.length ? '✅ ' + add.length + (add.length === 1 ? ' juego agregado' : ' juegos agregados') + ' con sus cuotas. Ya salen en la página.' : '📝 ' + add.length + (add.length === 1 ? ' juego agregado' : ' juegos agregados') + '. Los que no traían cuotas quedaron como borrador.');
     }
   });
