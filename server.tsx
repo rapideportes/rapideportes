@@ -2879,6 +2879,7 @@ app.get('/api/admin/oddspapi-usage', async (c) => {
   var month = new Date().toISOString().slice(0, 7);
   return c.json({ key: PAPI_ENABLED && !!Bun.env.ODDSPAPI_KEY, used: v && v.month === month ? Number(v.count) || 0 : 0, limit: Number(Bun.env.ODDSPAPI_LIMIT) || 250,
     sgo: Bun.env.SPORTSGAMEODDS_KEY ? { used: await sgoUsedThisMonth(), limit: Number(Bun.env.SGO_LIMIT) || 2500 } : null,
+    toa: Bun.env.THE_ODDS_API_KEY ? await (async function () { var t = toaLast; if (t.remaining === null) { try { var rr = await sql`SELECT value FROM app_state WHERE key = 'toa_usage'`; var vv = rr[0] && rr[0].value; if (typeof vv === 'string') vv = JSON.parse(vv); if (vv && vv.remaining !== undefined) t = vv; } catch (e) {} } return { remaining: t.remaining, used: t.used }; })() : null,
     apis: Bun.env.APISPORTS_KEY ? await (async function () { var o = {}; for (const sp of ['baloncesto', 'nfl', 'nhl', 'beisbol']) o[sp] = await apisUsed(APIS_HOST[sp]); return o; })() : null });
 });
 
