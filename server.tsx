@@ -1547,14 +1547,14 @@ async function autoOdds() {
     var now = Date.now();
     var due = list.filter(function (m) {
       var t = m.startAt ? Date.parse(m.startAt) : NaN;
-      return m.auto && PAPI_SPORT[m.sport] && !m.live && !m.finished && t - now > 5 * 60000 && t - now < 24 * 3600000;
+      return m.auto && (PAPI_SPORT[m.sport] || APIS_HOST[m.sport]) && !m.live && !m.finished && t - now > 5 * 60000 && t - now < 24 * 3600000;
     });
     if (!due.length) return;
     var sports = Array.from(new Set(due.map(function (m) { return m.sport; })));
     // Presupuesto: lo que queda del mes (menos la reserva) repartido entre los días que faltan.
     var limit = Number(Bun.env.ODDSPAPI_LIMIT) || 250;
     var left = limit - (await papiUsedThisMonth()) - AUTO_RESERVE;
-    if (left <= 0 && !Bun.env.SPORTSGAMEODDS_KEY) return;
+    if (left <= 0 && !Bun.env.SPORTSGAMEODDS_KEY && !Bun.env.APISPORTS_KEY) return;
     var d = new Date(), daysLeft = new Date(d.getUTCFullYear(), d.getUTCMonth() + 1, 0).getDate() - d.getUTCDate() + 1;
     var perDay = Math.max(1, left / daysLeft);
     // Cada liga se refresca cada tanto, según cuántas ligas haya hoy (mín. 45 min, máx. 6 h).
@@ -1569,10 +1569,15 @@ async function autoOdds() {
     var changedById = {};
     for (const sp of sports) {
       var sgoDue = !!(Bun.env.SPORTSGAMEODDS_KEY && SGO_LEAGUE[sp] && now - (Number(last['sgo_' + sp]) || 0) >= sgoEvery);
-      var papiDue = left > 0 && now - (Number(last[sp]) || 0) >= every;
-      if (!sgoDue && !papiDue) continue;
+      var papiDue = PAPI_ENABLED && left > 0 && now - (Number(last[sp]) || 0) >= every;
+      var apisDue = !!(Bun.env.APISPORTS_KEY && APIS_HOST[sp] && now - (Number(last['apis_' + sp]) || 0) >= 3 * 3600000);
+      if (!sgoDue && !papiDue && !apisDue) continue;
       var games = due.filter(function (m) { return m.sport === sp; }).map(function (m) { return { id: m.id, away: m.away, home: m.home, startAt: m.startAt }; });
-      if (sgoDue) {
+      if (apisDue) {
+        last['apis_' + sp] = now;
+        try { await apisFill(sp, '', games); } catch (e) {}
+      }
+      if (sgoDue && games.some(function (g) { return !g.odds; })) {
         last['sgo_' + sp] = now;
         try { await sgoFill(sp, '', games); } catch (e) {}
       }
@@ -2363,7 +2368,9 @@ app.get('/api/admin/schedule', async (c) => {
   var date = String(c.req.query('date') || '');
   if (!/^\d{4}-\d{2}-\d{2}$/.test(date) || !(sport in SPORT_ESPN_PATH)) return c.json({ error: 'bad_request' }, 400);
   var games = await fetchSchedule(sport, date);
+  var aps = await apisFill(sport, date, games);
   var sgo = await sgoFill(sport, date, games);
+  if (aps.msg) sgo.msg = aps.msg + (sgo.msg ? ' · ' + sgo.msg : '');
   var withOdds = games.some(function (g) { return !g.odds; }) ? await addPapiOdds(sport, date, games) : games;
   var info = (games.some(function (g) { return !g.odds; }) || !sgo.n) ? (papiLastInfo || {}) : {};
   if (sgo.msg) info.msg = sgo.msg + (info.msg ? ' · ' + info.msg : '');
@@ -2371,7 +2378,7 @@ app.get('/api/admin/schedule', async (c) => {
   if (toa.msg && !withOdds.some(function (g) { return g.odds; })) info.msg = (info.msg ? info.msg + ' ' : '') + toa.msg;
   var nOdds = withOdds.filter(function (g) { return g.odds; }).length;
   if (!info.msg && withOdds.length && !nOdds) info.msg = (PAPI_ENABLED ? 'PokerStars tiene ' + (info.fixtures || 0) + ' juegos con cuotas, pero ninguno de este día' + (info.next && info.next.length ? ' (los próximos: ' + info.next.map(function (t) { return prLabelServer(t); }).join(', ') + ')' : '') + '. Las cuotas suelen salir el mismo día o la víspera.'
-    : (Bun.env.SPORTSGAMEODDS_KEY || Bun.env.THE_ODDS_API_KEY) ? 'La fuente de cuotas todavía no tiene cuotas de este día. Suelen salir el mismo día o la víspera.' : 'No hay ninguna fuente de cuotas conectada: los juegos entran sin cuotas y las pones tú.');
+    : (Bun.env.APISPORTS_KEY || Bun.env.SPORTSGAMEODDS_KEY || Bun.env.THE_ODDS_API_KEY) ? 'La fuente de cuotas todavía no tiene cuotas de este día. Suelen salir el mismo día o la víspera.' : 'No hay ninguna fuente de cuotas conectada: los juegos entran sin cuotas y las pones tú.');
   return c.json({ games: withOdds, papi: nOdds ? null : (info.msg || null) });
 });
 
@@ -2478,6 +2485,147 @@ async function sgoFill(sport, date, games) {
   });
   return { n: n, msg: null };
 }
+
+// ---------- API-Sports (api-sports.io): NBA, NFL, NHL, MLB y LIDOM ----------
+// Clave en Railway: APISPORTS_KEY. Plan gratis: 100 consultas por día en CADA deporte.
+const APIS_HOST = { baloncesto: 'v1.basketball.api-sports.io', nfl: 'v1.american-football.api-sports.io', nhl: 'v1.hockey.api-sports.io', beisbol: 'v1.baseball.api-sports.io', lidom: 'v1.baseball.api-sports.io' };
+const APIS_LEAGUE = { baloncesto: 'NBA', nfl: 'NFL', nhl: 'NHL', beisbol: 'MLB', lidom: 'LIDOM' };
+const APIS_DAILY = 100;
+var apisCache = {}, apisLastErr = null;
+function apisDay() { return new Date().toISOString().slice(0, 10); }
+async function apisUsed(host) {
+  try {
+    const r = await sql`SELECT value FROM app_state WHERE key = 'apis_usage'`;
+    var v = r[0] ? r[0].value : null; if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
+    return v && v.day === apisDay() ? Number(v[host]) || 0 : 0;
+  } catch (e) { return 0; }
+}
+async function apisCount(host) {
+  try {
+    const r = await sql`SELECT value FROM app_state WHERE key = 'apis_usage'`;
+    var v = r[0] ? r[0].value : null; if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
+    if (!v || v.day !== apisDay()) v = { day: apisDay() };
+    v[host] = (Number(v[host]) || 0) + 1;
+    await sql`INSERT INTO app_state (key, value) VALUES ('apis_usage', ${JSON.stringify(v)}::jsonb) ON CONFLICT (key) DO UPDATE SET value = ${JSON.stringify(v)}::jsonb`;
+  } catch (e) {}
+}
+async function apisGet(host, path, ttl) {
+  var ck = host + path, hit = apisCache[ck];
+  if (hit && Date.now() - hit.t < (ttl || 10 * 60e3)) return hit.v;
+  if ((await apisUsed(host)) >= APIS_DAILY - 3) throw new Error('se acabaron las 100 consultas de hoy de este deporte');
+  var r = await fetch('https://' + host + path, { headers: { 'x-apisports-key': Bun.env.APISPORTS_KEY } });
+  await apisCount(host);
+  var body = null; try { body = await r.json(); } catch (e) {}
+  var errs = body && body.errors && (Array.isArray(body.errors) ? body.errors.length : Object.keys(body.errors).length) ? JSON.stringify(body.errors).slice(0, 200) : null;
+  if (!r.ok || errs) { apisLastErr = 'status ' + r.status + (errs ? ' · ' + errs : ''); throw new Error(apisLastErr); }
+  apisCache[ck] = { t: Date.now(), v: body };
+  return body;
+}
+// Liga y temporada actual (se guardan un día).
+async function apisLeague(sport) {
+  var host = APIS_HOST[sport], name = APIS_LEAGUE[sport];
+  var b = await apisGet(host, '/leagues?search=' + encodeURIComponent(name), 24 * 3600e3);
+  var list = (b && b.response) || [];
+  var pickL = list.find(function (x) { var n = x.name || (x.league && x.league.name) || ''; return n.toUpperCase() === name; }) || list[0];
+  if (!pickL) return null;
+  var id = pickL.id || (pickL.league && pickL.league.id), seasons = pickL.seasons || [];
+  var cur = seasons.find(function (x) { return x.current; }) || seasons[seasons.length - 1];
+  var season = cur ? (cur.season !== undefined ? cur.season : cur.year) : new Date().getFullYear();
+  return { id: id, season: season };
+}
+function apisNum(x) { var n = parseFloat(x); return n > 1 ? n : null; }
+// Saca ganador, total, hándicap y medio tiempo de la lista de apuestas de una casa.
+function apisLines(bets) {
+  var out = {}, totals = [], spreads = [];
+  (bets || []).forEach(function (bt) {
+    var nm = String(bt.name || ''), vals = bt.values || [];
+    var get = function (v) { var f = vals.find(function (x) { return String(x.value) === v; }); return f ? apisNum(f.odd) : null; };
+    var half = /1st half|first half|1st period|first period|1st 5|first 5|1st five/i.test(nm);
+    if (/^(home\/away|moneyline|match winner|3way result)$/i.test(nm.replace(/\s*\(.*\)$/, '')) || /^home\/away/i.test(nm)) {
+      var h = get('Home'), a = get('Away');
+      if (h && a && !get('Draw')) { if (half && !out.half) out.half = { home: h, away: a }; else if (!half && !out.ml) out.ml = { home: h, away: a }; }
+      return;
+    }
+    if (half) return;
+    if (/^over\/under$/i.test(nm) || /^total( points| runs| goals)?$/i.test(nm)) {
+      var by = {};
+      vals.forEach(function (v) { var m = /^(Over|Under)\s+([\d.]+)$/.exec(String(v.value)); if (m) { by[m[2]] = by[m[2]] || {}; by[m[2]][m[1]] = apisNum(v.odd); } });
+      Object.keys(by).forEach(function (L) { if (by[L].Over && by[L].Under) totals.push({ line: parseFloat(L), over: by[L].Over, under: by[L].Under }); });
+      return;
+    }
+    if (/asian handicap|run line|puck line|point spread|^handicap$|^spread$/i.test(nm)) {
+      var hb = {};
+      vals.forEach(function (v) { var m = /^(Home|Away)\s*([+-]?[\d.]+)$/.exec(String(v.value)); if (m) { var hl = parseFloat(m[2]), key = m[1] === 'Home' ? hl : -hl; hb[key] = hb[key] || {}; hb[key][m[1]] = apisNum(v.odd); } });
+      Object.keys(hb).forEach(function (k) { if (hb[k].Home && hb[k].Away) spreads.push({ homeLine: parseFloat(k), home: hb[k].Home, away: hb[k].Away }); });
+    }
+  });
+  var closest = function (list, a, b) { return list.length ? list.slice().sort(function (x, y) { return Math.abs(x[a] - x[b]) - Math.abs(y[a] - y[b]); })[0] : null; };
+  out.total = closest(totals, 'over', 'under');
+  out.spread = closest(spreads, 'home', 'away');
+  return out;
+}
+async function apisFill(sport, date, games) {
+  if (!Bun.env.APISPORTS_KEY || !APIS_HOST[sport]) return { n: 0, msg: null };
+  var need = games.filter(function (g) { return !g.odds; }); if (!need.length) return { n: 0, msg: null };
+  var host = APIS_HOST[sport], n = 0;
+  try {
+    var L = await apisLeague(sport); if (!L) return { n: 0, msg: 'API-Sports no encontró la liga ' + APIS_LEAGUE[sport] + '.' };
+    var days = {}; need.forEach(function (g) { days[new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date(g.startAt))] = 1; if (date) days[date] = 1; });
+    var fixtures = [];
+    for (const d of Object.keys(days)) {
+      var gb = await apisGet(host, '/games?league=' + L.id + '&season=' + L.season + '&date=' + d);
+      fixtures = fixtures.concat((gb && gb.response) || []);
+    }
+    for (const g of need) {
+      var t = Date.parse(g.startAt);
+      var fx = fixtures.find(function (f) {
+        var hn = f.teams && f.teams.home && f.teams.home.name, an = f.teams && f.teams.away && f.teams.away.name;
+        var ft = Date.parse(f.date || (f.game && f.game.date && (f.game.date.date + 'T' + (f.game.date.time || '00:00') + ':00Z')) || '');
+        if (!isNaN(ft) && Math.abs(ft - t) > 6 * 3600e3) return false;
+        if (sport === 'lidom') return lidomKey(hn) && lidomKey(hn) === lidomKey(g.home) && lidomKey(an) === lidomKey(g.away);
+        return teamNamesMatch(hn, g.home) && teamNamesMatch(an, g.away);
+      });
+      if (!fx) continue;
+      var gid = fx.id || (fx.game && fx.game.id);
+      var ob = await apisGet(host, '/odds?game=' + gid);
+      var books = ((ob && ob.response && ob.response[0]) || {}).bookmakers || [];
+      var bk = books.find(function (b) { return /bet365/i.test(b.name); }) || books.find(function (b) { return /pinnacle|1xbet|bwin|unibet/i.test(b.name); }) || books[0];
+      if (!bk) continue;
+      var Ls = apisLines(bk.bets);
+      if (!Ls.ml) continue;
+      g.odds = { home: Ls.ml.home, away: Ls.ml.away };
+      if (Ls.spread) g.odds.hcap = { homeLine: Ls.spread.homeLine, homeOdds: Ls.spread.home, awayLine: -Ls.spread.homeLine, awayOdds: Ls.spread.away };
+      if (Ls.total) g.odds.total = { line: Ls.total.line, over: Ls.total.over, under: Ls.total.under };
+      if (Ls.half) g.odds.half = { home: Ls.half.home, away: Ls.half.away };
+      g.oddsSrc = bk.name; n++;
+    }
+  } catch (e) { return { n: n, msg: 'API-Sports: ' + String(e.message || e) }; }
+  return { n: n, msg: null };
+}
+// Prueba: liga encontrada, juegos de hoy y qué apuestas trae el primero.
+app.get('/api/admin/apisports-test', async (c) => {
+  if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
+  if (!Bun.env.APISPORTS_KEY) return c.json({ key: false });
+  var sport = String(c.req.query('sport') || 'lidom'), out = { key: true, liga: APIS_LEAGUE[sport] };
+  try {
+    var L = await apisLeague(sport); out.encontrada = L;
+    if (L) {
+      var day = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date());
+      var gb = await apisGet(APIS_HOST[sport], '/games?league=' + L.id + '&season=' + L.season + '&date=' + day);
+      var gl = (gb && gb.response) || [];
+      out.juegosHoy = gl.slice(0, 4).map(function (f) { return (f.teams.away && f.teams.away.name) + ' @ ' + (f.teams.home && f.teams.home.name); });
+      if (gl[0]) {
+        var ob = await apisGet(APIS_HOST[sport], '/odds?game=' + (gl[0].id || (gl[0].game && gl[0].game.id)));
+        var books = ((ob && ob.response && ob.response[0]) || {}).bookmakers || [];
+        out.casas = books.map(function (b) { return b.name; }).slice(0, 8);
+        out.apuestas = books[0] ? books[0].bets.map(function (b) { return b.name; }).slice(0, 15) : [];
+        out.lineas = books[0] ? apisLines(books[0].bets) : null;
+      }
+    }
+  } catch (e) { out.error = String(e.message || e); }
+  out.usadasHoy = await apisUsed(APIS_HOST[sport]);
+  return c.json(out);
+});
 
 // ---------- Segunda fuente de cuotas: The Odds API (DraftKings / FanDuel) ----------
 // Se usa solo cuando PokerStars (OddsPapi) no trae cuotas. Clave en Railway: THE_ODDS_API_KEY.
@@ -2730,7 +2878,8 @@ app.get('/api/admin/oddspapi-usage', async (c) => {
   var v = r[0] ? r[0].value : null; if (typeof v === 'string') { try { v = JSON.parse(v); } catch (e) { v = null; } }
   var month = new Date().toISOString().slice(0, 7);
   return c.json({ key: PAPI_ENABLED && !!Bun.env.ODDSPAPI_KEY, used: v && v.month === month ? Number(v.count) || 0 : 0, limit: Number(Bun.env.ODDSPAPI_LIMIT) || 250,
-    sgo: Bun.env.SPORTSGAMEODDS_KEY ? { used: await sgoUsedThisMonth(), limit: Number(Bun.env.SGO_LIMIT) || 2500 } : null });
+    sgo: Bun.env.SPORTSGAMEODDS_KEY ? { used: await sgoUsedThisMonth(), limit: Number(Bun.env.SGO_LIMIT) || 2500 } : null,
+    apis: Bun.env.APISPORTS_KEY ? await (async function () { var o = {}; for (const sp of ['baloncesto', 'nfl', 'nhl', 'beisbol']) o[sp] = await apisUsed(APIS_HOST[sp]); return o; })() : null });
 });
 
 // ---------- OddsPapi: prueba de conexión ----------
