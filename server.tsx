@@ -3559,6 +3559,7 @@ app.post('/api/deposit/checkout', async (c) => {
   try {
     var s = await stripeApi('POST', '/checkout/sessions', {
       mode: 'payment',
+      adaptive_pricing: { enabled: 'false' }, // siempre en dólares (USD), sin cambiar a la moneda del país
       client_reference_id: String(user.id),
       customer_email: user.email || undefined,
       line_items: { 0: { quantity: 1, price_data: { currency: 'usd', unit_amount: amount * 100, product_data: { name: 'Depósito a tu saldo RapiDeportes' } } } },
