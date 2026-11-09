@@ -859,7 +859,14 @@
         <label class="imp-f"><span>Hora (Puerto Rico)</span><select class="amc-select" id="aiHour"></select></label>
         <label class="imp-f"><span>Ganancia de la casa</span><div class="imp-mg-in"><input type="number" id="aiCut" min="0" max="20" step="0.5"><span>%</span></div></label>
       </div>
-      <button type="button" class="btn primary" id="aiNow" style="width:100%; margin-top:10px;">⚡ Traer los juegos de hoy ahora</button>
+      <label class="imp-f" style="margin-top:10px; display:block;"><span>Traer juegos de</span>
+        <select class="amc-select" id="aiDays">
+          <option value="1">Solo hoy</option>
+          <option value="2">Hoy y mañana</option>
+          <option value="3">Hoy, mañana y pasado mañana</option>
+        </select>
+      </label>
+      <button type="button" class="btn primary" id="aiNow" style="width:100%; margin-top:10px;">⚡ Traer los juegos ahora</button>
       <button type="button" class="btn" id="aiRefresh" style="width:100%; margin-top:8px;">🔄 Actualizar cuotas y jugadores ahora</button>
       <div class="ai-log" id="aiLog"></div>
     </div>
@@ -1885,21 +1892,22 @@
       if (!d) return;
       document.getElementById('aiOn').checked = !!d.on;
       document.getElementById('aiProps').checked = d.props !== false;
-      document.getElementById('aiOnSub').textContent = d.on ? 'Todos los días a las ' + ((d.hour % 12) || 12) + ':00 ' + (d.hour < 12 ? 'a. m.' : 'p. m.') + ' se agregan los juegos solos' : 'Apagado: los juegos los pones tú';
+      document.getElementById('aiOnSub').textContent = d.on ? 'Todos los días a las ' + ((d.hour % 12) || 12) + ':00 ' + (d.hour < 12 ? 'a. m.' : 'p. m.') + ' se agregan solos los juegos de ' + (d.days === 3 ? 'hoy, mañana y pasado mañana' : d.days === 2 ? 'hoy y mañana' : 'hoy') : 'Apagado: los juegos los pones tú';
       Array.prototype.forEach.call(document.querySelectorAll('[data-ai-sp]'), function (c) { c.checked = !!(d.sports || {})[c.dataset.aiSp]; });
-      hs.value = d.hour; document.getElementById('aiCut').value = d.cut;
+      hs.value = d.hour; document.getElementById('aiCut').value = d.cut; document.getElementById('aiDays').value = String(d.days || 1);
       var lg = (d.log || []).slice(0, 6).map(function (x) {
         var t = new Date(x.at).toLocaleString('es-DO', { timeZone: 'America/Puerto_Rico', weekday: 'short', hour: 'numeric', minute: '2-digit' });
-        var txt = x.games === 0 ? 'no hay juegos hoy' : (x.added ? x.added + ' agregados' : x.drafts ? '' : 'nada nuevo');
+        var dl = x.day === 1 ? ' (mañana)' : x.day === 2 ? ' (pasado mañana)' : '';
+        var txt = x.games === 0 ? 'no hay juegos ese día' : (x.added ? x.added + ' agregados' : x.drafts ? '' : 'nada nuevo');
         if (x.drafts) txt += (x.added ? ' · ' : '') + x.drafts + ' como borrador (ponles las cuotas)';
         if (x.already) txt += ' · ' + x.already + ' ya estaban';
-        return t + ' · <b>' + (SPN[x.sport] || x.sport) + '</b>: ' + txt + (x.missing ? ' · ' + x.missing + ' sin cuotas todavía' : '');
+        return t + ' · <b>' + (SPN[x.sport] || x.sport) + dl + '</b>: ' + txt + (x.missing ? ' · ' + x.missing + ' sin cuotas todavía' : '');
       }).join('<br>');
       document.getElementById('aiLog').innerHTML = lg ? '<b>Últimas veces:</b><br>' + lg : '';
     }
     async function save(extra) {
       var sp = {}; Array.prototype.forEach.call(document.querySelectorAll('[data-ai-sp]'), function (c) { sp[c.dataset.aiSp] = c.checked; });
-      var body = Object.assign({ on: document.getElementById('aiOn').checked, props: document.getElementById('aiProps').checked, sports: sp, hour: Number(hs.value), cut: Number(document.getElementById('aiCut').value) }, extra || {});
+      var body = Object.assign({ on: document.getElementById('aiOn').checked, props: document.getElementById('aiProps').checked, sports: sp, hour: Number(hs.value), cut: Number(document.getElementById('aiCut').value), days: Number(document.getElementById('aiDays').value) }, extra || {});
       var r = await apiPost('/api/admin/auto-import', body);
       if (!r.ok) { showToast('No se pudo guardar.'); return null; }
       paint(r.data); return r.data;
@@ -1919,7 +1927,7 @@
       var r = await apiPost('/api/admin/only-ps', { on: this.checked });
       showToast(r.ok ? (r.data.on ? '♠️ Listo: solo cuotas de PokerStars.' : 'Si PokerStars no tiene un juego, se usa DraftKings con tu %.') : 'No se pudo guardar.');
     });
-    ['aiOn', 'aiProps', 'aiHour', 'aiCut'].forEach(function (id) { document.getElementById(id).addEventListener('change', function () { save().then(function (d) { if (d && id === 'aiOn') showToast(d.on ? '🤖 Listo: los juegos se agregan solos cada día.' : 'Apagado.'); }); }); });
+    ['aiOn', 'aiProps', 'aiHour', 'aiCut', 'aiDays'].forEach(function (id) { document.getElementById(id).addEventListener('change', function () { save().then(function (d) { if (d && id === 'aiOn') showToast(d.on ? '🤖 Listo: los juegos se agregan solos cada día.' : 'Apagado.'); }); }); });
     document.getElementById('aiSports').addEventListener('change', function () { save(); });
     document.getElementById('aiRefresh').addEventListener('click', async function () {
       var b = this; b.disabled = true; b.textContent = 'Actualizando… (puede tardar 1 minuto)';
@@ -1932,7 +1940,7 @@
     document.getElementById('aiNow').addEventListener('click', async function () {
       var b = this; b.disabled = true; b.textContent = 'Buscando juegos y cuotas…';
       var d = await save({ now: true });
-      b.disabled = false; b.textContent = '⚡ Traer los juegos de hoy ahora';
+      b.disabled = false; b.textContent = '⚡ Traer los juegos ahora';
       if (!d) return;
       state.matches = await loadMatches(); renderAdminList(); loadPapiUsage();
       apiGet('/api/admin/auto-import').then(paint);
