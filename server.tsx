@@ -1728,8 +1728,9 @@ async function aiSettings() {
   v = v || {};
   aiPropsOn = v.props === undefined ? true : !!v.props;
   var spd = Object.assign({ baloncesto: true, nfl: true, nhl: true, beisbol: true, lidom: true }, v.sports || {});
-  return { on: !!v.on, props: v.props === undefined ? true : !!v.props, sports: spd, cut: v.cut === undefined ? 9 : Number(v.cut), hour: v.hour === undefined ? 9 : Number(v.hour), last: v.last || {}, log: v.log || [] };
+  return { on: !!v.on, props: v.props === undefined ? true : !!v.props, sports: spd, cut: v.cut === undefined ? 9 : Number(v.cut), hour: v.hour === undefined ? 9 : Number(v.hour), days: v.days === undefined ? 1 : Math.min(3, Math.max(1, Number(v.days) || 1)), last: v.last || {}, log: v.log || [] };
 }
+function addDaysYmd(ymd, n) { var d = new Date(ymd + 'T12:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
 async function aiSave(v) {
   await sql`INSERT INTO app_state (key, value) VALUES ('auto_import', ${JSON.stringify(v)}::jsonb) ON CONFLICT (key) DO UPDATE SET value = ${JSON.stringify(v)}::jsonb`;
 }
@@ -1798,15 +1799,19 @@ async function runAutoImport(force) {
     if (!S.on && !force) return { added: 0 };
     var now = prParts(new Date());
     if (!force && now.hour < S.hour) return { added: 0 };
+    // Días por adelantado: 1 = solo hoy, 2 = hoy y mañana, 3 = hasta pasado mañana.
+    var nDays = S.days || 1;
+    for (var dOff = 0; dOff < nDays; dOff++) {
+    var ymd = addDaysYmd(now.ymd, dOff);
     for (const sp of AI_SPORTS) {
       if (!S.sports[sp]) continue;
-      var key = sp + '|' + now.ymd, L = S.last[key] || { runs: 0, at: 0 };
+      var key = sp + '|' + ymd, L = S.last[key] || { runs: 0, at: 0 };
       // 1ª búsqueda a la hora escogida; 2ª y 3ª, 4 y 8 horas después (solo si faltaron cuotas).
       // Lo que se trae con el botón ("ahora") no cuenta: la de la hora escogida igual se hace.
       var sr = Number(L.sched) || 0;
-      if (!force && (sr >= 3 || (sr > 0 && ((!L.missing && !L.pend) || Date.now() - L.at < 4 * 3600e3)) || now.hour >= 22)) continue;
+      if (!force && (sr >= 3 || (sr > 0 && ((!L.missing && !L.pend) || Date.now() - L.at < 4 * 3600e3)) || (dOff === 0 && now.hour >= 22))) continue;
       var games = [];
-      try { games = await fetchSchedule(sp, now.ymd); } catch (e) { games = []; }
+      try { games = await fetchSchedule(sp, ymd); } catch (e) { games = []; }
       games = games.filter(function (g) { return g.startAt && Date.parse(g.startAt) > Date.now() + 10 * 60e3; });
       const rows = await sql`SELECT value FROM app_state WHERE key = 'matches'`;
       var list = rows[0] ? rows[0].value : []; if (typeof list === 'string') { try { list = JSON.parse(list); } catch (e) { list = []; } }
@@ -1830,7 +1835,7 @@ async function runAutoImport(force) {
         });
         if (upd) await sql`INSERT INTO app_state (key, value) VALUES ('matches', ${JSON.stringify(list)}::jsonb) ON CONFLICT (key) DO UPDATE SET value = ${JSON.stringify(list)}::jsonb`;
       }
-      if (need.length) await aiFillOdds(sp, now.ymd, need, sr === 0 || force);
+      if (need.length) await aiFillOdds(sp, ymd, need, sr === 0 || force);
       var add = [];
       var upgrade = [];
       need.forEach(function (g, i) {
@@ -1888,9 +1893,10 @@ async function runAutoImport(force) {
       S.last[key] = { runs: (L.runs || 0) + 1, sched: sr + (force ? 0 : 1), at: force ? (L.at || 0) : Date.now(), missing: missing, pend: pend };
       // Se guardan solo los últimos 3 días.
       Object.keys(S.last).forEach(function (k) { var d = k.split('|')[1]; if (d && Date.parse(d) < Date.now() - 3 * 864e5) delete S.last[k]; });
-      S.log = [{ at: Date.now(), sport: sp, added: add.length - drafts, drafts: drafts, missing: missing, games: games.length, already: games.length - need.length }].concat(S.log || []).slice(0, 12);
-      await aiSave({ on: S.on, props: S.props, sports: S.sports, cut: S.cut, hour: S.hour, last: S.last, log: S.log });
-      total += add.length; detail.push({ sport: sp, added: add.length, missing: missing, games: games.length });
+      S.log = [{ at: Date.now(), day: dOff, sport: sp, added: add.length - drafts, drafts: drafts, missing: missing, games: games.length, already: games.length - need.length }].concat(S.log || []).slice(0, 12);
+      await aiSave({ on: S.on, props: S.props, sports: S.sports, cut: S.cut, hour: S.hour, days: S.days, last: S.last, log: S.log });
+      total += add.length; detail.push({ sport: sp, day: dOff, added: add.length, missing: missing, games: games.length });
+    }
     }
   } catch (e) { console.error('auto-import:', e && e.message); }
   finally { aiBusy = false; }
@@ -2981,7 +2987,7 @@ async function apisFill(sport, date, games) {
 app.get('/api/admin/auto-import', async (c) => {
   if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
   var S = await aiSettings();
-  return c.json({ on: S.on, props: S.props, sports: S.sports, cut: S.cut, hour: S.hour, log: S.log });
+  return c.json({ on: S.on, props: S.props, sports: S.sports, cut: S.cut, hour: S.hour, days: S.days, log: S.log });
 });
 app.post('/api/admin/auto-import', async (c) => {
   if (!isAdminReq(c)) return c.json({ error: 'forbidden' }, 403);
@@ -2992,10 +2998,11 @@ app.post('/api/admin/auto-import', async (c) => {
   if (b.sports && typeof b.sports === 'object') AI_SPORTS.forEach(function (sp) { if (b.sports[sp] !== undefined) S.sports[sp] = !!b.sports[sp]; });
   if (b.cut !== undefined) S.cut = Math.min(20, Math.max(0, Number(b.cut) || 0));
   if (b.hour !== undefined) S.hour = Math.min(20, Math.max(5, Math.floor(Number(b.hour) || 9)));
-  await aiSave({ on: S.on, props: S.props, sports: S.sports, cut: S.cut, hour: S.hour, last: S.last, log: S.log });
+  if (b.days !== undefined) S.days = Math.min(3, Math.max(1, Math.floor(Number(b.days) || 1)));
+  await aiSave({ on: S.on, props: S.props, sports: S.sports, cut: S.cut, hour: S.hour, days: S.days, last: S.last, log: S.log });
   var res = null;
   if (b.now) res = await runAutoImport(true);
-  return c.json({ ok: true, on: S.on, props: S.props, sports: S.sports, cut: S.cut, hour: S.hour, result: res });
+  return c.json({ ok: true, on: S.on, props: S.props, sports: S.sports, cut: S.cut, hour: S.hour, days: S.days, result: res });
 });
 // Prueba de SportsGameOdds: qué juegos y cuántos jugadores trae hoy (gasta 1 por juego).
 app.get('/api/admin/sgo-test', async (c) => {
